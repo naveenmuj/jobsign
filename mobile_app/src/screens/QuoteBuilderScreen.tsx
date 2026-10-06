@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -14,7 +14,7 @@ import * as ImagePicker from 'expo-image-picker';
 import * as Haptics from 'expo-haptics';
 import * as Crypto from 'expo-crypto';
 import * as Location from 'expo-location';
-import { Theme } from '../theme';
+import { Theme, getThemeColors, ThemeColors } from '../theme';
 import { LineItem, Quote } from '../types';
 import { useQuoteStore } from '../store/useQuoteStore';
 import { SignaturePad } from '../components/SignaturePad';
@@ -22,9 +22,327 @@ import { PDFService } from '../services/PDFService';
 import { PaywallModal } from '../components/PaywallModal';
 import { OutboxService } from '../services/OutboxService';
 import { DatabaseService } from '../services/DatabaseService';
+import { ChevronLeft, Camera, Image as ImageIcon, Plus, X, PenLine } from 'lucide-react-native';
+
+const makeStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: colors.background,
+    },
+    header: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingHorizontal: 16,
+      paddingTop: 54,
+      paddingBottom: 14,
+      backgroundColor: colors.surface,
+      borderBottomWidth: 1,
+      borderColor: colors.border,
+    },
+    backBtn: {
+      padding: 8,
+    },
+    title: {
+      fontSize: 18,
+      fontWeight: '800',
+      color: colors.textPrimary,
+    },
+    scrollContent: {
+      padding: 16,
+      paddingBottom: 100,
+    },
+    card: {
+      backgroundColor: colors.card,
+      padding: 16,
+      borderRadius: Theme.borderRadius.md,
+      borderWidth: 1,
+      borderColor: colors.cardBorder,
+      marginBottom: 16,
+      shadowColor: '#0F172A',
+      shadowOpacity: 0.05,
+      shadowRadius: 3,
+      elevation: 2,
+    },
+    label: {
+      fontSize: 11,
+      fontWeight: '800',
+      color: colors.textMuted,
+      letterSpacing: 0.8,
+      marginBottom: 10,
+      textTransform: 'uppercase',
+    },
+    input: {
+      backgroundColor: colors.backgroundSecondary,
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: Theme.borderRadius.sm,
+      padding: 12,
+      fontSize: 15,
+      color: colors.textPrimary,
+    },
+    photoPreviewBox: {
+      alignItems: 'center',
+    },
+    photoPreview: {
+      width: '100%',
+      height: 180,
+      borderRadius: Theme.borderRadius.sm,
+      borderWidth: 1,
+      borderColor: colors.cardBorder,
+    },
+    removePhotoBtn: {
+      marginTop: 8,
+      padding: 6,
+    },
+    removePhotoText: {
+      color: colors.rose,
+      fontSize: 13,
+      fontWeight: 'bold',
+    },
+    photoActionsRow: {
+      flexDirection: 'row',
+      gap: 10,
+    },
+    cameraBtn: {
+      flex: 2,
+      backgroundColor: colors.primaryLight,
+      borderWidth: 1,
+      borderColor: colors.primary,
+      paddingVertical: 12,
+      borderRadius: Theme.borderRadius.sm,
+      alignItems: 'center',
+      flexDirection: 'row',
+      justifyContent: 'center',
+      gap: 6,
+    },
+    cameraBtnText: {
+      color: colors.primary,
+      fontWeight: '800',
+      fontSize: 13,
+    },
+    galleryBtn: {
+      flex: 1,
+      backgroundColor: colors.backgroundSecondary,
+      borderWidth: 1,
+      borderColor: colors.border,
+      paddingVertical: 12,
+      borderRadius: Theme.borderRadius.sm,
+      alignItems: 'center',
+      flexDirection: 'row',
+      justifyContent: 'center',
+      gap: 6,
+    },
+    galleryBtnText: {
+      color: colors.textSecondary,
+      fontWeight: '700',
+      fontSize: 13,
+    },
+    sectionHeader: {
+      marginBottom: 8,
+    },
+    sectionTitle: {
+      fontSize: 12,
+      fontWeight: '800',
+      color: colors.textMuted,
+      letterSpacing: 0.8,
+      textTransform: 'uppercase',
+    },
+    presetScroll: {
+      gap: 8,
+      paddingBottom: 16,
+    },
+    presetChip: {
+      backgroundColor: colors.primaryLight,
+      borderWidth: 1.5,
+      borderColor: colors.primary,
+      borderRadius: Theme.borderRadius.full,
+      paddingHorizontal: 14,
+      paddingVertical: 10,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+    },
+    presetTitle: {
+      fontSize: 13,
+      fontWeight: '700',
+      color: colors.primary,
+    },
+    presetPrice: {
+      fontSize: 13,
+      fontWeight: '800',
+      color: colors.emerald,
+    },
+    emptyText: {
+      color: colors.textMuted,
+      fontStyle: 'italic',
+      paddingVertical: 12,
+    },
+    itemRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingVertical: 10,
+      borderBottomWidth: 1,
+      borderColor: colors.borderSubtle,
+    },
+    itemTitle: {
+      fontSize: 14,
+      fontWeight: '700',
+      color: colors.textPrimary,
+    },
+    itemSub: {
+      fontSize: 12,
+      color: colors.textSecondary,
+      marginTop: 2,
+    },
+    itemTotal: {
+      fontSize: 15,
+      fontWeight: '800',
+      color: colors.textPrimary,
+      marginRight: 12,
+    },
+    removeBtn: {
+      padding: 6,
+    },
+    removeBtnText: {
+      fontSize: 16,
+      color: colors.rose,
+      fontWeight: 'bold',
+    },
+    summaryCard: {
+      backgroundColor: colors.card,
+      padding: 16,
+      borderRadius: Theme.borderRadius.md,
+      borderWidth: 1,
+      borderColor: colors.cardBorder,
+      shadowColor: '#0F172A',
+      shadowOpacity: 0.05,
+      shadowRadius: 3,
+      elevation: 2,
+    },
+    summaryRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      paddingVertical: 4,
+    },
+    summaryLabel: {
+      fontSize: 14,
+      color: colors.textSecondary,
+    },
+    summaryVal: {
+      fontSize: 14,
+      fontWeight: '600',
+      color: colors.textPrimary,
+    },
+    totalRow: {
+      borderTopWidth: 1.5,
+      borderColor: colors.border,
+      marginTop: 8,
+      paddingTop: 10,
+    },
+    totalLabel: {
+      fontSize: 17,
+      fontWeight: '900',
+      color: colors.textPrimary,
+    },
+    totalVal: {
+      fontSize: 20,
+      fontWeight: '900',
+      color: colors.emerald,
+    },
+    bottomBar: {
+      position: 'absolute',
+      bottom: 0,
+      left: 0,
+      right: 0,
+      backgroundColor: colors.surface,
+      padding: 16,
+      borderTopWidth: 1,
+      borderColor: colors.border,
+    },
+    signButton: {
+      backgroundColor: colors.emerald,
+      minHeight: Theme.touchTarget.minHeight,
+      borderRadius: Theme.borderRadius.md,
+      justifyContent: 'center',
+      alignItems: 'center',
+      flexDirection: 'row',
+      gap: 8,
+      shadowColor: '#0F172A',
+      shadowOpacity: 0.08,
+      shadowRadius: 6,
+      elevation: 3,
+    },
+    signButtonText: {
+      color: '#FFFFFF',
+      fontSize: 15,
+      fontWeight: '900',
+      letterSpacing: 0.5,
+    },
+    addCustomRow: {
+      flexDirection: 'row',
+      gap: 8,
+      marginTop: 14,
+      paddingTop: 14,
+      borderTopWidth: 1,
+      borderColor: colors.border,
+      alignItems: 'center',
+    },
+    customDescInput: {
+      flex: 2,
+      fontSize: 13,
+    },
+    customPriceInput: {
+      flex: 1,
+      fontSize: 13,
+      textAlign: 'right',
+    },
+    addCustomBtn: {
+      backgroundColor: colors.primary,
+      paddingHorizontal: 12,
+      paddingVertical: 12,
+      borderRadius: Theme.borderRadius.sm,
+      justifyContent: 'center',
+      alignItems: 'center',
+      flexDirection: 'row',
+      gap: 4,
+    },
+    addCustomBtnText: {
+      color: '#FFFFFF',
+      fontWeight: 'bold',
+      fontSize: 13,
+    },
+    termsChipRow: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 8,
+      marginBottom: 10,
+    },
+    termChip: {
+      backgroundColor: colors.backgroundSecondary,
+      borderWidth: 1,
+      borderColor: colors.border,
+      paddingHorizontal: 10,
+      paddingVertical: 6,
+      borderRadius: Theme.borderRadius.full,
+    },
+    termChipText: {
+      color: colors.textSecondary,
+      fontSize: 11,
+      fontWeight: '600',
+    },
+    notesInput: {
+      minHeight: 65,
+      textAlignVertical: 'top',
+    },
+  });
 
 export const QuoteBuilderScreen: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   const { presets, addQuote, profile, quotes, isPro } = useQuoteStore();
+  const isDarkMode = useQuoteStore((state) => state.isDarkMode);
+  const colors = getThemeColors(isDarkMode);
+  const styles = React.useMemo(() => makeStyles(colors), [colors]);
 
   const [clientName, setClientName] = useState('');
   const [clientPhone, setClientPhone] = useState('');
@@ -193,7 +511,7 @@ export const QuoteBuilderScreen: React.FC<{ onBack: () => void }> = ({ onBack })
     if (!isOnline && clientPhone.trim()) {
       await OutboxService.enqueue(newQuote, clientPhone.trim(), 'SMS');
       Alert.alert(
-        'Offline Mode Active 📡',
+        'Offline — Saved to Outbox',
         `Quote #${newQuote.quoteNumber} for ${newQuote.clientName} is legally sealed on glass with SHA-256.\n\nBecause cell reception is unavailable in the field, this agreement has been queued in your Offline Outbox. It will auto-dispatch via SMS the moment your phone reconnects to 4G/Wi-Fi.`,
         [{ text: 'Got it', onPress: onBack }]
       );
@@ -201,7 +519,7 @@ export const QuoteBuilderScreen: React.FC<{ onBack: () => void }> = ({ onBack })
     }
 
     Alert.alert(
-      'Estimate Locked & Approved! 🔒',
+      'Estimate sealed',
       `Quote #${newQuote.quoteNumber} for ${newQuote.clientName} is legally sealed. Would you like to text or email the PDF to the client now?`,
       [
         { text: 'Later', style: 'cancel', onPress: onBack },
@@ -216,7 +534,7 @@ export const QuoteBuilderScreen: React.FC<{ onBack: () => void }> = ({ onBack })
     );
   };
 
-  const handleBack = () => {
+  const handleBack = useCallback(() => {
     if (clientName.trim().length > 0 || items.length > 0) {
       Alert.alert(
         'Discard In-Progress Estimate?',
@@ -229,7 +547,7 @@ export const QuoteBuilderScreen: React.FC<{ onBack: () => void }> = ({ onBack })
     } else {
       onBack();
     }
-  };
+  }, [clientName, items, onBack]);
 
   useEffect(() => {
     const sub = BackHandler.addEventListener('hardwareBackPress', () => {
@@ -241,7 +559,7 @@ export const QuoteBuilderScreen: React.FC<{ onBack: () => void }> = ({ onBack })
       return true;
     });
     return () => sub.remove();
-  }, [clientName, items, isSigning]);
+  }, [isSigning, handleBack]);
 
   if (isSigning) {
     return (
@@ -263,27 +581,27 @@ export const QuoteBuilderScreen: React.FC<{ onBack: () => void }> = ({ onBack })
           onPress={handleBack}
           hitSlop={{ top: 14, bottom: 14, left: 14, right: 14 }}
         >
-          <Text style={styles.backBtnText}>⬅ Back</Text>
+          <ChevronLeft size={24} color={colors.primary} />
         </TouchableOpacity>
-        <Text style={styles.title}>New 60-Sec Estimate</Text>
+        <Text style={styles.title}>New Estimate</Text>
         <View style={{ width: 40 }} />
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
         {/* Client Input */}
         <View style={styles.card}>
-          <Text style={styles.label}>CLIENT & WORKSITE DETAILS</Text>
+          <Text style={styles.label}>Client Details</Text>
           <TextInput
             style={styles.input}
             placeholder="Client Name (e.g. Sarah Jenkins)"
-            placeholderTextColor={Theme.colors.textMuted}
+            placeholderTextColor={colors.textMuted}
             value={clientName}
             onChangeText={setClientName}
           />
           <TextInput
             style={[styles.input, { marginTop: 10 }]}
             placeholder="Phone Number (e.g. 512-555-0199)"
-            placeholderTextColor={Theme.colors.textMuted}
+            placeholderTextColor={colors.textMuted}
             keyboardType="phone-pad"
             value={clientPhone}
             onChangeText={setClientPhone}
@@ -291,7 +609,7 @@ export const QuoteBuilderScreen: React.FC<{ onBack: () => void }> = ({ onBack })
           <TextInput
             style={[styles.input, { marginTop: 10 }]}
             placeholder="Short Scope Summary (e.g. Electrical Breaker Swap)"
-            placeholderTextColor={Theme.colors.textMuted}
+            placeholderTextColor={colors.textMuted}
             value={jobDescription}
             onChangeText={setJobDescription}
           />
@@ -299,29 +617,31 @@ export const QuoteBuilderScreen: React.FC<{ onBack: () => void }> = ({ onBack })
 
         {/* Damage Proof Photo Attachment */}
         <View style={styles.card}>
-          <Text style={styles.label}>WORKSITE DAMAGE PROOF PHOTO</Text>
+          <Text style={styles.label}>Worksite Photo</Text>
           {photoUri ? (
             <View style={styles.photoPreviewBox}>
               <Image source={{ uri: photoUri }} style={styles.photoPreview} />
               <TouchableOpacity style={styles.removePhotoBtn} onPress={() => setPhotoUri(null)}>
-                <Text style={styles.removePhotoText}>Remove Photo ✕</Text>
+                <Text style={styles.removePhotoText}>Remove</Text>
               </TouchableOpacity>
             </View>
           ) : (
             <View style={styles.photoActionsRow}>
               <TouchableOpacity style={styles.cameraBtn} onPress={handleCapturePhoto}>
-                <Text style={styles.cameraBtnText}>📷 Snap Worksite Photo</Text>
+                <Camera size={15} color={colors.primary} />
+                <Text style={styles.cameraBtnText}>Take Photo</Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.galleryBtn} onPress={handlePickFromGallery}>
-                <Text style={styles.galleryBtnText}>🖼 Gallery</Text>
+                <ImageIcon size={15} color={colors.textSecondary} />
+                <Text style={styles.galleryBtnText}>Gallery</Text>
               </TouchableOpacity>
             </View>
           )}
         </View>
 
-        {/* 1-Tap Item Presets Bar */}
+        {/* Quick Presets Bar */}
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>1-TAP ITEM PRESETS</Text>
+          <Text style={styles.sectionTitle}>Quick Presets</Text>
         </View>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.presetScroll}>
           {presets.map((preset) => (
@@ -338,7 +658,7 @@ export const QuoteBuilderScreen: React.FC<{ onBack: () => void }> = ({ onBack })
 
         {/* Selected Items */}
         <View style={styles.card}>
-          <Text style={styles.label}>ESTIMATE LINE ITEMS ({items.length})</Text>
+          <Text style={styles.label}>Line Items ({items.length})</Text>
           {items.length === 0 ? (
             <Text style={styles.emptyText}>Tap a preset above or type a custom item below.</Text>
           ) : (
@@ -354,7 +674,7 @@ export const QuoteBuilderScreen: React.FC<{ onBack: () => void }> = ({ onBack })
                   style={styles.removeBtn}
                   hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
                 >
-                  <Text style={styles.removeBtnText}>✕</Text>
+                  <X size={16} color={colors.rose} />
                 </TouchableOpacity>
               </View>
             ))
@@ -365,20 +685,21 @@ export const QuoteBuilderScreen: React.FC<{ onBack: () => void }> = ({ onBack })
             <TextInput
               style={[styles.input, styles.customDescInput]}
               placeholder="Custom item or part..."
-              placeholderTextColor={Theme.colors.textMuted}
+              placeholderTextColor={colors.textMuted}
               value={customDesc}
               onChangeText={setCustomDesc}
             />
             <TextInput
               style={[styles.input, styles.customPriceInput]}
               placeholder="0.00"
-              placeholderTextColor={Theme.colors.textMuted}
+              placeholderTextColor={colors.textMuted}
               keyboardType="decimal-pad"
               value={customPrice}
               onChangeText={setCustomPrice}
             />
             <TouchableOpacity style={styles.addCustomBtn} onPress={handleAddCustomItem}>
-              <Text style={styles.addCustomBtnText}>➕ Add</Text>
+              <Plus size={14} color="#FFFFFF" />
+              <Text style={styles.addCustomBtnText}>Add</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -401,7 +722,7 @@ export const QuoteBuilderScreen: React.FC<{ onBack: () => void }> = ({ onBack })
 
         {/* Legal Terms & Custom Scope Notes */}
         <View style={styles.card}>
-          <Text style={styles.label}>LEGAL TERMS & WORK CONDITIONS</Text>
+          <Text style={styles.label}>Terms & Conditions</Text>
           <View style={styles.termsChipRow}>
             {[
               'Payment due upon completion',
@@ -424,7 +745,7 @@ export const QuoteBuilderScreen: React.FC<{ onBack: () => void }> = ({ onBack })
           <TextInput
             style={[styles.input, styles.notesInput]}
             placeholder="Special terms, payment schedule, or exclusions..."
-            placeholderTextColor={Theme.colors.textMuted}
+            placeholderTextColor={colors.textMuted}
             multiline
             numberOfLines={3}
             value={notes}
@@ -436,7 +757,8 @@ export const QuoteBuilderScreen: React.FC<{ onBack: () => void }> = ({ onBack })
       {/* Sticky Bottom Action */}
       <View style={styles.bottomBar}>
         <TouchableOpacity style={styles.signButton} onPress={handleStartSignature}>
-          <Text style={styles.signButtonText}>✍️ HAND PHONE TO CLIENT TO SIGN</Text>
+          <PenLine size={18} color="#FFFFFF" />
+          <Text style={styles.signButtonText}>Hand phone to client — Get Signature</Text>
         </TouchableOpacity>
       </View>
 
@@ -445,298 +767,3 @@ export const QuoteBuilderScreen: React.FC<{ onBack: () => void }> = ({ onBack })
     </View>
   );
 };
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: Theme.colors.background,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingTop: 54,
-    paddingBottom: 14,
-    backgroundColor: '#111827',
-    borderBottomWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
-  },
-  backBtn: {
-    padding: 8,
-  },
-  backBtnText: {
-    fontSize: 15,
-    fontWeight: 'bold',
-    color: Theme.colors.primary,
-  },
-  title: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: Theme.colors.textPrimary,
-  },
-  scrollContent: {
-    padding: 16,
-    paddingBottom: 100,
-  },
-  card: {
-    backgroundColor: '#1E293B',
-    padding: 16,
-    borderRadius: Theme.borderRadius.md,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
-    marginBottom: 16,
-  },
-  label: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: Theme.colors.textSecondary,
-    letterSpacing: 0.8,
-    marginBottom: 10,
-  },
-  input: {
-    backgroundColor: '#0F172A',
-    borderWidth: 1,
-    borderColor: '#334155',
-    borderRadius: Theme.borderRadius.sm,
-    padding: 12,
-    fontSize: 15,
-    color: Theme.colors.textPrimary,
-  },
-  photoPreviewBox: {
-    alignItems: 'center',
-  },
-  photoPreview: {
-    width: '100%',
-    height: 180,
-    borderRadius: Theme.borderRadius.sm,
-    borderWidth: 1,
-    borderColor: '#334155',
-  },
-  removePhotoBtn: {
-    marginTop: 8,
-    padding: 6,
-  },
-  removePhotoText: {
-    color: '#EF4444',
-    fontSize: 13,
-    fontWeight: 'bold',
-  },
-  photoActionsRow: {
-    flexDirection: 'row',
-    gap: 10,
-  },
-  cameraBtn: {
-    flex: 2,
-    backgroundColor: '#0F172A',
-    borderWidth: 1,
-    borderColor: Theme.colors.primary,
-    paddingVertical: 12,
-    borderRadius: Theme.borderRadius.sm,
-    alignItems: 'center',
-  },
-  cameraBtnText: {
-    color: Theme.colors.primary,
-    fontWeight: '800',
-    fontSize: 13,
-  },
-  galleryBtn: {
-    flex: 1,
-    backgroundColor: '#0F172A',
-    borderWidth: 1,
-    borderColor: '#334155',
-    paddingVertical: 12,
-    borderRadius: Theme.borderRadius.sm,
-    alignItems: 'center',
-  },
-  galleryBtnText: {
-    color: Theme.colors.textSecondary,
-    fontWeight: '700',
-    fontSize: 13,
-  },
-  sectionHeader: {
-    marginBottom: 8,
-  },
-  sectionTitle: {
-    fontSize: 12,
-    fontWeight: '800',
-    color: Theme.colors.textSecondary,
-    letterSpacing: 0.8,
-  },
-  presetScroll: {
-    gap: 8,
-    paddingBottom: 16,
-  },
-  presetChip: {
-    backgroundColor: '#1E293B',
-    borderWidth: 1.5,
-    borderColor: Theme.colors.primary,
-    borderRadius: Theme.borderRadius.full,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  presetTitle: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: Theme.colors.textPrimary,
-  },
-  presetPrice: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: Theme.colors.emerald,
-  },
-  emptyText: {
-    color: Theme.colors.textMuted,
-    fontStyle: 'italic',
-    paddingVertical: 12,
-  },
-  itemRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.05)',
-  },
-  itemTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: Theme.colors.textPrimary,
-  },
-  itemSub: {
-    fontSize: 12,
-    color: Theme.colors.textSecondary,
-    marginTop: 2,
-  },
-  itemTotal: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: Theme.colors.textPrimary,
-    marginRight: 12,
-  },
-  removeBtn: {
-    padding: 6,
-  },
-  removeBtnText: {
-    fontSize: 16,
-    color: '#EF4444',
-    fontWeight: 'bold',
-  },
-  summaryCard: {
-    backgroundColor: '#1E293B',
-    padding: 16,
-    borderRadius: Theme.borderRadius.md,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
-  },
-  summaryRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingVertical: 4,
-  },
-  summaryLabel: {
-    fontSize: 14,
-    color: Theme.colors.textSecondary,
-  },
-  summaryVal: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: Theme.colors.textPrimary,
-  },
-  totalRow: {
-    borderTopWidth: 1.5,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
-    marginTop: 8,
-    paddingTop: 10,
-  },
-  totalLabel: {
-    fontSize: 17,
-    fontWeight: '900',
-    color: Theme.colors.textPrimary,
-  },
-  totalVal: {
-    fontSize: 20,
-    fontWeight: '900',
-    color: Theme.colors.emerald,
-  },
-  bottomBar: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: '#111827',
-    padding: 16,
-    borderTopWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
-  },
-  signButton: {
-    backgroundColor: Theme.colors.emerald,
-    minHeight: Theme.touchTarget.minHeight,
-    borderRadius: Theme.borderRadius.md,
-    justifyContent: 'center',
-    alignItems: 'center',
-    ...Theme.shadows.glowSuccess,
-  },
-  signButtonText: {
-    color: '#FFFFFF',
-    fontSize: 15,
-    fontWeight: '900',
-    letterSpacing: 0.5,
-  },
-  addCustomRow: {
-    flexDirection: 'row',
-    gap: 8,
-    marginTop: 14,
-    paddingTop: 14,
-    borderTopWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
-    alignItems: 'center',
-  },
-  customDescInput: {
-    flex: 2,
-    fontSize: 13,
-  },
-  customPriceInput: {
-    flex: 1,
-    fontSize: 13,
-    textAlign: 'right',
-  },
-  addCustomBtn: {
-    backgroundColor: Theme.colors.primary,
-    paddingHorizontal: 12,
-    paddingVertical: 12,
-    borderRadius: Theme.borderRadius.sm,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  addCustomBtnText: {
-    color: '#FFFFFF',
-    fontWeight: 'bold',
-    fontSize: 13,
-  },
-  termsChipRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    marginBottom: 10,
-  },
-  termChip: {
-    backgroundColor: '#0F172A',
-    borderWidth: 1,
-    borderColor: '#334155',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: Theme.borderRadius.full,
-  },
-  termChipText: {
-    color: Theme.colors.textSecondary,
-    fontSize: 11,
-    fontWeight: '600',
-  },
-  notesInput: {
-    minHeight: 65,
-    textAlignVertical: 'top',
-  },
-});

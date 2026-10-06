@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { View, Text, StyleSheet, Modal, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
 import * as Haptics from 'expo-haptics';
-import { Theme } from '../theme';
+import { Theme, getThemeColors, ThemeColors } from '../theme';
 import { Quote } from '../types';
 import { useQuoteStore } from '../store/useQuoteStore';
 
@@ -10,7 +10,10 @@ export const PaymentQRModal: React.FC<{ quote: Quote; onClose: () => void }> = (
   quote,
   onClose,
 }) => {
-  const { addQuote, profile } = useQuoteStore();
+  const { addQuote, profile, isDarkMode } = useQuoteStore();
+  const colors = getThemeColors(isDarkMode);
+  const styles = useMemo(() => makeStyles(colors), [colors]);
+
   const [activeRail, setActiveRail] = useState<'ZELLE' | 'VENMO' | 'CASHAPP' | 'BANK'>('ZELLE');
   const [isProcessing, setIsProcessing] = useState(false);
 
@@ -38,8 +41,8 @@ export const PaymentQRModal: React.FC<{ quote: Quote; onClose: () => void }> = (
 
   const handleMarkAsPaid = () => {
     Alert.alert(
-      'Confirm Settlement Received',
-      `Mark Agreement #${quote.quoteNumber} (${amountFormatted}) as PAID IN FULL?\n\nThis certifies receipt of funds and automatically generates an audited Mechanic's Lien Waiver and Release on the receipt.`,
+      'Confirm Payment Received',
+      `Mark Agreement #${quote.quoteNumber} (${amountFormatted}) as paid in full?\n\nThis certifies receipt of funds and automatically releases the mechanic's lien on the digital receipt.`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -56,7 +59,7 @@ export const PaymentQRModal: React.FC<{ quote: Quote; onClose: () => void }> = (
                 updatedAt: Date.now(),
               };
               await addQuote(updated);
-              Alert.alert('Payment Recorded! 🎉', `Job #${quote.quoteNumber} has been marked PAID and closed.`);
+              Alert.alert('Payment Recorded', `Agreement #${quote.quoteNumber} has been marked as paid.`);
               onClose();
             } catch (err: any) {
               Alert.alert('Error', err?.message || 'Could not update payment status.');
@@ -78,8 +81,8 @@ export const PaymentQRModal: React.FC<{ quote: Quote; onClose: () => void }> = (
           {/* Header */}
           <View style={styles.header}>
             <View>
-              <Text style={styles.title}>Direct Settlement (0% Fee)</Text>
-              <Text style={styles.sub}>Client scans contractor phone screen</Text>
+              <Text style={styles.title}>Direct Payment</Text>
+              <Text style={styles.sub}>Client scans contractor screen directly</Text>
             </View>
             <TouchableOpacity
               onPress={onClose}
@@ -92,7 +95,7 @@ export const PaymentQRModal: React.FC<{ quote: Quote; onClose: () => void }> = (
 
           {/* Amount Due Display */}
           <View style={styles.amountBox}>
-            <Text style={styles.amountLabel}>COLLECT FROM {quote.clientName.toUpperCase()}</Text>
+            <Text style={styles.amountLabel}>AMOUNT DUE FROM {quote.clientName.toUpperCase()}</Text>
             <Text style={styles.amountVal}>{amountFormatted}</Text>
           </View>
 
@@ -120,7 +123,7 @@ export const PaymentQRModal: React.FC<{ quote: Quote; onClose: () => void }> = (
             (activeRail === 'CASHAPP' && !profile.cashAppAccount)) && (
             <View style={styles.warnBanner}>
               <Text style={styles.warnText}>
-                ⚠️ You haven't added your {activeRail === 'CASHAPP' ? 'Cash App' : activeRail} username in Settings yet.
+                No {activeRail === 'CASHAPP' ? 'Cash App' : activeRail} username configured in Settings yet.
               </Text>
             </View>
           )}
@@ -136,7 +139,7 @@ export const PaymentQRModal: React.FC<{ quote: Quote; onClose: () => void }> = (
               />
             </View>
             <Text style={styles.qrHint}>
-              Have client open camera or {activeRail} app to pay {amountFormatted} directly.
+              Have client scan with their camera or {activeRail} app to settle {amountFormatted}.
             </Text>
           </View>
 
@@ -149,7 +152,7 @@ export const PaymentQRModal: React.FC<{ quote: Quote; onClose: () => void }> = (
             {isProcessing ? (
               <ActivityIndicator color="#FFFFFF" />
             ) : (
-              <Text style={styles.confirmPaidText}>✔ CONFIRM PAID IN FULL</Text>
+              <Text style={styles.confirmPaidText}>Confirm Paid in Full</Text>
             )}
           </TouchableOpacity>
         </View>
@@ -158,135 +161,156 @@ export const PaymentQRModal: React.FC<{ quote: Quote; onClose: () => void }> = (
   );
 };
 
-const styles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    backgroundColor: 'rgba(15, 23, 42, 0.65)',
-    justifyContent: 'flex-end',
-  },
-  sheet: {
-    backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: Theme.borderRadius.lg,
-    borderTopRightRadius: Theme.borderRadius.lg,
-    padding: 24,
-    paddingBottom: 44,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  title: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: Theme.colors.primary,
-  },
-  sub: {
-    fontSize: 12,
-    color: Theme.colors.textSecondary,
-    marginTop: 2,
-  },
-  closeBtn: {
-    padding: 6,
-  },
-  closeText: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: Theme.colors.textMuted,
-  },
-  amountBox: {
-    backgroundColor: '#F8FAFC',
-    borderWidth: 1.5,
-    borderColor: Theme.colors.border,
-    borderRadius: Theme.borderRadius.md,
-    padding: 16,
-    alignItems: 'center',
-    marginVertical: 16,
-  },
-  amountLabel: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: Theme.colors.textSecondary,
-    letterSpacing: 0.8,
-  },
-  amountVal: {
-    fontSize: 32,
-    fontWeight: '900',
-    color: Theme.colors.primary,
-    marginTop: 4,
-  },
-  railTabs: {
-    flexDirection: 'row',
-    backgroundColor: '#F1F5F9',
-    borderRadius: Theme.borderRadius.sm,
-    padding: 4,
-    marginBottom: 16,
-  },
-  railTab: {
-    flex: 1,
-    paddingVertical: 10,
-    alignItems: 'center',
-    borderRadius: 6,
-  },
-  railTabActive: {
-    backgroundColor: '#FFFFFF',
-    ...Theme.shadows.card,
-  },
-  railTabText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: Theme.colors.textSecondary,
-  },
-  railTabTextActive: {
-    color: Theme.colors.primary,
-    fontWeight: '800',
-  },
-  qrContainer: {
-    alignItems: 'center',
-    paddingVertical: 12,
-  },
-  qrFrame: {
-    padding: 14,
-    backgroundColor: '#FFFFFF',
-    borderRadius: Theme.borderRadius.md,
-    borderWidth: 2,
-    borderColor: Theme.colors.border,
-    marginBottom: 12,
-  },
-  qrHint: {
-    fontSize: 12,
-    color: Theme.colors.textSecondary,
-    textAlign: 'center',
-    paddingHorizontal: 20,
-    lineHeight: 16,
-  },
-  confirmPaidBtn: {
-    backgroundColor: Theme.colors.emerald,
-    minHeight: Theme.touchTarget.minHeight,
-    borderRadius: Theme.borderRadius.md,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginTop: 16,
-    ...Theme.shadows.glowSuccess,
-  },
-  confirmPaidText: {
-    color: '#FFFFFF',
-    fontSize: 15,
-    fontWeight: '900',
-    letterSpacing: 0.5,
-  },
-  warnBanner: {
-    backgroundColor: 'rgba(245, 158, 11, 0.12)',
-    borderWidth: 1,
-    borderColor: 'rgba(245, 158, 11, 0.3)',
-    borderRadius: Theme.borderRadius.sm,
-    padding: 10,
-    marginBottom: 10,
-  },
-  warnText: {
-    color: '#FBBF24',
-    fontSize: 12,
-    textAlign: 'center',
-    fontWeight: '600',
-  },
-});
+const makeStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
+    overlay: {
+      flex: 1,
+      backgroundColor: colors.overlay,
+      justifyContent: 'flex-end',
+    },
+    sheet: {
+      backgroundColor: colors.surface,
+      borderTopLeftRadius: Theme.borderRadius.lg,
+      borderTopRightRadius: Theme.borderRadius.lg,
+      padding: 24,
+      paddingBottom: 44,
+      borderTopWidth: 1,
+      borderColor: colors.border,
+      shadowColor: '#0F172A',
+      shadowOffset: { width: 0, height: -3 },
+      shadowOpacity: 0.1,
+      shadowRadius: 8,
+      elevation: 6,
+    },
+    header: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+    },
+    title: {
+      fontSize: 18,
+      fontWeight: '800',
+      color: colors.textPrimary,
+    },
+    sub: {
+      fontSize: 12,
+      color: colors.textSecondary,
+      marginTop: 2,
+    },
+    closeBtn: {
+      padding: 6,
+    },
+    closeText: {
+      fontSize: 18,
+      fontWeight: 'bold',
+      color: colors.textMuted,
+    },
+    amountBox: {
+      backgroundColor: colors.backgroundSecondary,
+      borderWidth: 1,
+      borderColor: colors.cardBorder,
+      borderRadius: Theme.borderRadius.md,
+      padding: 16,
+      alignItems: 'center',
+      marginVertical: 16,
+    },
+    amountLabel: {
+      fontSize: 11,
+      fontWeight: '700',
+      color: colors.textMuted,
+      letterSpacing: 0.8,
+    },
+    amountVal: {
+      fontSize: 32,
+      fontWeight: '900',
+      color: colors.primary,
+      marginTop: 4,
+    },
+    railTabs: {
+      flexDirection: 'row',
+      backgroundColor: colors.backgroundSecondary,
+      borderRadius: Theme.borderRadius.sm,
+      padding: 4,
+      marginBottom: 16,
+    },
+    railTab: {
+      flex: 1,
+      paddingVertical: 10,
+      alignItems: 'center',
+      borderRadius: 6,
+    },
+    railTabActive: {
+      backgroundColor: colors.surface,
+      shadowColor: '#0F172A',
+      shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: 0.08,
+      shadowRadius: 2,
+      elevation: 2,
+    },
+    railTabText: {
+      fontSize: 12,
+      fontWeight: '700',
+      color: colors.textSecondary,
+    },
+    railTabTextActive: {
+      color: colors.primary,
+      fontWeight: '800',
+    },
+    qrContainer: {
+      alignItems: 'center',
+      paddingVertical: 12,
+    },
+    qrFrame: {
+      padding: 14,
+      backgroundColor: '#FFFFFF',
+      borderRadius: Theme.borderRadius.md,
+      borderWidth: 1,
+      borderColor: colors.border,
+      marginBottom: 12,
+      shadowColor: '#0F172A',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.06,
+      shadowRadius: 4,
+      elevation: 2,
+    },
+    qrHint: {
+      fontSize: 12,
+      color: colors.textSecondary,
+      textAlign: 'center',
+      paddingHorizontal: 20,
+      lineHeight: 16,
+    },
+    confirmPaidBtn: {
+      backgroundColor: colors.emerald,
+      minHeight: Theme.touchTarget.minHeight,
+      borderRadius: Theme.borderRadius.md,
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginTop: 16,
+      shadowColor: '#0F172A',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.1,
+      shadowRadius: 4,
+      elevation: 3,
+    },
+    confirmPaidText: {
+      color: '#FFFFFF',
+      fontSize: 15,
+      fontWeight: '800',
+      letterSpacing: 0.3,
+    },
+    warnBanner: {
+      backgroundColor: colors.warningLight,
+      borderWidth: 1,
+      borderColor: colors.amber + '40',
+      borderRadius: Theme.borderRadius.sm,
+      padding: 10,
+      marginBottom: 10,
+    },
+    warnText: {
+      color: colors.amber,
+      fontSize: 12,
+      textAlign: 'center',
+      fontWeight: '600',
+    },
+  });

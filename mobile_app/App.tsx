@@ -18,7 +18,7 @@ export default function App() {
   const [currentScreen, setCurrentScreen] = useState<'HOME' | 'BUILDER' | 'DETAIL' | 'SETTINGS'>('HOME');
   const [activeQuoteId, setActiveQuoteId] = useState<string | null>(null);
   const quotes = useQuoteStore((state) => state.quotes);
-  const isSunlightMode = useQuoteStore((state) => state.isSunlightMode);
+  const isDarkMode = useQuoteStore((state) => state.isDarkMode);
   const setProStatus = useQuoteStore((state) => state.setProStatus);
   const activeQuote = quotes.find((q) => q.id === activeQuoteId) || null;
 
@@ -54,8 +54,8 @@ export default function App() {
   };
 
   return (
-    <View style={[styles.container, isSunlightMode && styles.containerSunlight]}>
-      <StatusBar style={isSunlightMode ? 'dark' : 'light'} />
+    <View style={[styles.container, isDarkMode && styles.containerDark]}>
+      <StatusBar style={isDarkMode ? 'light' : 'dark'} />
       {currentScreen === 'HOME' && (
         <HomeScreen
           onNewQuote={() => setCurrentScreen('BUILDER')}
@@ -82,9 +82,9 @@ export default function App() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0B0F19',
-  },
-  containerSunlight: {
     backgroundColor: '#F8FAFC',
+  },
+  containerDark: {
+    backgroundColor: '#0B0F19',
   },
 });

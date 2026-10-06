@@ -9,12 +9,310 @@ import {
   Alert,
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
-import { Theme } from '../theme';
+import { getThemeColors, ThemeColors, Theme } from '../theme';
 import { useQuoteStore } from '../store/useQuoteStore';
 import { PDFService } from '../services/PDFService';
 import { PaywallModal } from '../components/PaywallModal';
 import { runSelfDiagnostics } from '../services/DiagnosticService';
+import {
+  ChevronLeft,
+  Star,
+  Zap,
+  Shield,
+  Download,
+  Trash2,
+} from 'lucide-react-native';
 
+// ---------------------------------------------------------------------------
+// Style factory — called with current theme colors so every token is dynamic
+// ---------------------------------------------------------------------------
+const makeStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: colors.background,
+    },
+    header: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingHorizontal: 16,
+      paddingTop: 54,
+      paddingBottom: 14,
+      backgroundColor: colors.surface,
+      borderBottomWidth: 1,
+      borderColor: colors.border,
+    },
+    backBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      padding: 6,
+      gap: 4,
+    },
+    backText: {
+      color: colors.primary,
+      fontSize: 15,
+      fontWeight: 'bold',
+    },
+    headerTitle: {
+      color: colors.textPrimary,
+      fontSize: 17,
+      fontWeight: '800',
+    },
+    scrollContent: {
+      padding: 16,
+      paddingBottom: 60,
+    },
+
+    // ── Pro card ────────────────────────────────────────────────────────────
+    proCard: {
+      backgroundColor: colors.warningLight,
+      borderWidth: 1.5,
+      borderColor: colors.amber,
+      borderRadius: Theme.borderRadius.md,
+      padding: 16,
+      marginBottom: 16,
+    },
+    proRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+    },
+    proTitle: {
+      fontSize: 16,
+      fontWeight: '900',
+      color: colors.amber,
+    },
+    proSub: {
+      fontSize: 12,
+      color: colors.textSecondary,
+      marginTop: 4,
+      lineHeight: 18,
+    },
+    proTitleRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+    },
+    upgradeBtn: {
+      marginTop: 12,
+      backgroundColor: colors.amber,
+      minHeight: 48,
+      borderRadius: Theme.borderRadius.md,
+      justifyContent: 'center',
+      alignItems: 'center',
+      flexDirection: 'row',
+      gap: 6,
+      ...Theme.shadows.primaryBtn,
+    },
+    upgradeBtnText: {
+      color: '#0F172A',
+      fontWeight: '900',
+      fontSize: 14,
+      letterSpacing: 0.5,
+    },
+    manageMembershipBtn: {
+      marginTop: 12,
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: colors.primary,
+      minHeight: 48,
+      borderRadius: Theme.borderRadius.md,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    manageMembershipText: {
+      color: colors.primary,
+      fontWeight: '700',
+      fontSize: 14,
+      letterSpacing: 0.3,
+    },
+    proToggleBtn: {
+      marginTop: 12,
+      backgroundColor: colors.warningLight,
+      borderWidth: 1,
+      borderColor: colors.amber,
+      paddingVertical: 10,
+      borderRadius: Theme.borderRadius.sm,
+      alignItems: 'center',
+    },
+    proToggleBtnActive: {
+      backgroundColor: colors.successLight,
+      borderColor: colors.emerald,
+    },
+    proToggleText: {
+      color: colors.textPrimary,
+      fontWeight: '900',
+      fontSize: 13,
+      letterSpacing: 0.5,
+    },
+
+    // ── Generic section card ─────────────────────────────────────────────────
+    card: {
+      backgroundColor: colors.card,
+      borderRadius: 12,
+      padding: 16,
+      borderWidth: 1,
+      borderColor: colors.cardBorder,
+      marginBottom: 16,
+      shadowColor: '#0F172A',
+      shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: 0.05,
+      shadowRadius: 4,
+      elevation: 2,
+    },
+    cardLabel: {
+      fontSize: 11,
+      fontWeight: '700',
+      color: colors.textMuted,
+      letterSpacing: 0.8,
+      textTransform: 'uppercase',
+      marginBottom: 10,
+    },
+    cardHint: {
+      fontSize: 12,
+      color: colors.textMuted,
+      marginBottom: 12,
+      lineHeight: 16,
+    },
+
+    // ── Inputs ───────────────────────────────────────────────────────────────
+    input: {
+      backgroundColor: colors.backgroundSecondary,
+      borderWidth: 1,
+      borderColor: colors.cardBorder,
+      borderRadius: Theme.borderRadius.sm,
+      padding: 12,
+      fontSize: 14,
+      color: colors.textPrimary,
+    },
+
+    // ── Preset list ──────────────────────────────────────────────────────────
+    newPresetRow: {
+      flexDirection: 'row',
+      gap: 8,
+      marginBottom: 12,
+    },
+    addPresetBtn: {
+      backgroundColor: colors.primary,
+      width: 48,
+      borderRadius: Theme.borderRadius.sm,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    addPresetBtnText: {
+      fontSize: 22,
+      color: '#FFFFFF',
+      fontWeight: 'bold',
+      lineHeight: 26,
+    },
+    presetItemRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingVertical: 8,
+      borderBottomWidth: 1,
+      borderColor: colors.border,
+    },
+    presetTitleText: {
+      fontSize: 14,
+      fontWeight: '600',
+      color: colors.textPrimary,
+    },
+    presetPriceText: {
+      fontSize: 13,
+      fontWeight: '800',
+      color: colors.primary,
+      marginTop: 2,
+    },
+    deletePresetBtn: {
+      padding: 6,
+    },
+
+    // ── Backup / utility buttons ─────────────────────────────────────────────
+    backupBtn: {
+      backgroundColor: colors.backgroundSecondary,
+      borderWidth: 1,
+      borderColor: colors.cardBorder,
+      paddingVertical: 12,
+      paddingHorizontal: 16,
+      borderRadius: Theme.borderRadius.sm,
+      alignItems: 'center',
+      flexDirection: 'row',
+      justifyContent: 'center',
+      gap: 8,
+    },
+    backupBtnSecondary: {
+      marginTop: 10,
+    },
+    backupBtnText: {
+      color: colors.textSecondary,
+      fontWeight: '700',
+      fontSize: 13,
+    },
+
+    // ── Save button ──────────────────────────────────────────────────────────
+    saveBtn: {
+      backgroundColor: colors.primary,
+      minHeight: Theme.touchTarget.minHeight,
+      borderRadius: Theme.borderRadius.md,
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginTop: 10,
+      ...Theme.shadows.primaryBtn,
+    },
+    saveBtnText: {
+      color: '#FFFFFF',
+      fontSize: 15,
+      fontWeight: '900',
+      letterSpacing: 0.5,
+    },
+
+    // ── Dark-mode toggle row ──────────────────────────────────────────────────
+    darkModeRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      gap: 12,
+    },
+    darkModeTitle: {
+      fontSize: 14,
+      fontWeight: 'bold',
+      color: colors.textPrimary,
+    },
+    darkModeSub: {
+      fontSize: 11.5,
+      color: colors.textSecondary,
+      marginTop: 2,
+      lineHeight: 16,
+    },
+    darkModeBtn: {
+      backgroundColor: colors.backgroundSecondary,
+      paddingHorizontal: 16,
+      paddingVertical: 10,
+      borderRadius: Theme.borderRadius.sm,
+      borderWidth: 1,
+      borderColor: colors.border,
+      minWidth: 56,
+      alignItems: 'center',
+    },
+    darkModeBtnActive: {
+      backgroundColor: colors.primary,
+      borderColor: colors.primary,
+    },
+    darkModeBtnText: {
+      color: colors.textSecondary,
+      fontWeight: 'bold',
+      fontSize: 13,
+    },
+    darkModeBtnTextActive: {
+      color: '#FFFFFF',
+      fontWeight: '900',
+    },
+  });
+
+// ---------------------------------------------------------------------------
+// Component
+// ---------------------------------------------------------------------------
 export const SettingsScreen: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   const {
     profile,
@@ -24,9 +322,12 @@ export const SettingsScreen: React.FC<{ onBack: () => void }> = ({ onBack }) => 
     presets,
     addPreset,
     removePreset,
-    isSunlightMode,
-    toggleSunlightMode,
+    isDarkMode,
+    toggleDarkMode,
   } = useQuoteStore();
+
+  const colors = getThemeColors(isDarkMode);
+  const styles = React.useMemo(() => makeStyles(colors), [colors]);
 
   const [businessName, setBusinessName] = useState(profile.businessName);
   const [ownerName, setOwnerName] = useState(profile.ownerName);
@@ -57,7 +358,7 @@ export const SettingsScreen: React.FC<{ onBack: () => void }> = ({ onBack }) => 
       cashAppAccount: cashApp.trim() || undefined,
     });
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    Alert.alert('Settings Saved! 🛠️', 'Your business header and payment accounts are updated.');
+    Alert.alert('Settings saved', 'Your business profile and payment accounts have been updated.');
   };
 
   const handleCreatePreset = () => {
@@ -88,7 +389,7 @@ export const SettingsScreen: React.FC<{ onBack: () => void }> = ({ onBack }) => 
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     const diag = await runSelfDiagnostics();
     if (diag.passed) {
-      Alert.alert('System Integrity 100% OK 🛡️', diag.results.join('\n'));
+      Alert.alert('System Integrity OK', diag.results.join('\n'));
     } else {
       Alert.alert('Diagnostic Alert', diag.results.join('\n'));
     }
@@ -103,25 +404,37 @@ export const SettingsScreen: React.FC<{ onBack: () => void }> = ({ onBack }) => 
           onPress={onBack}
           hitSlop={{ top: 14, bottom: 14, left: 14, right: 14 }}
         >
-          <Text style={styles.backText}>⬅ Back</Text>
+          <ChevronLeft size={20} color={colors.primary} strokeWidth={2.5} />
+          <Text style={styles.backText}>Back</Text>
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Business & App Settings</Text>
-        <View style={{ width: 40 }} />
+        <Text style={styles.headerTitle}>Settings</Text>
+        <View style={{ width: 60 }} />
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
-        {/* Pro Plan Card */}
+
+        {/* ── Pro Plan Card ─────────────────────────────────────────────────── */}
         <View style={styles.proCard}>
           <View style={styles.proRow}>
             <View style={{ flex: 1 }}>
-              <Text style={styles.proTitle}>{isPro ? '⭐️ JobSign PRO Active' : 'FREE TIER (3 Quotes/Mo)'}</Text>
+              <View style={styles.proTitleRow}>
+                <Star size={16} color={colors.amber} fill={colors.amber} />
+                <Text style={styles.proTitle}>
+                  {isPro ? 'Pro Member — Unlimited Estimates' : 'JobSign Pro — Early-Bird Pricing'}
+                </Text>
+              </View>
               <Text style={styles.proSub}>
                 {isPro
                   ? 'Unlimited signed estimates, custom branding & courtroom audit seals.'
-                  : 'Early-Bird Launch Sale: Unlimited signed estimates (From $2.50/mo or $49.99 lifetime).'}
+                  : [
+                      '• Annual: $29.99 / year (save 37% vs monthly)',
+                      '• Monthly: $3.99 / month',
+                      '• Lifetime: $49.99 one-time',
+                    ].join('\n')}
               </Text>
             </View>
           </View>
+
           {!isPro ? (
             <TouchableOpacity
               style={styles.upgradeBtn}
@@ -130,19 +443,21 @@ export const SettingsScreen: React.FC<{ onBack: () => void }> = ({ onBack }) => 
                 setShowPaywall(true);
               }}
             >
-              <Text style={styles.upgradeBtnText}>⭐️ UPGRADE TO PRO (SAVE 65%)</Text>
+              <Zap size={16} color="#0F172A" />
+              <Text style={styles.upgradeBtnText}>Upgrade to Pro</Text>
             </TouchableOpacity>
           ) : (
             <TouchableOpacity
-              style={[styles.upgradeBtn, { backgroundColor: '#1E293B', borderWidth: 1, borderColor: '#38BDF8' }]}
+              style={styles.manageMembershipBtn}
               onPress={() => {
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
                 setShowPaywall(true);
               }}
             >
-              <Text style={[styles.upgradeBtnText, { color: '#38BDF8' }]}>⚙️ VIEW MEMBERSHIP / RESTORE</Text>
+              <Text style={styles.manageMembershipText}>Manage Membership / Restore</Text>
             </TouchableOpacity>
           )}
+
           {__DEV__ && (
             <TouchableOpacity
               style={[styles.proToggleBtn, isPro && styles.proToggleBtnActive]}
@@ -151,56 +466,58 @@ export const SettingsScreen: React.FC<{ onBack: () => void }> = ({ onBack }) => 
                 setProStatus(!isPro);
               }}
             >
-              <Text style={styles.proToggleText}>{isPro ? '✔ ACTIVE PRO' : '⚡ [DEV] TOGGLE PRO'}</Text>
+              <Text style={styles.proToggleText}>
+                {isPro ? '[DEV] Deactivate Pro' : '[DEV] Activate Pro'}
+              </Text>
             </TouchableOpacity>
           )}
         </View>
 
-        {/* Sunlight High Contrast Mode Card */}
+        {/* ── Dark Mode Toggle ──────────────────────────────────────────────── */}
         <View style={styles.card}>
-          <Text style={styles.cardLabel}>FIELD ENVIRONMENT</Text>
-          <View style={styles.sunlightRow}>
+          <Text style={styles.cardLabel}>Display</Text>
+          <View style={styles.darkModeRow}>
             <View style={{ flex: 1 }}>
-              <Text style={styles.sunlightTitle}>☀️ Sunlight High-Contrast Mode</Text>
-              <Text style={styles.sunlightSub}>
-                Maximizes outdoor screen legibility and contrast for direct sunlight.
+              <Text style={styles.darkModeTitle}>Dark Mode</Text>
+              <Text style={styles.darkModeSub}>
+                Switch between light and dark interface themes.
               </Text>
             </View>
             <TouchableOpacity
-              style={[styles.sunlightBtn, isSunlightMode && styles.sunlightBtnActive]}
+              style={[styles.darkModeBtn, isDarkMode && styles.darkModeBtnActive]}
               onPress={() => {
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                toggleSunlightMode();
+                toggleDarkMode();
               }}
             >
-              <Text style={[styles.sunlightBtnText, isSunlightMode && styles.sunlightBtnTextActive]}>
-                {isSunlightMode ? 'ON' : 'OFF'}
+              <Text style={[styles.darkModeBtnText, isDarkMode && styles.darkModeBtnTextActive]}>
+                {isDarkMode ? 'ON' : 'OFF'}
               </Text>
             </TouchableOpacity>
           </View>
         </View>
 
-        {/* Business Branding Profile */}
+        {/* ── Business Profile ──────────────────────────────────────────────── */}
         <View style={styles.card}>
-          <Text style={styles.cardLabel}>CONTRACTOR BUSINESS PROFILE</Text>
+          <Text style={styles.cardLabel}>Business Profile</Text>
           <TextInput
             style={styles.input}
             placeholder="Business Name (e.g. Apex Electric LLC)"
-            placeholderTextColor={Theme.colors.textMuted}
+            placeholderTextColor={colors.textMuted}
             value={businessName}
             onChangeText={setBusinessName}
           />
           <TextInput
             style={[styles.input, { marginTop: 10 }]}
             placeholder="Owner / Master Licensee Name"
-            placeholderTextColor={Theme.colors.textMuted}
+            placeholderTextColor={colors.textMuted}
             value={ownerName}
             onChangeText={setOwnerName}
           />
           <TextInput
             style={[styles.input, { marginTop: 10 }]}
             placeholder="Phone Number for Clients"
-            placeholderTextColor={Theme.colors.textMuted}
+            placeholderTextColor={colors.textMuted}
             keyboardType="phone-pad"
             value={phone}
             onChangeText={setPhone}
@@ -208,68 +525,70 @@ export const SettingsScreen: React.FC<{ onBack: () => void }> = ({ onBack }) => 
           <TextInput
             style={[styles.input, { marginTop: 10 }]}
             placeholder="License / Registration # (optional)"
-            placeholderTextColor={Theme.colors.textMuted}
+            placeholderTextColor={colors.textMuted}
             value={license}
             onChangeText={setLicense}
           />
           <TextInput
             style={[styles.input, { marginTop: 10 }]}
             placeholder="Default Sales Tax Rate (%) (e.g. 8.25)"
-            placeholderTextColor={Theme.colors.textMuted}
+            placeholderTextColor={colors.textMuted}
             keyboardType="decimal-pad"
             value={defaultTaxRate}
             onChangeText={setDefaultTaxRate}
           />
         </View>
 
-        {/* Direct Payment P2P Accounts */}
+        {/* ── Payment Accounts ──────────────────────────────────────────────── */}
         <View style={styles.card}>
-          <Text style={styles.cardLabel}>DIRECT SETTLEMENT ACCOUNTS (0% FEE)</Text>
-          <Text style={styles.cardHint}>Used to generate on-screen QR codes for instant homeowner payment.</Text>
+          <Text style={styles.cardLabel}>Payment Accounts</Text>
+          <Text style={styles.cardHint}>
+            Used to generate on-screen QR codes for instant homeowner payment (0% fee).
+          </Text>
           <TextInput
             style={styles.input}
             placeholder="Zelle Phone or Email"
-            placeholderTextColor={Theme.colors.textMuted}
+            placeholderTextColor={colors.textMuted}
             value={zelle}
             onChangeText={setZelle}
           />
           <TextInput
             style={[styles.input, { marginTop: 10 }]}
             placeholder="Venmo Username (e.g. @ApexElectric)"
-            placeholderTextColor={Theme.colors.textMuted}
+            placeholderTextColor={colors.textMuted}
             value={venmo}
             onChangeText={setVenmo}
           />
           <TextInput
             style={[styles.input, { marginTop: 10 }]}
             placeholder="Cash App Cashtag (e.g. $ApexElectric)"
-            placeholderTextColor={Theme.colors.textMuted}
+            placeholderTextColor={colors.textMuted}
             value={cashApp}
             onChangeText={setCashApp}
           />
         </View>
 
-        {/* Custom 1-Tap Item Presets */}
+        {/* ── Service Presets ───────────────────────────────────────────────── */}
         <View style={styles.card}>
-          <Text style={styles.cardLabel}>MANAGE 1-TAP ITEM PRESETS ({presets.length})</Text>
+          <Text style={styles.cardLabel}>Service Presets ({presets.length})</Text>
           <View style={styles.newPresetRow}>
             <TextInput
               style={[styles.input, { flex: 2 }]}
               placeholder="Item Name (e.g. Capacitor)"
-              placeholderTextColor={Theme.colors.textMuted}
+              placeholderTextColor={colors.textMuted}
               value={newPresetTitle}
               onChangeText={setNewPresetTitle}
             />
             <TextInput
               style={[styles.input, { flex: 1 }]}
               placeholder="$ Price"
-              placeholderTextColor={Theme.colors.textMuted}
+              placeholderTextColor={colors.textMuted}
               keyboardType="decimal-pad"
               value={newPresetPrice}
               onChangeText={setNewPresetPrice}
             />
             <TouchableOpacity style={styles.addPresetBtn} onPress={handleCreatePreset}>
-              <Text style={styles.addPresetBtnText}>➕</Text>
+              <Text style={styles.addPresetBtnText}>+</Text>
             </TouchableOpacity>
           </View>
 
@@ -284,32 +603,35 @@ export const SettingsScreen: React.FC<{ onBack: () => void }> = ({ onBack }) => 
                 style={styles.deletePresetBtn}
                 hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
               >
-                <Text style={styles.deletePresetText}>✕</Text>
+                <Trash2 size={16} color={colors.rose} strokeWidth={2} />
               </TouchableOpacity>
             </View>
           ))}
         </View>
 
-        {/* Database Backup & Disaster Recovery */}
+        {/* ── Local Storage & Backup ────────────────────────────────────────── */}
         <View style={styles.card}>
-          <Text style={styles.cardLabel}>LOCAL STORAGE & BACKUP VAULT</Text>
+          <Text style={styles.cardLabel}>Local Storage & Backup</Text>
           <Text style={styles.cardHint}>
-            JobSign runs 100% offline. Export an encrypted archive of your SQLite quotes and signatures anytime.
+            JobSign runs 100% offline. Export an encrypted archive of your SQLite quotes and
+            signatures anytime.
           </Text>
           <TouchableOpacity style={styles.backupBtn} onPress={handleExportBackup}>
-            <Text style={styles.backupBtnText}>💾 Export Full SQLite Database Backup</Text>
+            <Download size={15} color={colors.textSecondary} strokeWidth={2} />
+            <Text style={styles.backupBtnText}>Export Backup</Text>
           </TouchableOpacity>
           <TouchableOpacity
-            style={[styles.backupBtn, { marginTop: 10, backgroundColor: '#334155' }]}
+            style={[styles.backupBtn, styles.backupBtnSecondary]}
             onPress={handleRunDiagnostics}
           >
-            <Text style={styles.backupBtnText}>🔬 Run System Health & Court Audit Self-Test</Text>
+            <Shield size={15} color={colors.textSecondary} strokeWidth={2} />
+            <Text style={styles.backupBtnText}>Run Diagnostics</Text>
           </TouchableOpacity>
         </View>
 
-        {/* Save Button */}
+        {/* ── Save Button ───────────────────────────────────────────────────── */}
         <TouchableOpacity style={styles.saveBtn} onPress={handleSaveProfile}>
-          <Text style={styles.saveBtnText}>💾 SAVE SETTINGS</Text>
+          <Text style={styles.saveBtnText}>Save Settings</Text>
         </TouchableOpacity>
       </ScrollView>
 
@@ -318,232 +640,3 @@ export const SettingsScreen: React.FC<{ onBack: () => void }> = ({ onBack }) => 
     </View>
   );
 };
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: Theme.colors.background,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingTop: 54,
-    paddingBottom: 14,
-    backgroundColor: '#111827',
-    borderBottomWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
-  },
-  backBtn: {
-    padding: 6,
-  },
-  backText: {
-    color: Theme.colors.primary,
-    fontSize: 15,
-    fontWeight: 'bold',
-  },
-  headerTitle: {
-    color: Theme.colors.textPrimary,
-    fontSize: 17,
-    fontWeight: '800',
-  },
-  scrollContent: {
-    padding: 16,
-    paddingBottom: 60,
-  },
-  proCard: {
-    backgroundColor: 'rgba(245, 158, 11, 0.12)',
-    borderWidth: 1.5,
-    borderColor: Theme.colors.amber,
-    borderRadius: Theme.borderRadius.md,
-    padding: 16,
-    marginBottom: 16,
-  },
-  proRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  proTitle: {
-    fontSize: 16,
-    fontWeight: '900',
-    color: '#FBBF24',
-  },
-  proSub: {
-    fontSize: 12,
-    color: '#E2E8F0',
-    marginTop: 4,
-    lineHeight: 16,
-  },
-  upgradeBtn: {
-    marginTop: 12,
-    backgroundColor: Theme.colors.amber,
-    minHeight: 48,
-    borderRadius: Theme.borderRadius.md,
-    justifyContent: 'center',
-    alignItems: 'center',
-    ...Theme.shadows.glowSuccess,
-  },
-  upgradeBtnText: {
-    color: '#0F172A',
-    fontWeight: '900',
-    fontSize: 14,
-    letterSpacing: 0.5,
-  },
-  proToggleBtn: {
-    marginTop: 12,
-    backgroundColor: Theme.colors.amber,
-    paddingVertical: 10,
-    borderRadius: Theme.borderRadius.sm,
-    alignItems: 'center',
-  },
-  proToggleBtnActive: {
-    backgroundColor: Theme.colors.emerald,
-  },
-  proToggleText: {
-    color: '#0F172A',
-    fontWeight: '900',
-    fontSize: 13,
-    letterSpacing: 0.5,
-  },
-  card: {
-    backgroundColor: '#1E293B',
-    borderRadius: Theme.borderRadius.md,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
-    marginBottom: 14,
-  },
-  cardLabel: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: Theme.colors.textSecondary,
-    letterSpacing: 0.8,
-    marginBottom: 10,
-  },
-  cardHint: {
-    fontSize: 12,
-    color: Theme.colors.textMuted,
-    marginBottom: 12,
-    lineHeight: 16,
-  },
-  input: {
-    backgroundColor: '#0F172A',
-    borderWidth: 1,
-    borderColor: '#334155',
-    borderRadius: Theme.borderRadius.sm,
-    padding: 12,
-    fontSize: 14,
-    color: Theme.colors.textPrimary,
-  },
-  newPresetRow: {
-    flexDirection: 'row',
-    gap: 8,
-    marginBottom: 12,
-  },
-  addPresetBtn: {
-    backgroundColor: Theme.colors.primary,
-    width: 48,
-    borderRadius: Theme.borderRadius.sm,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  addPresetBtnText: {
-    fontSize: 18,
-    color: '#FFFFFF',
-    fontWeight: 'bold',
-  },
-  presetItemRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 8,
-    borderBottomWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.05)',
-  },
-  presetTitleText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: Theme.colors.textPrimary,
-  },
-  presetPriceText: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: Theme.colors.primary,
-    marginTop: 2,
-  },
-  deletePresetBtn: {
-    padding: 6,
-  },
-  deletePresetText: {
-    color: '#EF4444',
-    fontSize: 14,
-    fontWeight: 'bold',
-  },
-  backupBtn: {
-    backgroundColor: '#0F172A',
-    borderWidth: 1,
-    borderColor: '#38BDF8',
-    paddingVertical: 12,
-    borderRadius: Theme.borderRadius.sm,
-    alignItems: 'center',
-  },
-  backupBtnText: {
-    color: '#38BDF8',
-    fontWeight: '800',
-    fontSize: 13,
-  },
-  saveBtn: {
-    backgroundColor: Theme.colors.emerald,
-    minHeight: Theme.touchTarget.minHeight,
-    borderRadius: Theme.borderRadius.md,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginTop: 10,
-    ...Theme.shadows.glowSuccess,
-  },
-  saveBtnText: {
-    color: '#FFFFFF',
-    fontSize: 15,
-    fontWeight: '900',
-    letterSpacing: 0.5,
-  },
-  sunlightRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    gap: 12,
-  },
-  sunlightTitle: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    color: Theme.colors.textPrimary,
-  },
-  sunlightSub: {
-    fontSize: 11.5,
-    color: Theme.colors.textSecondary,
-    marginTop: 2,
-    lineHeight: 16,
-  },
-  sunlightBtn: {
-    backgroundColor: '#334155',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: Theme.borderRadius.sm,
-    borderWidth: 1,
-    borderColor: '#475569',
-  },
-  sunlightBtnActive: {
-    backgroundColor: Theme.colors.amber,
-    borderColor: '#F59E0B',
-  },
-  sunlightBtnText: {
-    color: '#94A3B8',
-    fontWeight: 'bold',
-    fontSize: 13,
-  },
-  sunlightBtnTextActive: {
-    color: '#0F172A',
-    fontWeight: '900',
-  },
-});

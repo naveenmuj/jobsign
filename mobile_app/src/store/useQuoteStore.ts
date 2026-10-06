@@ -31,6 +31,7 @@ interface QuoteStore {
   presets: ItemPreset[];
   profile: ContractorProfile;
   isPro: boolean;
+  isDarkMode: boolean;
   isSunlightMode: boolean;
   activeFilter: 'ALL' | 'DRAFT' | 'SIGNED_LOCKED' | 'PAID';
   isLoading: boolean;
@@ -42,6 +43,7 @@ interface QuoteStore {
   removePreset: (id: string) => void;
   setProStatus: (status: boolean) => void;
   setFilter: (filter: 'ALL' | 'DRAFT' | 'SIGNED_LOCKED' | 'PAID') => void;
+  toggleDarkMode: () => void;
   toggleSunlightMode: () => void;
   getMonthlyQuoteUsage: () => {
     count: number;
@@ -58,6 +60,7 @@ export const useQuoteStore = create<QuoteStore>()(
       presets: DEFAULT_PRESETS,
       profile: DEFAULT_PROFILE,
       isPro: false,
+      isDarkMode: false,
       isSunlightMode: false,
       activeFilter: 'ALL',
       isLoading: false,
@@ -104,8 +107,11 @@ export const useQuoteStore = create<QuoteStore>()(
 
       setFilter: (filter) => set({ activeFilter: filter }),
 
+      toggleDarkMode: () =>
+        set((state) => ({ isDarkMode: !state.isDarkMode, isSunlightMode: !state.isDarkMode })),
+
       toggleSunlightMode: () =>
-        set((state) => ({ isSunlightMode: !state.isSunlightMode })),
+        set((state) => ({ isDarkMode: !state.isDarkMode, isSunlightMode: !state.isDarkMode })),
 
       getMonthlyQuoteUsage: () => {
         const quotes = get().quotes;
@@ -130,6 +136,7 @@ export const useQuoteStore = create<QuoteStore>()(
       partialize: (state) => ({
         profile: state.profile,
         presets: state.presets,
+        isDarkMode: state.isDarkMode,
         isSunlightMode: state.isSunlightMode,
         isPro: state.isPro,
       }),

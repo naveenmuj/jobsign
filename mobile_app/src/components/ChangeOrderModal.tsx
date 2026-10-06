@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   View,
   Text,
@@ -10,8 +10,8 @@ import {
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import * as Crypto from 'expo-crypto';
-import { Theme } from '../theme';
-import { ChangeOrder, LineItem, Quote } from '../types';
+import { Theme, getThemeColors, ThemeColors } from '../theme';
+import { ChangeOrder, Quote } from '../types';
 import { SignaturePad } from './SignaturePad';
 import { PDFService } from '../services/PDFService';
 import { useQuoteStore } from '../store/useQuoteStore';
@@ -27,7 +27,10 @@ export const ChangeOrderModal: React.FC<ChangeOrderModalProps> = ({
   visible,
   onClose,
 }) => {
-  const { addQuote } = useQuoteStore();
+  const { addQuote, isDarkMode } = useQuoteStore();
+  const colors = getThemeColors(isDarkMode);
+  const styles = useMemo(() => makeStyles(colors), [colors]);
+
   const [reason, setReason] = useState('');
   const [description, setDescription] = useState('');
   const [amountInput, setAmountInput] = useState('');
@@ -92,7 +95,7 @@ export const ChangeOrderModal: React.FC<ChangeOrderModalProps> = ({
       setIsSigning(false);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       Alert.alert(
-        'Change Order Approved! ✍️',
+        'Change Order Approved',
         `Add-on #${newCO.orderNumber} ($${(parsedCents / 100).toFixed(2)}) is locked. New job total is ${newTotalFormatted}.`
       );
       onClose();
@@ -125,8 +128,8 @@ export const ChangeOrderModal: React.FC<ChangeOrderModalProps> = ({
           {/* Header */}
           <View style={styles.header}>
             <View>
-              <Text style={styles.title}>➕ Mid-Job Change Order</Text>
-              <Text style={styles.sub}>Job #{quote.quoteNumber} for {quote.clientName}</Text>
+              <Text style={styles.title}>Change Order</Text>
+              <Text style={styles.sub}>Agreement #{quote.quoteNumber} for {quote.clientName}</Text>
             </View>
             <TouchableOpacity
               onPress={onClose}
@@ -140,25 +143,25 @@ export const ChangeOrderModal: React.FC<ChangeOrderModalProps> = ({
           {/* Explanation Banner */}
           <View style={styles.infoBanner}>
             <Text style={styles.infoText}>
-              Protects you against unpaid scope creep. Adds an approved amendment rider to the original agreement.
+              Protects against unpaid scope adjustments. Appends a signed rider to the original agreement.
             </Text>
           </View>
 
           {/* Form */}
-          <Text style={styles.label}>UNFORESEEN ISSUE / REASON</Text>
+          <Text style={styles.label}>UNFORESEEN SCOPE / REASON</Text>
           <TextInput
             style={styles.input}
-            placeholder="e.g., Rotten subfloor found under tub"
-            placeholderTextColor={Theme.colors.textMuted}
+            placeholder="e.g. Subfloor moisture damage under tub"
+            placeholderTextColor={colors.textMuted}
             value={reason}
             onChangeText={setReason}
           />
 
-          <Text style={[styles.label, { marginTop: 14 }]}>ADDITIONAL PRICE ($ USD)</Text>
+          <Text style={[styles.label, { marginTop: 14 }]}>ADDITIONAL AMOUNT ($ USD)</Text>
           <TextInput
             style={[styles.input, styles.priceInput]}
-            placeholder="180.00"
-            placeholderTextColor={Theme.colors.textMuted}
+            placeholder="0.00"
+            placeholderTextColor={colors.textMuted}
             keyboardType="decimal-pad"
             value={amountInput}
             onChangeText={setAmountInput}
@@ -172,17 +175,17 @@ export const ChangeOrderModal: React.FC<ChangeOrderModalProps> = ({
             </View>
             <View style={styles.compareRow}>
               <Text style={styles.compareLabel}>This Add-On:</Text>
-              <Text style={[styles.compareVal, { color: Theme.colors.amber }]}>+{formattedAddOn}</Text>
+              <Text style={[styles.compareVal, { color: colors.amber }]}>+{formattedAddOn}</Text>
             </View>
             <View style={[styles.compareRow, styles.totalRow]}>
-              <Text style={styles.newTotalLabel}>NEW APPROVED TOTAL:</Text>
+              <Text style={styles.newTotalLabel}>NEW AGREEMENT TOTAL:</Text>
               <Text style={styles.newTotalVal}>{newTotalFormatted}</Text>
             </View>
           </View>
 
           {/* Action */}
           <TouchableOpacity style={styles.signBtn} onPress={handleProceedToSign}>
-            <Text style={styles.signBtnText}>✍️ HAND PHONE TO CLIENT TO APPROVE</Text>
+            <Text style={styles.signBtnText}>Proceed to Client Signature</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -190,128 +193,138 @@ export const ChangeOrderModal: React.FC<ChangeOrderModalProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    backgroundColor: 'rgba(11, 15, 25, 0.75)',
-    justifyContent: 'flex-end',
-  },
-  sheet: {
-    backgroundColor: '#1E293B',
-    borderTopLeftRadius: Theme.borderRadius.xl,
-    borderTopRightRadius: Theme.borderRadius.xl,
-    padding: 24,
-    paddingBottom: 40,
-    borderTopWidth: 1.5,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  title: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: Theme.colors.textPrimary,
-  },
-  sub: {
-    fontSize: 13,
-    color: Theme.colors.textSecondary,
-    marginTop: 2,
-  },
-  closeBtn: {
-    padding: 6,
-  },
-  closeText: {
-    fontSize: 18,
-    color: Theme.colors.textMuted,
-    fontWeight: 'bold',
-  },
-  infoBanner: {
-    backgroundColor: 'rgba(59, 130, 246, 0.1)',
-    borderWidth: 1,
-    borderColor: 'rgba(59, 130, 246, 0.25)',
-    padding: 12,
-    borderRadius: Theme.borderRadius.sm,
-    marginVertical: 14,
-  },
-  infoText: {
-    fontSize: 12,
-    color: '#93C5FD',
-    lineHeight: 16,
-  },
-  label: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: Theme.colors.textSecondary,
-    letterSpacing: 0.8,
-    marginBottom: 6,
-  },
-  input: {
-    backgroundColor: '#0F172A',
-    borderWidth: 1,
-    borderColor: '#334155',
-    borderRadius: Theme.borderRadius.sm,
-    padding: 12,
-    fontSize: 15,
-    color: Theme.colors.textPrimary,
-  },
-  priceInput: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: Theme.colors.emerald,
-  },
-  comparisonBox: {
-    backgroundColor: '#0F172A',
-    borderRadius: Theme.borderRadius.md,
-    padding: 14,
-    marginVertical: 16,
-    borderWidth: 1,
-    borderColor: '#334155',
-  },
-  compareRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingVertical: 3,
-  },
-  compareLabel: {
-    fontSize: 13,
-    color: Theme.colors.textSecondary,
-  },
-  compareVal: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: Theme.colors.textPrimary,
-  },
-  totalRow: {
-    borderTopWidth: 1,
-    borderColor: '#334155',
-    marginTop: 8,
-    paddingTop: 8,
-  },
-  newTotalLabel: {
-    fontSize: 14,
-    fontWeight: '900',
-    color: Theme.colors.textPrimary,
-  },
-  newTotalVal: {
-    fontSize: 17,
-    fontWeight: '900',
-    color: Theme.colors.emerald,
-  },
-  signBtn: {
-    backgroundColor: Theme.colors.primary,
-    minHeight: Theme.touchTarget.minHeight,
-    borderRadius: Theme.borderRadius.md,
-    justifyContent: 'center',
-    alignItems: 'center',
-    ...Theme.shadows.glowPrimary,
-  },
-  signBtnText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '900',
-    letterSpacing: 0.5,
-  },
-});
+const makeStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
+    overlay: {
+      flex: 1,
+      backgroundColor: colors.overlay,
+      justifyContent: 'flex-end',
+    },
+    sheet: {
+      backgroundColor: colors.surface,
+      borderTopLeftRadius: Theme.borderRadius.xl,
+      borderTopRightRadius: Theme.borderRadius.xl,
+      padding: 24,
+      paddingBottom: 40,
+      borderTopWidth: 1,
+      borderColor: colors.border,
+      shadowColor: '#0F172A',
+      shadowOffset: { width: 0, height: -3 },
+      shadowOpacity: 0.1,
+      shadowRadius: 8,
+      elevation: 6,
+    },
+    header: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+    },
+    title: {
+      fontSize: 18,
+      fontWeight: '800',
+      color: colors.textPrimary,
+    },
+    sub: {
+      fontSize: 13,
+      color: colors.textSecondary,
+      marginTop: 2,
+    },
+    closeBtn: {
+      padding: 6,
+    },
+    closeText: {
+      fontSize: 18,
+      color: colors.textMuted,
+      fontWeight: 'bold',
+    },
+    infoBanner: {
+      backgroundColor: colors.primaryLight,
+      borderWidth: 1,
+      borderColor: colors.primary + '33',
+      padding: 12,
+      borderRadius: Theme.borderRadius.sm,
+      marginVertical: 14,
+    },
+    infoText: {
+      fontSize: 12,
+      color: colors.primary,
+      lineHeight: 16,
+    },
+    label: {
+      fontSize: 11,
+      fontWeight: '700',
+      color: colors.textMuted,
+      letterSpacing: 0.8,
+      marginBottom: 6,
+    },
+    input: {
+      backgroundColor: colors.backgroundSecondary,
+      borderWidth: 1,
+      borderColor: colors.cardBorder,
+      borderRadius: Theme.borderRadius.sm,
+      padding: 12,
+      fontSize: 15,
+      color: colors.textPrimary,
+    },
+    priceInput: {
+      fontSize: 20,
+      fontWeight: 'bold',
+      color: colors.emerald,
+    },
+    comparisonBox: {
+      backgroundColor: colors.backgroundSecondary,
+      borderRadius: Theme.borderRadius.md,
+      padding: 14,
+      marginVertical: 16,
+      borderWidth: 1,
+      borderColor: colors.cardBorder,
+    },
+    compareRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      paddingVertical: 3,
+    },
+    compareLabel: {
+      fontSize: 13,
+      color: colors.textSecondary,
+    },
+    compareVal: {
+      fontSize: 14,
+      fontWeight: '700',
+      color: colors.textPrimary,
+    },
+    totalRow: {
+      borderTopWidth: 1,
+      borderColor: colors.border,
+      marginTop: 8,
+      paddingTop: 8,
+    },
+    newTotalLabel: {
+      fontSize: 13,
+      fontWeight: '900',
+      color: colors.textPrimary,
+    },
+    newTotalVal: {
+      fontSize: 18,
+      fontWeight: '900',
+      color: colors.emerald,
+    },
+    signBtn: {
+      backgroundColor: colors.primary,
+      minHeight: Theme.touchTarget.minHeight,
+      borderRadius: Theme.borderRadius.md,
+      justifyContent: 'center',
+      alignItems: 'center',
+      shadowColor: '#2563EB',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.2,
+      shadowRadius: 4,
+      elevation: 3,
+    },
+    signBtnText: {
+      color: '#FFFFFF',
+      fontSize: 15,
+      fontWeight: '800',
+      letterSpacing: 0.3,
+    },
+  });

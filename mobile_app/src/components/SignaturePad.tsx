@@ -1,8 +1,9 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useMemo } from 'react';
 import { View, PanResponder, StyleSheet, Text, TouchableOpacity, ActivityIndicator } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import * as Haptics from 'expo-haptics';
-import { Theme } from '../theme';
+import { Theme, getThemeColors, ThemeColors } from '../theme';
+import { useQuoteStore } from '../store/useQuoteStore';
 
 interface SignaturePadProps {
   onSave: (svgPath: string) => Promise<void> | void;
@@ -17,6 +18,10 @@ export const SignaturePad: React.FC<SignaturePadProps> = ({
   clientName,
   totalFormatted,
 }) => {
+  const isDarkMode = useQuoteStore((state) => state.isDarkMode);
+  const colors = getThemeColors(isDarkMode);
+  const styles = useMemo(() => makeStyles(colors), [colors]);
+
   const [paths, setPaths] = useState<string[]>([]);
   const [hasConsented, setHasConsented] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -67,7 +72,7 @@ export const SignaturePad: React.FC<SignaturePadProps> = ({
     <View style={styles.container}>
       {/* Top Affirmative Legal Consent Banner */}
       <View style={styles.banner}>
-        <Text style={styles.bannerTitle}>✍️ IN-PERSON CLIENT APPROVAL</Text>
+        <Text style={styles.bannerTitle}>Client Approval</Text>
         <Text style={styles.bannerLegal}>
           I, <Text style={styles.bold}>{clientName}</Text>, hereby authorize the contractor to proceed with the indicated scope for{' '}
           <Text style={styles.boldGreen}>{totalFormatted}</Text> and agree that payment is due upon completion.
@@ -81,7 +86,7 @@ export const SignaturePad: React.FC<SignaturePadProps> = ({
             <Path
               key={index}
               d={d}
-              stroke={Theme.colors.primary}
+              stroke={colors.primary}
               strokeWidth={3.5}
               strokeLinecap="round"
               strokeLinejoin="round"
@@ -91,7 +96,7 @@ export const SignaturePad: React.FC<SignaturePadProps> = ({
         </Svg>
         {paths.length === 0 && (
           <View style={styles.placeholderBox} pointerEvents="none">
-            <Text style={styles.placeholderText}>Sign with your finger on screen</Text>
+            <Text style={styles.placeholderText}>Sign with finger or stylus</Text>
           </View>
         )}
       </View>
@@ -137,7 +142,7 @@ export const SignaturePad: React.FC<SignaturePadProps> = ({
           {isSaving ? (
             <ActivityIndicator color="#FFFFFF" />
           ) : (
-            <Text style={styles.confirmText}>🔒 LOCK & APPROVE</Text>
+            <Text style={styles.confirmText}>Confirm Agreement</Text>
           )}
         </TouchableOpacity>
       </View>
@@ -145,141 +150,161 @@ export const SignaturePad: React.FC<SignaturePadProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#0B0F19',
-    padding: 16,
-    paddingTop: 48,
-    justifyContent: 'space-between',
-  },
-  banner: {
-    backgroundColor: '#1E293B',
-    borderRadius: Theme.borderRadius.md,
-    padding: 16,
-    borderLeftWidth: 4,
-    borderLeftColor: Theme.colors.primary,
-  },
-  bannerTitle: {
-    fontSize: 13,
-    fontWeight: '900',
-    color: Theme.colors.primary,
-    letterSpacing: 0.5,
-  },
-  bannerLegal: {
-    fontSize: 12.5,
-    color: '#E2E8F0',
-    marginTop: 6,
-    lineHeight: 18,
-  },
-  bold: {
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-  },
-  boldGreen: {
-    fontWeight: 'bold',
-    color: Theme.colors.emerald,
-  },
-  canvasContainer: {
-    flex: 1,
-    marginVertical: 14,
-    backgroundColor: '#0F172A',
-    borderRadius: Theme.borderRadius.lg,
-    borderWidth: 2,
-    borderColor: '#334155',
-    overflow: 'hidden',
-    position: 'relative',
-  },
-  placeholderBox: {
-    ...StyleSheet.absoluteFill,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  placeholderText: {
-    color: Theme.colors.textMuted,
-    fontSize: 16,
-    fontStyle: 'italic',
-  },
-  consentCheckboxRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    backgroundColor: '#1E293B',
-    padding: 12,
-    borderRadius: Theme.borderRadius.sm,
-    marginBottom: 14,
-  },
-  checkbox: {
-    width: 22,
-    height: 22,
-    borderRadius: 4,
-    borderWidth: 1.5,
-    borderColor: '#64748B',
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#0F172A',
-  },
-  checkboxActive: {
-    backgroundColor: Theme.colors.emerald,
-    borderColor: Theme.colors.emerald,
-  },
-  checkIcon: {
-    color: '#FFFFFF',
-    fontSize: 13,
-    fontWeight: 'bold',
-  },
-  consentText: {
-    flex: 1,
-    fontSize: 11,
-    color: '#CBD5E1',
-    lineHeight: 15,
-  },
-  actionRow: {
-    flexDirection: 'row',
-    gap: 12,
-    alignItems: 'center',
-  },
-  cancelBtn: {
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    minHeight: Theme.touchTarget.minHeight,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  cancelText: {
-    color: Theme.colors.textSecondary,
-    fontSize: 14,
-    fontWeight: 'bold',
-  },
-  clearBtn: {
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    minHeight: Theme.touchTarget.minHeight,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  clearText: {
-    color: Theme.colors.amber,
-    fontSize: 14,
-    fontWeight: 'bold',
-  },
-  confirmBtn: {
-    flex: 1,
-    backgroundColor: Theme.colors.emerald,
-    minHeight: Theme.touchTarget.minHeight,
-    borderRadius: Theme.borderRadius.md,
-    justifyContent: 'center',
-    alignItems: 'center',
-    ...Theme.shadows.glowSuccess,
-  },
-  disabledBtn: {
-    backgroundColor: '#334155',
-    shadowOpacity: 0,
-  },
-  confirmText: {
-    color: '#FFFFFF',
-    fontSize: 15,
-    fontWeight: '900',
-    letterSpacing: 0.5,
-  },
-});
+const makeStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: colors.background,
+      padding: 16,
+      paddingTop: 48,
+      justifyContent: 'space-between',
+    },
+    banner: {
+      backgroundColor: colors.card,
+      borderRadius: Theme.borderRadius.md,
+      padding: 16,
+      borderLeftWidth: 4,
+      borderLeftColor: colors.primary,
+      borderWidth: 1,
+      borderColor: colors.cardBorder,
+      shadowColor: '#0F172A',
+      shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: 0.05,
+      shadowRadius: 3,
+      elevation: 2,
+    },
+    bannerTitle: {
+      fontSize: 14,
+      fontWeight: '800',
+      color: colors.primary,
+      letterSpacing: 0.3,
+    },
+    bannerLegal: {
+      fontSize: 13,
+      color: colors.textSecondary,
+      marginTop: 6,
+      lineHeight: 18,
+    },
+    bold: {
+      fontWeight: 'bold',
+      color: colors.textPrimary,
+    },
+    boldGreen: {
+      fontWeight: 'bold',
+      color: colors.emerald,
+    },
+    canvasContainer: {
+      flex: 1,
+      marginVertical: 14,
+      backgroundColor: colors.canvasBg,
+      borderRadius: Theme.borderRadius.lg,
+      borderWidth: 1.5,
+      borderColor: colors.canvasBorder,
+      overflow: 'hidden',
+      position: 'relative',
+      shadowColor: '#0F172A',
+      shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: 0.05,
+      shadowRadius: 3,
+      elevation: 1,
+    },
+    placeholderBox: {
+      ...StyleSheet.absoluteFill,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    placeholderText: {
+      color: colors.textMuted,
+      fontSize: 15,
+      fontStyle: 'italic',
+    },
+    consentCheckboxRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+      backgroundColor: colors.card,
+      padding: 12,
+      borderRadius: Theme.borderRadius.sm,
+      marginBottom: 14,
+      borderWidth: 1,
+      borderColor: colors.cardBorder,
+    },
+    checkbox: {
+      width: 22,
+      height: 22,
+      borderRadius: 4,
+      borderWidth: 1.5,
+      borderColor: colors.cardBorder,
+      justifyContent: 'center',
+      alignItems: 'center',
+      backgroundColor: colors.backgroundSecondary,
+    },
+    checkboxActive: {
+      backgroundColor: colors.emerald,
+      borderColor: colors.emerald,
+    },
+    checkIcon: {
+      color: '#FFFFFF',
+      fontSize: 13,
+      fontWeight: 'bold',
+    },
+    consentText: {
+      flex: 1,
+      fontSize: 11,
+      color: colors.textSecondary,
+      lineHeight: 15,
+    },
+    actionRow: {
+      flexDirection: 'row',
+      gap: 12,
+      alignItems: 'center',
+    },
+    cancelBtn: {
+      paddingVertical: 14,
+      paddingHorizontal: 16,
+      minHeight: Theme.touchTarget.minHeight,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    cancelText: {
+      color: colors.textSecondary,
+      fontSize: 14,
+      fontWeight: 'bold',
+    },
+    clearBtn: {
+      paddingVertical: 14,
+      paddingHorizontal: 16,
+      minHeight: Theme.touchTarget.minHeight,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    clearText: {
+      color: colors.amber,
+      fontSize: 14,
+      fontWeight: 'bold',
+    },
+    confirmBtn: {
+      flex: 1,
+      backgroundColor: colors.emerald,
+      minHeight: Theme.touchTarget.minHeight,
+      borderRadius: Theme.borderRadius.md,
+      justifyContent: 'center',
+      alignItems: 'center',
+      shadowColor: '#0F172A',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.1,
+      shadowRadius: 4,
+      elevation: 3,
+    },
+    disabledBtn: {
+      backgroundColor: colors.backgroundSecondary,
+      shadowOpacity: 0,
+      elevation: 0,
+    },
+    confirmText: {
+      color: '#FFFFFF',
+      fontSize: 15,
+      fontWeight: '800',
+      letterSpacing: 0.3,
+    },
+  });

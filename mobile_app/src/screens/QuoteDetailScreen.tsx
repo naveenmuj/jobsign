@@ -10,21 +10,370 @@ import {
   Linking,
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
-import { Theme } from '../theme';
+import { Theme, getThemeColors, ThemeColors } from '../theme';
 import { Quote } from '../types';
 import { PDFService } from '../services/PDFService';
 import { ChangeOrderModal } from '../components/ChangeOrderModal';
 import { PaymentQRModal } from '../components/PaymentQRModal';
 import { useQuoteStore } from '../store/useQuoteStore';
+import { ChevronLeft, Trash2, FileText, Phone, MessageSquare, Plus, Check } from 'lucide-react-native';
 
 interface QuoteDetailScreenProps {
   quote: Quote;
   onBack: () => void;
 }
 
+const makeStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: colors.background,
+    },
+    header: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingHorizontal: 16,
+      paddingTop: 54,
+      paddingBottom: 14,
+      backgroundColor: colors.surface,
+      borderBottomWidth: 1,
+      borderColor: colors.border,
+    },
+    backBtn: {
+      padding: 6,
+    },
+    headerTitle: {
+      color: colors.textPrimary,
+      fontSize: 17,
+      fontWeight: '800',
+    },
+    shareBtn: {
+      backgroundColor: colors.backgroundSecondary,
+      paddingHorizontal: 12,
+      paddingVertical: 6,
+      borderRadius: Theme.borderRadius.full,
+      borderWidth: 1,
+      borderColor: colors.border,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+    },
+    shareText: {
+      color: colors.textPrimary,
+      fontWeight: 'bold',
+      fontSize: 13,
+    },
+    scrollContent: {
+      padding: 16,
+      paddingBottom: 120,
+    },
+    securityCard: {
+      padding: 16,
+      borderRadius: Theme.borderRadius.md,
+      marginBottom: 16,
+      borderWidth: 1.5,
+    },
+    secLocked: {
+      backgroundColor: colors.primaryLight,
+      borderColor: colors.primary,
+    },
+    secPaid: {
+      backgroundColor: colors.successLight,
+      borderColor: colors.emerald,
+    },
+    secShield: {
+      fontSize: 13,
+      fontWeight: '900',
+      color: colors.textPrimary,
+      letterSpacing: 0.5,
+    },
+    secDesc: {
+      fontSize: 12,
+      color: colors.textSecondary,
+      marginTop: 4,
+      lineHeight: 16,
+    },
+    hashBox: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      marginTop: 10,
+      backgroundColor: colors.backgroundSecondary,
+      padding: 8,
+      borderRadius: 6,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    hashLabel: {
+      fontSize: 10,
+      fontWeight: 'bold',
+      color: colors.textMuted,
+    },
+    hashVal: {
+      fontSize: 10,
+      fontFamily: 'monospace',
+      color: colors.textHighlight,
+      flex: 1,
+    },
+    card: {
+      backgroundColor: colors.card,
+      borderRadius: Theme.borderRadius.md,
+      padding: 16,
+      borderWidth: 1,
+      borderColor: colors.cardBorder,
+      marginBottom: 14,
+      shadowColor: '#0F172A',
+      shadowOpacity: 0.05,
+      shadowRadius: 3,
+      elevation: 2,
+    },
+    coCard: {
+      borderColor: colors.purple + '66',
+      backgroundColor: colors.purpleLight,
+    },
+    cardLabel: {
+      fontSize: 11,
+      fontWeight: '800',
+      color: colors.textSecondary,
+      letterSpacing: 0.8,
+      marginBottom: 10,
+    },
+    clientName: {
+      fontSize: 18,
+      fontWeight: 'bold',
+      color: colors.textPrimary,
+    },
+    clientDetail: {
+      fontSize: 13,
+      color: colors.textSecondary,
+      marginTop: 4,
+    },
+    clientDate: {
+      fontSize: 12,
+      color: colors.textMuted,
+      marginTop: 8,
+    },
+    itemRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      paddingVertical: 8,
+      borderBottomWidth: 1,
+      borderColor: colors.borderSubtle,
+    },
+    itemTitle: {
+      fontSize: 14,
+      fontWeight: '600',
+      color: colors.textPrimary,
+    },
+    itemSub: {
+      fontSize: 12,
+      color: colors.textSecondary,
+      marginTop: 2,
+    },
+    itemAmount: {
+      fontSize: 14,
+      fontWeight: '700',
+      color: colors.textPrimary,
+    },
+    coRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      paddingVertical: 8,
+      borderBottomWidth: 1,
+      borderColor: colors.purple + '33',
+    },
+    coTitle: {
+      fontSize: 13,
+      fontWeight: '700',
+      color: colors.textPrimary,
+    },
+    coDate: {
+      fontSize: 11,
+      color: colors.textMuted,
+      marginTop: 2,
+    },
+    coAmount: {
+      fontSize: 14,
+      fontWeight: '800',
+      color: colors.amber,
+    },
+    summaryRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      paddingVertical: 4,
+    },
+    sumLabel: {
+      fontSize: 13,
+      color: colors.textSecondary,
+    },
+    sumVal: {
+      fontSize: 13,
+      color: colors.textPrimary,
+      fontWeight: '600',
+    },
+    totalRow: {
+      borderTopWidth: 1.5,
+      borderColor: colors.border,
+      marginTop: 8,
+      paddingTop: 10,
+    },
+    totalLabel: {
+      fontSize: 14,
+      fontWeight: '900',
+      color: colors.textPrimary,
+    },
+    totalVal: {
+      fontSize: 22,
+      fontWeight: '900',
+      color: colors.emerald,
+    },
+    bottomBar: {
+      position: 'absolute',
+      bottom: 0,
+      left: 0,
+      right: 0,
+      backgroundColor: colors.surface,
+      padding: 16,
+      paddingBottom: 28,
+      borderTopWidth: 1,
+      borderColor: colors.border,
+      flexDirection: 'row',
+      gap: 12,
+    },
+    coBtn: {
+      flex: 1,
+      backgroundColor: colors.backgroundSecondary,
+      minHeight: Theme.touchTarget.minHeight,
+      borderRadius: Theme.borderRadius.md,
+      justifyContent: 'center',
+      alignItems: 'center',
+      borderWidth: 1,
+      borderColor: colors.border,
+      flexDirection: 'row',
+      gap: 6,
+    },
+    coBtnText: {
+      color: colors.textPrimary,
+      fontWeight: '800',
+      fontSize: 14,
+    },
+    payBtn: {
+      flex: 2,
+      backgroundColor: colors.emerald,
+      minHeight: Theme.touchTarget.minHeight,
+      borderRadius: Theme.borderRadius.md,
+      justifyContent: 'center',
+      alignItems: 'center',
+      shadowColor: '#0F172A',
+      shadowOpacity: 0.08,
+      shadowRadius: 6,
+      elevation: 3,
+    },
+    payBtnText: {
+      color: '#FFFFFF',
+      fontWeight: '900',
+      fontSize: 15,
+    },
+    receiptBtn: {
+      flex: 1,
+      backgroundColor: colors.primary,
+      minHeight: Theme.touchTarget.minHeight,
+      borderRadius: Theme.borderRadius.md,
+      justifyContent: 'center',
+      alignItems: 'center',
+      flexDirection: 'row',
+      gap: 6,
+    },
+    receiptBtnText: {
+      color: '#FFFFFF',
+      fontWeight: '900',
+      fontSize: 15,
+    },
+    clientHeaderRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'flex-start',
+    },
+    contactActionsRow: {
+      flexDirection: 'row',
+      gap: 8,
+    },
+    contactBtn: {
+      backgroundColor: colors.backgroundSecondary,
+      paddingHorizontal: 10,
+      paddingVertical: 6,
+      borderRadius: Theme.borderRadius.sm,
+      borderWidth: 1,
+      borderColor: colors.border,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+    },
+    contactBtnSms: {
+      backgroundColor: colors.primaryLight,
+      borderColor: colors.primary,
+    },
+    contactBtnText: {
+      color: colors.textPrimary,
+      fontSize: 12,
+      fontWeight: 'bold',
+    },
+    photoPreview: {
+      width: '100%',
+      height: 180,
+      borderRadius: Theme.borderRadius.sm,
+      backgroundColor: colors.backgroundSecondary,
+      marginBottom: 8,
+    },
+    photoCaption: {
+      fontSize: 11,
+      color: colors.textMuted,
+      fontStyle: 'italic',
+    },
+    headerRightActions: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+    },
+    trashBtn: {
+      padding: 8,
+      borderRadius: Theme.borderRadius.full,
+      backgroundColor: colors.roseLight,
+      borderWidth: 1,
+      borderColor: colors.rose + '40',
+    },
+    notesText: {
+      fontSize: 13,
+      color: colors.textSecondary,
+      lineHeight: 20,
+    },
+    auditRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      paddingVertical: 5,
+      borderBottomWidth: 1,
+      borderColor: colors.borderSubtle,
+    },
+    auditLabel: {
+      fontSize: 12,
+      color: colors.textSecondary,
+      fontWeight: '600',
+    },
+    auditVal: {
+      fontSize: 12,
+      color: colors.textPrimary,
+      fontWeight: '500',
+    },
+  });
+
 export const QuoteDetailScreen: React.FC<QuoteDetailScreenProps> = ({ quote: initialQuote, onBack }) => {
   const { quotes, profile, deleteQuote } = useQuoteStore();
+  const isDarkMode = useQuoteStore((state) => state.isDarkMode);
+  const colors = getThemeColors(isDarkMode);
   const quote = quotes.find((q) => q.id === initialQuote.id) || initialQuote;
+
+  const styles = React.useMemo(() => makeStyles(colors), [colors]);
 
   const [showChangeOrder, setShowChangeOrder] = useState(false);
   const [showPayment, setShowPayment] = useState(false);
@@ -65,7 +414,7 @@ export const QuoteDetailScreen: React.FC<QuoteDetailScreenProps> = ({ quote: ini
           onPress={onBack}
           hitSlop={{ top: 14, bottom: 14, left: 14, right: 14 }}
         >
-          <Text style={styles.backText}>⬅ Back</Text>
+          <ChevronLeft size={20} color={colors.primary} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Agreement #{quote.quoteNumber}</Text>
         <View style={styles.headerRightActions}>
@@ -74,14 +423,15 @@ export const QuoteDetailScreen: React.FC<QuoteDetailScreenProps> = ({ quote: ini
             onPress={handleDelete}
             hitSlop={{ top: 14, bottom: 14, left: 14, right: 14 }}
           >
-            <Text style={styles.trashText}>🗑</Text>
+            <Trash2 size={18} color={colors.rose} />
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.shareBtn}
             onPress={handleSharePDF}
             hitSlop={{ top: 14, bottom: 14, left: 14, right: 14 }}
           >
-            <Text style={styles.shareText}>📄 PDF</Text>
+            <FileText size={14} color={colors.textPrimary} />
+            <Text style={styles.shareText}>Share PDF</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -89,7 +439,7 @@ export const QuoteDetailScreen: React.FC<QuoteDetailScreenProps> = ({ quote: ini
       <ScrollView contentContainerStyle={styles.scrollContent}>
         {/* Status Security Banner */}
         <View style={[styles.securityCard, isPaid ? styles.secPaid : styles.secLocked]}>
-          <Text style={styles.secShield}>{isPaid ? '✔ SETTLED' : '🔒 LEGALLY SEALED'}</Text>
+          <Text style={styles.secShield}>{isPaid ? 'Paid in Full' : 'Digitally Sealed'}</Text>
           <Text style={styles.secDesc}>
             {isPaid
               ? 'This job has been paid in full and released.'
@@ -107,7 +457,7 @@ export const QuoteDetailScreen: React.FC<QuoteDetailScreenProps> = ({ quote: ini
         <View style={styles.card}>
           <View style={styles.clientHeaderRow}>
             <View style={{ flex: 1 }}>
-              <Text style={styles.cardLabel}>CLIENT & LOCATION</Text>
+              <Text style={styles.cardLabel}>Client</Text>
               <Text style={styles.clientName}>{quote.clientName}</Text>
             </View>
             {quote.clientPhone && (
@@ -119,7 +469,8 @@ export const QuoteDetailScreen: React.FC<QuoteDetailScreenProps> = ({ quote: ini
                     Linking.openURL(`tel:${quote.clientPhone}`);
                   }}
                 >
-                  <Text style={styles.contactBtnText}>📞 Call</Text>
+                  <Phone size={12} color={colors.textPrimary} />
+                  <Text style={styles.contactBtnText}>Call</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={[styles.contactBtn, styles.contactBtnSms]}
@@ -128,14 +479,15 @@ export const QuoteDetailScreen: React.FC<QuoteDetailScreenProps> = ({ quote: ini
                     Linking.openURL(`sms:${quote.clientPhone}?body=Hi ${quote.clientName}, regarding agreement #${quote.quoteNumber}...`);
                   }}
                 >
-                  <Text style={styles.contactBtnText}>💬 Text</Text>
+                  <MessageSquare size={12} color={colors.primary} />
+                  <Text style={[styles.contactBtnText, { color: colors.primary }]}>Text</Text>
                 </TouchableOpacity>
               </View>
             )}
           </View>
-          {quote.clientPhone && <Text style={styles.clientDetail}>📞 {quote.clientPhone}</Text>}
+          {quote.clientPhone && <Text style={styles.clientDetail}>{quote.clientPhone}</Text>}
           {quote.jobDescription && (
-            <Text style={styles.clientDetail}>🛠 {quote.jobDescription}</Text>
+            <Text style={styles.clientDetail}>{quote.jobDescription}</Text>
           )}
           <Text style={styles.clientDate}>Created: {new Date(quote.createdAt).toLocaleString()}</Text>
         </View>
@@ -143,7 +495,7 @@ export const QuoteDetailScreen: React.FC<QuoteDetailScreenProps> = ({ quote: ini
         {/* Worksite Evidence Photo (If captured) */}
         {quote.photoUri && (
           <View style={styles.card}>
-            <Text style={styles.cardLabel}>📷 WORKSITE DAMAGE PROOF PHOTO</Text>
+            <Text style={styles.cardLabel}>Worksite Photo</Text>
             <Image
               source={{ uri: quote.photoUri }}
               style={styles.photoPreview}
@@ -157,7 +509,7 @@ export const QuoteDetailScreen: React.FC<QuoteDetailScreenProps> = ({ quote: ini
 
         {/* Line Items Card */}
         <View style={styles.card}>
-          <Text style={styles.cardLabel}>ORIGINAL APPROVED ITEMS ({quote.lineItems.length})</Text>
+          <Text style={styles.cardLabel}>Approved Line Items ({quote.lineItems.length})</Text>
           {quote.lineItems.map((item) => (
             <View key={item.id} style={styles.itemRow}>
               <View style={{ flex: 1 }}>
@@ -172,8 +524,8 @@ export const QuoteDetailScreen: React.FC<QuoteDetailScreenProps> = ({ quote: ini
         {/* Change Orders Card (If any exist) */}
         {quote.changeOrders && quote.changeOrders.length > 0 && (
           <View style={[styles.card, styles.coCard]}>
-            <Text style={[styles.cardLabel, { color: '#C4B5FD' }]}>
-              MID-JOB CHANGE ORDERS ({quote.changeOrders.length})
+            <Text style={[styles.cardLabel, { color: colors.purple }]}>
+              Change Orders ({quote.changeOrders.length})
             </Text>
             {quote.changeOrders.map((co) => (
               <View key={co.id} style={styles.coRow}>
@@ -208,14 +560,14 @@ export const QuoteDetailScreen: React.FC<QuoteDetailScreenProps> = ({ quote: ini
         {/* Legal Terms & Work Conditions (If specified) */}
         {quote.notes ? (
           <View style={styles.card}>
-            <Text style={styles.cardLabel}>📜 AGREED TERMS & WARRANTY</Text>
+            <Text style={styles.cardLabel}>Terms & Warranty</Text>
             <Text style={styles.notesText}>{quote.notes}</Text>
           </View>
         ) : null}
 
         {/* Courtroom Audit Attribution */}
         <View style={styles.card}>
-          <Text style={styles.cardLabel}>🏛 UETA & ESIGN COURTROOM AUDIT CERTIFICATE</Text>
+          <Text style={styles.cardLabel}>Digital Audit Certificate</Text>
           <View style={styles.auditRow}>
             <Text style={styles.auditLabel}>Signing Timestamp:</Text>
             <Text style={styles.auditVal}>
@@ -232,7 +584,7 @@ export const QuoteDetailScreen: React.FC<QuoteDetailScreenProps> = ({ quote: ini
           </View>
           <View style={styles.auditRow}>
             <Text style={styles.auditLabel}>Integrity Seal:</Text>
-            <Text style={[styles.auditVal, { color: Theme.colors.emerald, fontWeight: 'bold' }]}>
+            <Text style={[styles.auditVal, { color: colors.emerald, fontWeight: 'bold' }]}>
               LOCKED_IMMUTABLE (SHA-256)
             </Text>
           </View>
@@ -249,7 +601,8 @@ export const QuoteDetailScreen: React.FC<QuoteDetailScreenProps> = ({ quote: ini
               setShowChangeOrder(true);
             }}
           >
-            <Text style={styles.coBtnText}>➕ Add-On</Text>
+            <Plus size={16} color={colors.textPrimary} />
+            <Text style={styles.coBtnText}>Add Change Order</Text>
           </TouchableOpacity>
         )}
 
@@ -261,11 +614,12 @@ export const QuoteDetailScreen: React.FC<QuoteDetailScreenProps> = ({ quote: ini
               setShowPayment(true);
             }}
           >
-            <Text style={styles.payBtnText}>💵 Collect Pay</Text>
+            <Text style={styles.payBtnText}>Collect Payment</Text>
           </TouchableOpacity>
         ) : (
           <TouchableOpacity style={styles.receiptBtn} onPress={handleSharePDF}>
-            <Text style={styles.receiptBtnText}>✔ Send Paid Receipt</Text>
+            <Check size={16} color="#FFFFFF" />
+            <Text style={styles.receiptBtnText}>Send Receipt</Text>
           </TouchableOpacity>
         )}
       </View>
@@ -288,333 +642,3 @@ export const QuoteDetailScreen: React.FC<QuoteDetailScreenProps> = ({ quote: ini
     </View>
   );
 };
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: Theme.colors.background,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingTop: 54,
-    paddingBottom: 14,
-    backgroundColor: '#111827',
-    borderBottomWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
-  },
-  backBtn: {
-    padding: 6,
-  },
-  backText: {
-    color: Theme.colors.primary,
-    fontSize: 15,
-    fontWeight: 'bold',
-  },
-  headerTitle: {
-    color: Theme.colors.textPrimary,
-    fontSize: 17,
-    fontWeight: '800',
-  },
-  shareBtn: {
-    backgroundColor: '#1E293B',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: Theme.borderRadius.full,
-    borderWidth: 1,
-    borderColor: '#334155',
-  },
-  shareText: {
-    color: '#FFFFFF',
-    fontWeight: 'bold',
-    fontSize: 13,
-  },
-  scrollContent: {
-    padding: 16,
-    paddingBottom: 120,
-  },
-  securityCard: {
-    padding: 16,
-    borderRadius: Theme.borderRadius.md,
-    marginBottom: 16,
-    borderWidth: 1.5,
-  },
-  secLocked: {
-    backgroundColor: 'rgba(59, 130, 246, 0.1)',
-    borderColor: Theme.colors.primary,
-  },
-  secPaid: {
-    backgroundColor: 'rgba(16, 185, 129, 0.1)',
-    borderColor: Theme.colors.emerald,
-  },
-  secShield: {
-    fontSize: 13,
-    fontWeight: '900',
-    color: Theme.colors.textPrimary,
-    letterSpacing: 0.5,
-  },
-  secDesc: {
-    fontSize: 12,
-    color: Theme.colors.textSecondary,
-    marginTop: 4,
-    lineHeight: 16,
-  },
-  hashBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginTop: 10,
-    backgroundColor: 'rgba(0,0,0,0.3)',
-    padding: 8,
-    borderRadius: 6,
-  },
-  hashLabel: {
-    fontSize: 10,
-    fontWeight: 'bold',
-    color: Theme.colors.textMuted,
-  },
-  hashVal: {
-    fontSize: 10,
-    fontFamily: 'monospace',
-    color: '#38BDF8',
-    flex: 1,
-  },
-  card: {
-    backgroundColor: '#1E293B',
-    borderRadius: Theme.borderRadius.md,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
-    marginBottom: 14,
-  },
-  coCard: {
-    borderColor: 'rgba(139, 92, 246, 0.4)',
-    backgroundColor: 'rgba(30, 41, 59, 0.95)',
-  },
-  cardLabel: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: Theme.colors.textSecondary,
-    letterSpacing: 0.8,
-    marginBottom: 10,
-  },
-  clientName: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: Theme.colors.textPrimary,
-  },
-  clientDetail: {
-    fontSize: 13,
-    color: Theme.colors.textSecondary,
-    marginTop: 4,
-  },
-  clientDate: {
-    fontSize: 12,
-    color: Theme.colors.textMuted,
-    marginTop: 8,
-  },
-  itemRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingVertical: 8,
-    borderBottomWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.05)',
-  },
-  itemTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: Theme.colors.textPrimary,
-  },
-  itemSub: {
-    fontSize: 12,
-    color: Theme.colors.textSecondary,
-    marginTop: 2,
-  },
-  itemAmount: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: Theme.colors.textPrimary,
-  },
-  coRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingVertical: 8,
-    borderBottomWidth: 1,
-    borderColor: 'rgba(139, 92, 246, 0.2)',
-  },
-  coTitle: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#E2E8F0',
-  },
-  coDate: {
-    fontSize: 11,
-    color: '#94A3B8',
-    marginTop: 2,
-  },
-  coAmount: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: Theme.colors.amber,
-  },
-  summaryRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingVertical: 4,
-  },
-  sumLabel: {
-    fontSize: 13,
-    color: Theme.colors.textSecondary,
-  },
-  sumVal: {
-    fontSize: 13,
-    color: Theme.colors.textPrimary,
-    fontWeight: '600',
-  },
-  totalRow: {
-    borderTopWidth: 1.5,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
-    marginTop: 8,
-    paddingTop: 10,
-  },
-  totalLabel: {
-    fontSize: 14,
-    fontWeight: '900',
-    color: Theme.colors.textPrimary,
-  },
-  totalVal: {
-    fontSize: 22,
-    fontWeight: '900',
-    color: Theme.colors.emerald,
-  },
-  bottomBar: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: '#111827',
-    padding: 16,
-    paddingBottom: 28,
-    borderTopWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
-    flexDirection: 'row',
-    gap: 12,
-  },
-  coBtn: {
-    flex: 1,
-    backgroundColor: '#334155',
-    minHeight: Theme.touchTarget.minHeight,
-    borderRadius: Theme.borderRadius.md,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  coBtnText: {
-    color: '#FFFFFF',
-    fontWeight: '800',
-    fontSize: 14,
-  },
-  payBtn: {
-    flex: 2,
-    backgroundColor: Theme.colors.emerald,
-    minHeight: Theme.touchTarget.minHeight,
-    borderRadius: Theme.borderRadius.md,
-    justifyContent: 'center',
-    alignItems: 'center',
-    ...Theme.shadows.glowSuccess,
-  },
-  payBtnText: {
-    color: '#FFFFFF',
-    fontWeight: '900',
-    fontSize: 15,
-  },
-  receiptBtn: {
-    flex: 1,
-    backgroundColor: Theme.colors.primary,
-    minHeight: Theme.touchTarget.minHeight,
-    borderRadius: Theme.borderRadius.md,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  receiptBtnText: {
-    color: '#FFFFFF',
-    fontWeight: '900',
-    fontSize: 15,
-  },
-  clientHeaderRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-  },
-  contactActionsRow: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  contactBtn: {
-    backgroundColor: '#334155',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: Theme.borderRadius.sm,
-    borderWidth: 1,
-    borderColor: '#475569',
-  },
-  contactBtnSms: {
-    backgroundColor: 'rgba(56, 189, 248, 0.15)',
-    borderColor: '#38BDF8',
-  },
-  contactBtnText: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: 'bold',
-  },
-  photoPreview: {
-    width: '100%',
-    height: 180,
-    borderRadius: Theme.borderRadius.sm,
-    backgroundColor: '#0F172A',
-    marginBottom: 8,
-  },
-  photoCaption: {
-    fontSize: 11,
-    color: Theme.colors.textMuted,
-    fontStyle: 'italic',
-  },
-  headerRightActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  trashBtn: {
-    padding: 8,
-    borderRadius: Theme.borderRadius.full,
-    backgroundColor: 'rgba(239, 68, 68, 0.1)',
-    borderWidth: 1,
-    borderColor: 'rgba(239, 68, 68, 0.25)',
-  },
-  trashText: {
-    fontSize: 14,
-  },
-  notesText: {
-    fontSize: 13,
-    color: '#CBD5E1',
-    lineHeight: 20,
-  },
-  auditRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingVertical: 5,
-    borderBottomWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.05)',
-  },
-  auditLabel: {
-    fontSize: 12,
-    color: Theme.colors.textSecondary,
-    fontWeight: '600',
-  },
-  auditVal: {
-    fontSize: 12,
-    color: Theme.colors.textPrimary,
-    fontWeight: '500',
-  },
-});

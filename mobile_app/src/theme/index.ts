@@ -1,47 +1,160 @@
+/**
+ * JobSign Design System
+ * 
+ * Inspired by modern financial & field-service leaders (Square Invoices, Stripe, Joist, Jobber).
+ * Default mode: Clean, high-trust Light Mode with crisp typography, subtle slate borders,
+ * and high-contrast accessibility for outdoor job sites.
+ */
+
+export interface ThemeColors {
+  // Backgrounds & Surfaces
+  background: string;
+  backgroundSecondary: string;
+  surface: string;
+  card: string;
+  cardElevated: string;
+  cardBorder: string;
+  cardBorderActive: string;
+
+  // Core Brand Accent
+  primary: string;
+  primaryLight: string;
+  primaryDark: string;
+  accent: string;
+  accentLight: string;
+
+  // Status & Pills (Solid + Tint Pairs)
+  emerald: string;
+  successLight: string;
+  amber: string;
+  warningLight: string;
+  rose: string;
+  roseLight: string;
+  purple: string;
+  purpleLight: string;
+  slateInfo: string;
+  slateInfoLight: string;
+
+  // Borders & Dividers
+  border: string;
+  borderSubtle: string;
+
+  // Typography
+  textPrimary: string;
+  textSecondary: string;
+  textMuted: string;
+  textInverse: string;
+  textHighlight: string;
+
+  // Signature Canvas
+  canvasBg: string;
+  canvasBorder: string;
+  signatureInk: string;
+
+  // Modal Overlay
+  overlay: string;
+}
+
+export const LightColors: ThemeColors = {
+  // Backgrounds & Surfaces
+  background: '#F8FAFC',          // Slate-50 soft modern canvas
+  backgroundSecondary: '#F1F5F9', // Slate-100 section wells and input fills
+  surface: '#FFFFFF',             // Pure white
+  card: '#FFFFFF',                // Clean elevated cards
+  cardElevated: '#FFFFFF',
+  cardBorder: '#E2E8F0',          // Slate-200 crisp border
+  cardBorderActive: '#2563EB',    // Royal Blue active border
+
+  // Core Brand Accent
+  primary: '#2563EB',             // Royal Blue 600 (Square/Stripe caliber)
+  primaryLight: '#EFF6FF',        // Blue-50 subtle wash
+  primaryDark: '#1D4ED8',         // Blue-700 pressed state
+  accent: '#2563EB',
+  accentLight: '#EFF6FF',
+
+  // Status & Pills
+  emerald: '#059669',             // Emerald-600 (Paid / Complete)
+  successLight: '#ECFDF5',        // Emerald-50
+  amber: '#D97706',               // Amber-600 (Awaiting Payment / Pending)
+  warningLight: '#FFFBEB',        // Amber-50
+  rose: '#DC2626',                // Red-600 (Overdue / Destructive)
+  roseLight: '#FEF2F2',           // Red-50
+  purple: '#7C3AED',              // Violet-600 (Change Orders)
+  purpleLight: '#F5F3FF',         // Violet-50
+  slateInfo: '#475569',           // Slate-600 (Draft / Neutral)
+  slateInfoLight: '#F1F5F9',      // Slate-100
+
+  // Borders & Dividers
+  border: '#E2E8F0',              // Slate-200
+  borderSubtle: '#F1F5F9',        // Slate-100
+
+  // Typography
+  textPrimary: '#0F172A',         // Slate-900 rich charcoal
+  textSecondary: '#475569',       // Slate-600 balanced body text
+  textMuted: '#94A3B8',           // Slate-400 placeholders, subtle captions
+  textInverse: '#FFFFFF',         // Pure White on solid buttons
+  textHighlight: '#2563EB',       // Inline links & active numbers
+
+  // Signature Canvas
+  canvasBg: '#FFFFFF',
+  canvasBorder: '#CBD5E1',        // Slate-300
+  signatureInk: '#0F172A',
+
+  // Modal Overlay
+  overlay: 'rgba(15, 23, 42, 0.45)', // Dark translucent backdrop for light sheets
+};
+
+export const DarkColors: ThemeColors = {
+  // Backgrounds & Surfaces
+  background: '#0B0F19',          // Deep Obsidian Space
+  backgroundSecondary: '#111827', // Slate-900
+  surface: '#1E293B',             // Elevated Slate-800
+  card: '#1E293B',
+  cardElevated: '#334155',
+  cardBorder: '#334155',
+  cardBorderActive: '#3B82F6',
+
+  // Core Brand Accent
+  primary: '#3B82F6',
+  primaryLight: 'rgba(59, 130, 246, 0.15)',
+  primaryDark: '#2563EB',
+  accent: '#3B82F6',
+  accentLight: 'rgba(59, 130, 246, 0.15)',
+
+  // Status & Pills
+  emerald: '#10B981',
+  successLight: 'rgba(16, 185, 129, 0.15)',
+  amber: '#F59E0B',
+  warningLight: 'rgba(245, 158, 11, 0.15)',
+  rose: '#F43F5E',
+  roseLight: 'rgba(244, 63, 94, 0.15)',
+  purple: '#8B5CF6',
+  purpleLight: 'rgba(139, 92, 246, 0.15)',
+  slateInfo: '#94A3B8',
+  slateInfoLight: '#1E293B',
+
+  // Borders & Dividers
+  border: '#334155',
+  borderSubtle: '#1E293B',
+
+  // Typography
+  textPrimary: '#F8FAFC',
+  textSecondary: '#94A3B8',
+  textMuted: '#64748B',
+  textInverse: '#FFFFFF',
+  textHighlight: '#38BDF8',
+
+  // Signature Canvas
+  canvasBg: '#FFFFFF',
+  canvasBorder: '#475569',
+  signatureInk: '#0F172A',
+
+  // Modal Overlay
+  overlay: 'rgba(11, 15, 25, 0.88)',
+};
+
 export const Theme = {
-  colors: {
-    // Rich Dark Backgrounds & Contrast Surfaces
-    background: '#0B0F19',        // Deep Obsidian Space
-    backgroundSecondary: '#111827',
-    card: '#1E293B',              // Elevated Slate Card
-    cardElevated: '#334155',
-    cardBorder: 'rgba(255, 255, 255, 0.08)',
-    cardBorderActive: '#3B82F6',
-
-    // Core Brand Accents
-    primary: '#3B82F6',           // Bright Electric Blue
-    primaryGlow: 'rgba(59, 130, 246, 0.25)',
-    accent: '#3B82F6',
-    accentLight: '#1E293B',
-
-    // Status Colors
-    emerald: '#10B981',           // Emerald Shield
-    emeraldGlow: 'rgba(16, 185, 129, 0.25)',
-    success: '#10B981',
-    successLight: 'rgba(16, 185, 129, 0.15)',
-
-    amber: '#F59E0B',             // Amber Ochre
-    amberGlow: 'rgba(245, 158, 11, 0.25)',
-    warning: '#F59E0B',
-    warningLight: 'rgba(245, 158, 11, 0.15)',
-
-    rose: '#F43F5E',              // Rose Red
-    purple: '#8B5CF6',            // Change Orders
-
-    // Borders & Dividers
-    border: '#334155',
-    borderSubtle: 'rgba(255, 255, 255, 0.08)',
-
-    // Typography Hierarchy
-    textPrimary: '#F8FAFC',       // Pure Crisp White
-    textSecondary: '#94A3B8',     // Muted Slate
-    textMuted: '#64748B',
-    textHighlight: '#38BDF8',
-
-    // Canvas Spec
-    canvasBg: '#FFFFFF',
-    signatureInk: '#0F172A',
-  },
+  colors: LightColors, // Default is Light Mode
 
   spacing: {
     xs: 4,
@@ -52,38 +165,43 @@ export const Theme = {
   },
 
   touchTarget: {
-    minHeight: 56,               // Field-tough glove-friendly invariant
+    minHeight: 52, // Ergonomic 52dp touch target
   },
 
   borderRadius: {
+    xs: 6,
     sm: 8,
-    md: 14,
-    lg: 20,
-    xl: 28,
+    md: 12,
+    lg: 16,
+    xl: 24,
     full: 9999,
   },
 
   shadows: {
     card: {
-      shadowColor: '#000000',
+      shadowColor: '#0F172A',
+      shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: 0.05,
+      shadowRadius: 3,
+      elevation: 2,
+    },
+    cardRaised: {
+      shadowColor: '#0F172A',
       shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: 0.35,
-      shadowRadius: 8,
-      elevation: 5,
+      shadowOpacity: 0.08,
+      shadowRadius: 10,
+      elevation: 4,
     },
-    glowPrimary: {
-      shadowColor: '#3B82F6',
-      shadowOffset: { width: 0, height: 6 },
-      shadowOpacity: 0.45,
-      shadowRadius: 12,
-      elevation: 8,
-    },
-    glowSuccess: {
-      shadowColor: '#10B981',
-      shadowOffset: { width: 0, height: 6 },
-      shadowOpacity: 0.45,
-      shadowRadius: 12,
-      elevation: 8,
+    primaryBtn: {
+      shadowColor: '#2563EB',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.2,
+      shadowRadius: 4,
+      elevation: 3,
     },
   },
+};
+
+export const getThemeColors = (isDark: boolean): ThemeColors => {
+  return isDark ? DarkColors : LightColors;
 };

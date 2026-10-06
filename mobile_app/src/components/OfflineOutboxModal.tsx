@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -11,9 +11,10 @@ import {
 } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
 import * as Haptics from 'expo-haptics';
-import { Theme } from '../theme';
+import { Theme, getThemeColors, ThemeColors } from '../theme';
 import { OutboxItem } from '../types';
 import { OutboxService } from '../services/OutboxService';
+import { useQuoteStore } from '../store/useQuoteStore';
 
 interface OfflineOutboxModalProps {
   visible: boolean;
@@ -26,6 +27,10 @@ export const OfflineOutboxModal: React.FC<OfflineOutboxModalProps> = ({
   onClose,
   onQueueUpdated,
 }) => {
+  const { isDarkMode } = useQuoteStore();
+  const colors = getThemeColors(isDarkMode);
+  const styles = useMemo(() => makeStyles(colors), [colors]);
+
   const [items, setItems] = useState<OutboxItem[]>([]);
   const [isOnline, setIsOnline] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false);
@@ -53,9 +58,9 @@ export const OfflineOutboxModal: React.FC<OfflineOutboxModalProps> = ({
     if (onQueueUpdated) onQueueUpdated();
 
     if (result.sent > 0) {
-      Alert.alert('Sync Complete! 📡', `Successfully dispatched ${result.sent} pending agreement(s).`);
+      Alert.alert('Sync Complete', `Successfully dispatched ${result.sent} pending agreement(s).`);
     } else {
-      Alert.alert('Queue Up to Date', 'No pending items to dispatch or phone is currently offline.');
+      Alert.alert('Queue Up to Date', 'No pending items to dispatch or device is currently offline.');
     }
   };
 
@@ -75,11 +80,11 @@ export const OfflineOutboxModal: React.FC<OfflineOutboxModalProps> = ({
           {/* Header */}
           <View style={styles.header}>
             <View>
-              <Text style={styles.title}>📡 Offline Outbox & Sync</Text>
+              <Text style={styles.title}>Sync Status</Text>
               <View style={styles.statusRow}>
                 <View style={[styles.statusDot, isOnline ? styles.dotOnline : styles.dotOffline]} />
                 <Text style={styles.statusText}>
-                  {isOnline ? 'Cellular / Wi-Fi Active' : 'Offline / Basement Mode'}
+                  {isOnline ? 'Online (Cellular / Wi-Fi Active)' : 'Offline (Field Mode)'}
                 </Text>
               </View>
             </View>
@@ -107,7 +112,7 @@ export const OfflineOutboxModal: React.FC<OfflineOutboxModalProps> = ({
               onPress={() => setActiveTab('OFFLINE_QR')}
             >
               <Text style={[styles.tabBtnText, activeTab === 'OFFLINE_QR' && styles.tabBtnTextActive]}>
-                Offline Client QR
+                Offline QR Handshake
               </Text>
             </TouchableOpacity>
           </View>
@@ -157,9 +162,9 @@ export const OfflineOutboxModal: React.FC<OfflineOutboxModalProps> = ({
                 )}
                 ListEmptyComponent={
                   <View style={styles.emptyBox}>
-                    <Text style={styles.emptyTitle}>Outbox is completely clear</Text>
+                    <Text style={styles.emptyTitle}>Outbox is clear</Text>
                     <Text style={styles.emptySub}>
-                      Agreements created without reception will queue here and automatically send when 4G/Wi-Fi is reconnected.
+                      Agreements created without reception queue here and automatically send when connection is restored.
                     </Text>
                   </View>
                 }
@@ -175,7 +180,7 @@ export const OfflineOutboxModal: React.FC<OfflineOutboxModalProps> = ({
                   <ActivityIndicator color="#FFFFFF" />
                 ) : (
                   <Text style={styles.syncBtnText}>
-                    ⚡ FORCE SYNC OUTBOX ({pendingCount} PENDING)
+                    Sync Now ({pendingCount} Pending)
                   </Text>
                 )}
               </TouchableOpacity>
@@ -183,7 +188,7 @@ export const OfflineOutboxModal: React.FC<OfflineOutboxModalProps> = ({
           ) : (
             <View style={styles.qrContainer}>
               <Text style={styles.qrExplain}>
-                Zero bars in basement? Have client scan this screen to receive document token instantly.
+                No mobile signal? Have the client scan this screen to receive their document token directly.
               </Text>
               <View style={styles.qrFrame}>
                 <QRCode
@@ -193,7 +198,7 @@ export const OfflineOutboxModal: React.FC<OfflineOutboxModalProps> = ({
                   backgroundColor="#FFFFFF"
                 />
               </View>
-              <Text style={styles.qrSub}>Offline P2P Encrypted Handshake Token</Text>
+              <Text style={styles.qrSub}>Encrypted Offline Handshake Token</Text>
             </View>
           )}
         </View>
@@ -202,193 +207,225 @@ export const OfflineOutboxModal: React.FC<OfflineOutboxModalProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    backgroundColor: 'rgba(15, 23, 42, 0.7)',
-    justifyContent: 'flex-end',
-  },
-  sheet: {
-    backgroundColor: '#0F172A',
-    borderTopLeftRadius: Theme.borderRadius.lg,
-    borderTopRightRadius: Theme.borderRadius.lg,
-    padding: 24,
-    paddingBottom: 40,
-    maxHeight: '85%',
-    borderWidth: 1,
-    borderColor: '#334155',
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  title: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: Theme.colors.textPrimary,
-  },
-  statusRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 4,
-    gap: 6,
-  },
-  statusDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-  },
-  dotOnline: {
-    backgroundColor: Theme.colors.emerald,
-  },
-  dotOffline: {
-    backgroundColor: Theme.colors.rose,
-  },
-  statusText: {
-    fontSize: 12,
-    color: Theme.colors.textSecondary,
-    fontWeight: '600',
-  },
-  closeBtn: {
-    padding: 6,
-  },
-  closeText: {
-    fontSize: 18,
-    color: Theme.colors.textMuted,
-    fontWeight: 'bold',
-  },
-  tabsRow: {
-    flexDirection: 'row',
-    backgroundColor: '#1E293B',
-    borderRadius: Theme.borderRadius.sm,
-    padding: 4,
-    marginBottom: 16,
-  },
-  tabBtn: {
-    flex: 1,
-    paddingVertical: 8,
-    alignItems: 'center',
-    borderRadius: 6,
-  },
-  tabBtnActive: {
-    backgroundColor: '#334155',
-  },
-  tabBtnText: {
-    fontSize: 13,
-    fontWeight: 'bold',
-    color: Theme.colors.textMuted,
-  },
-  tabBtnTextActive: {
-    color: '#FFFFFF',
-  },
-  listContent: {
-    paddingBottom: 16,
-  },
-  itemCard: {
-    flexDirection: 'row',
-    backgroundColor: '#1E293B',
-    padding: 12,
-    borderRadius: Theme.borderRadius.md,
-    marginBottom: 10,
-    alignItems: 'center',
-  },
-  itemTitle: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    color: Theme.colors.textPrimary,
-  },
-  itemSub: {
-    fontSize: 12,
-    color: Theme.colors.textSecondary,
-    marginTop: 2,
-  },
-  itemTime: {
-    fontSize: 11,
-    color: Theme.colors.textMuted,
-    marginTop: 4,
-  },
-  rightActionCol: {
-    alignItems: 'flex-end',
-    gap: 6,
-  },
-  badge: {
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 4,
-  },
-  badgePending: {
-    backgroundColor: 'rgba(245, 158, 11, 0.2)',
-  },
-  badgeSent: {
-    backgroundColor: 'rgba(16, 185, 129, 0.2)',
-  },
-  badgeFailed: {
-    backgroundColor: 'rgba(239, 68, 68, 0.2)',
-  },
-  badgeText: {
-    fontSize: 10,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-  },
-  delBtn: {
-    paddingVertical: 2,
-  },
-  delText: {
-    fontSize: 11,
-    color: Theme.colors.rose,
-  },
-  emptyBox: {
-    padding: 30,
-    alignItems: 'center',
-  },
-  emptyTitle: {
-    fontSize: 15,
-    fontWeight: 'bold',
-    color: Theme.colors.textPrimary,
-  },
-  emptySub: {
-    fontSize: 12,
-    color: Theme.colors.textMuted,
-    textAlign: 'center',
-    marginTop: 6,
-    lineHeight: 18,
-  },
-  syncBtn: {
-    backgroundColor: Theme.colors.primary,
-    minHeight: Theme.touchTarget.minHeight,
-    borderRadius: Theme.borderRadius.md,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginTop: 8,
-  },
-  syncBtnText: {
-    color: '#FFFFFF',
-    fontWeight: '900',
-    fontSize: 14,
-    letterSpacing: 0.5,
-  },
-  qrContainer: {
-    alignItems: 'center',
-    paddingVertical: 20,
-  },
-  qrExplain: {
-    fontSize: 13,
-    color: Theme.colors.textSecondary,
-    textAlign: 'center',
-    marginBottom: 20,
-    lineHeight: 18,
-  },
-  qrFrame: {
-    backgroundColor: '#FFFFFF',
-    padding: 16,
-    borderRadius: 12,
-  },
-  qrSub: {
-    fontSize: 12,
-    color: Theme.colors.textMuted,
-    marginTop: 14,
-    fontWeight: '600',
-  },
-});
+const makeStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
+    overlay: {
+      flex: 1,
+      backgroundColor: colors.overlay,
+      justifyContent: 'flex-end',
+    },
+    sheet: {
+      backgroundColor: colors.surface,
+      borderTopLeftRadius: Theme.borderRadius.lg,
+      borderTopRightRadius: Theme.borderRadius.lg,
+      padding: 24,
+      paddingBottom: 40,
+      maxHeight: '85%',
+      borderTopWidth: 1,
+      borderColor: colors.border,
+      shadowColor: '#0F172A',
+      shadowOffset: { width: 0, height: -3 },
+      shadowOpacity: 0.1,
+      shadowRadius: 8,
+      elevation: 6,
+    },
+    header: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: 16,
+    },
+    title: {
+      fontSize: 18,
+      fontWeight: '800',
+      color: colors.textPrimary,
+    },
+    statusRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginTop: 4,
+      gap: 6,
+    },
+    statusDot: {
+      width: 8,
+      height: 8,
+      borderRadius: 4,
+    },
+    dotOnline: {
+      backgroundColor: colors.emerald,
+    },
+    dotOffline: {
+      backgroundColor: colors.rose,
+    },
+    statusText: {
+      fontSize: 12,
+      color: colors.textSecondary,
+      fontWeight: '600',
+    },
+    closeBtn: {
+      padding: 6,
+    },
+    closeText: {
+      fontSize: 18,
+      color: colors.textMuted,
+      fontWeight: 'bold',
+    },
+    tabsRow: {
+      flexDirection: 'row',
+      backgroundColor: colors.backgroundSecondary,
+      borderRadius: Theme.borderRadius.sm,
+      padding: 4,
+      marginBottom: 16,
+    },
+    tabBtn: {
+      flex: 1,
+      paddingVertical: 8,
+      alignItems: 'center',
+      borderRadius: 6,
+    },
+    tabBtnActive: {
+      backgroundColor: colors.surface,
+      shadowColor: '#0F172A',
+      shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: 0.08,
+      shadowRadius: 2,
+      elevation: 2,
+    },
+    tabBtnText: {
+      fontSize: 13,
+      fontWeight: '700',
+      color: colors.textSecondary,
+    },
+    tabBtnTextActive: {
+      color: colors.primary,
+      fontWeight: '800',
+    },
+    listContent: {
+      paddingBottom: 16,
+    },
+    itemCard: {
+      flexDirection: 'row',
+      backgroundColor: colors.card,
+      padding: 12,
+      borderRadius: Theme.borderRadius.md,
+      marginBottom: 10,
+      alignItems: 'center',
+      borderWidth: 1,
+      borderColor: colors.cardBorder,
+      shadowColor: '#0F172A',
+      shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: 0.04,
+      shadowRadius: 2,
+      elevation: 1,
+    },
+    itemTitle: {
+      fontSize: 14,
+      fontWeight: 'bold',
+      color: colors.textPrimary,
+    },
+    itemSub: {
+      fontSize: 12,
+      color: colors.textSecondary,
+      marginTop: 2,
+    },
+    itemTime: {
+      fontSize: 11,
+      color: colors.textMuted,
+      marginTop: 4,
+    },
+    rightActionCol: {
+      alignItems: 'flex-end',
+      gap: 6,
+    },
+    badge: {
+      paddingHorizontal: 8,
+      paddingVertical: 3,
+      borderRadius: 4,
+    },
+    badgePending: {
+      backgroundColor: colors.warningLight,
+    },
+    badgeSent: {
+      backgroundColor: colors.successLight,
+    },
+    badgeFailed: {
+      backgroundColor: colors.roseLight,
+    },
+    badgeText: {
+      fontSize: 10,
+      fontWeight: 'bold',
+      color: colors.textPrimary,
+    },
+    delBtn: {
+      paddingVertical: 2,
+    },
+    delText: {
+      fontSize: 11,
+      color: colors.rose,
+      fontWeight: '600',
+    },
+    emptyBox: {
+      padding: 30,
+      alignItems: 'center',
+    },
+    emptyTitle: {
+      fontSize: 15,
+      fontWeight: 'bold',
+      color: colors.textPrimary,
+    },
+    emptySub: {
+      fontSize: 12,
+      color: colors.textMuted,
+      textAlign: 'center',
+      marginTop: 6,
+      lineHeight: 18,
+    },
+    syncBtn: {
+      backgroundColor: colors.primary,
+      minHeight: Theme.touchTarget.minHeight,
+      borderRadius: Theme.borderRadius.md,
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginTop: 8,
+      shadowColor: '#2563EB',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.2,
+      shadowRadius: 4,
+      elevation: 3,
+    },
+    syncBtnText: {
+      color: '#FFFFFF',
+      fontWeight: '800',
+      fontSize: 14,
+      letterSpacing: 0.3,
+    },
+    qrContainer: {
+      alignItems: 'center',
+      paddingVertical: 20,
+    },
+    qrExplain: {
+      fontSize: 13,
+      color: colors.textSecondary,
+      textAlign: 'center',
+      marginBottom: 20,
+      lineHeight: 18,
+    },
+    qrFrame: {
+      backgroundColor: '#FFFFFF',
+      padding: 16,
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: colors.border,
+      shadowColor: '#0F172A',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.06,
+      shadowRadius: 4,
+      elevation: 2,
+    },
+    qrSub: {
+      fontSize: 12,
+      color: colors.textMuted,
+      marginTop: 14,
+      fontWeight: '600',
+    },
+  });
