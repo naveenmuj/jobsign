@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, View, BackHandler } from 'react-native';
+import { StyleSheet, View, BackHandler, LogBox } from 'react-native';
+
+LogBox.ignoreLogs(['Error configuring Purchases', 'RevenueCat initialization skipped']);
 import { HomeScreen } from './src/screens/HomeScreen';
 import { QuoteBuilderScreen } from './src/screens/QuoteBuilderScreen';
 import { QuoteDetailScreen } from './src/screens/QuoteDetailScreen';
@@ -9,7 +11,10 @@ import { Quote } from './src/types';
 import { useQuoteStore } from './src/store/useQuoteStore';
 import { BillingService } from './src/services/BillingService';
 
+console.log('[JobSign] App.tsx module loaded');
+
 export default function App() {
+  console.log('[JobSign] App() component rendering...');
   const [currentScreen, setCurrentScreen] = useState<'HOME' | 'BUILDER' | 'DETAIL' | 'SETTINGS'>('HOME');
   const [activeQuoteId, setActiveQuoteId] = useState<string | null>(null);
   const quotes = useQuoteStore((state) => state.quotes);

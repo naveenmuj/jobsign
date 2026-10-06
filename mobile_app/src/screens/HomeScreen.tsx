@@ -29,6 +29,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   onSelectQuote,
   onOpenSettings,
 }) => {
+  console.log('[JobSign] HomeScreen component rendering...');
   const { quotes, loadQuotes, activeFilter, setFilter, profile, isPro, isLoading } = useQuoteStore();
   const [selectedPaymentQuote, setSelectedPaymentQuote] = useState<Quote | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
