@@ -1,5 +1,5 @@
 import * as SQLite from 'expo-sqlite';
-import { Quote, LineItem } from '../types';
+import { Quote, LineItem, ChangeOrder } from '../types';
 
 export class DatabaseService {
   private static db: SQLite.SQLiteDatabase | null = null;
@@ -13,7 +13,6 @@ export class DatabaseService {
   }
 
   private static async initSchema(db: SQLite.SQLiteDatabase) {
-    // Enable Write-Ahead Logging (WAL) for maximum speed and concurrent read/writes
     await db.execAsync(`
       PRAGMA journal_mode = WAL;
       PRAGMA synchronous = NORMAL;
@@ -25,12 +24,14 @@ export class DatabaseService {
         client_phone TEXT,
         client_email TEXT,
         client_address TEXT,
+        job_description TEXT,
         status TEXT NOT NULL,
         subtotal_cents INTEGER NOT NULL,
-        tax_rate_basis_points INTEGER DEFAULT 0,
+        tax_rate_basis_points INTEGER DEFAULT 825,
         tax_amount_cents INTEGER DEFAULT 0,
         total_amount_cents INTEGER NOT NULL,
         notes TEXT,
+        photo_uri TEXT,
         signature_svg TEXT,
         signature_timestamp INTEGER,
         signature_gps_lat REAL,
@@ -49,16 +50,26 @@ export class DatabaseService {
         total_cents INTEGER NOT NULL
       );
 
+      CREATE TABLE IF NOT EXISTS change_orders (
+        id TEXT PRIMARY KEY NOT NULL,
+        quote_id TEXT NOT NULL REFERENCES quotes(id) ON DELETE CASCADE,
+        order_number INTEGER NOT NULL,
+        reason TEXT NOT NULL,
+        added_total_cents INTEGER NOT NULL,
+        signature_svg TEXT NOT NULL,
+        signature_timestamp INTEGER NOT NULL,
+        pdf_sha256_hash TEXT NOT NULL
+      );
+
       CREATE INDEX IF NOT EXISTS idx_quotes_status ON quotes(status);
       CREATE INDEX IF NOT EXISTS idx_line_items_quote_id ON line_items(quote_id);
+      CREATE INDEX IF NOT EXISTS idx_change_orders_quote_id ON change_orders(quote_id);
     `);
   }
 
   public static async getAllQuotes(): Promise<Quote[]> {
     const db = await this.getDB();
-    const rows = await db.getAllAsync<any>(
-      'SELECT * FROM quotes ORDER BY created_at DESC'
-    );
+    const rows = await db.getAllAsync<any>('SELECT * FROM quotes ORDER BY created_at DESC');
 
     const quotes: Quote[] = [];
     for (const r of rows) {
@@ -66,6 +77,11 @@ export class DatabaseService {
         'SELECT * FROM line_items WHERE quote_id = ?',
         [r.id]
       );
+      const cos = await db.getAllAsync<any>(
+        'SELECT * FROM change_orders WHERE quote_id = ? ORDER BY order_number ASC',
+        [r.id]
+      );
+
       quotes.push({
         id: r.id,
         quoteNumber: r.quote_number,
@@ -73,12 +89,14 @@ export class DatabaseService {
         clientPhone: r.client_phone,
         clientEmail: r.client_email,
         clientAddress: r.client_address,
+        jobDescription: r.job_description,
         status: r.status,
         subtotalCents: r.subtotal_cents,
         taxRateBasisPoints: r.tax_rate_basis_points,
         taxAmountCents: r.tax_amount_cents,
         totalAmountCents: r.total_amount_cents,
         notes: r.notes,
+        photoUri: r.photo_uri,
         signatureSvg: r.signature_svg,
         signatureTimestamp: r.signature_timestamp,
         signatureGpsLat: r.signature_gps_lat,
@@ -93,6 +111,17 @@ export class DatabaseService {
           quantity: i.quantity,
           totalCents: i.total_cents,
         })),
+        changeOrders: cos.map((c) => ({
+          id: c.id,
+          quoteId: c.quote_id,
+          orderNumber: c.order_number,
+          reason: c.reason,
+          addedItems: [],
+          addedTotalCents: c.added_total_cents,
+          signatureSvg: c.signature_svg,
+          signatureTimestamp: c.signature_timestamp,
+          pdfSha256Hash: c.pdf_sha256_hash,
+        })),
       });
     }
     return quotes;
@@ -104,10 +133,10 @@ export class DatabaseService {
       await db.runAsync(
         `INSERT OR REPLACE INTO quotes (
           id, quote_number, client_name, client_phone, client_email, client_address,
-          status, subtotal_cents, tax_rate_basis_points, tax_amount_cents,
-          total_amount_cents, notes, signature_svg, signature_timestamp,
+          job_description, status, subtotal_cents, tax_rate_basis_points, tax_amount_cents,
+          total_amount_cents, notes, photo_uri, signature_svg, signature_timestamp,
           signature_gps_lat, signature_gps_lng, pdf_sha256_hash, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           quote.id,
           quote.quoteNumber,
@@ -115,12 +144,14 @@ export class DatabaseService {
           quote.clientPhone || null,
           quote.clientEmail || null,
           quote.clientAddress || null,
+          quote.jobDescription || null,
           quote.status,
           quote.subtotalCents,
           quote.taxRateBasisPoints,
           quote.taxAmountCents,
           quote.totalAmountCents,
           quote.notes || null,
+          quote.photoUri || null,
           quote.signatureSvg || null,
           quote.signatureTimestamp || null,
           quote.signatureGpsLat || null,
@@ -131,7 +162,7 @@ export class DatabaseService {
         ]
       );
 
-      // Re-insert line items
+      // Refresh line items
       await db.runAsync('DELETE FROM line_items WHERE quote_id = ?', [quote.id]);
       for (const item of quote.lineItems) {
         await db.runAsync(
@@ -139,6 +170,18 @@ export class DatabaseService {
            VALUES (?, ?, ?, ?, ?, ?)`,
           [item.id, quote.id, item.description, item.unitPriceCents, item.quantity, item.totalCents]
         );
+      }
+
+      // Refresh change orders if present
+      if (quote.changeOrders && quote.changeOrders.length > 0) {
+        await db.runAsync('DELETE FROM change_orders WHERE quote_id = ?', [quote.id]);
+        for (const co of quote.changeOrders) {
+          await db.runAsync(
+            `INSERT INTO change_orders (id, quote_id, order_number, reason, added_total_cents, signature_svg, signature_timestamp, pdf_sha256_hash)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+            [co.id, co.quoteId, co.orderNumber, co.reason, co.addedTotalCents, co.signatureSvg, co.signatureTimestamp, co.pdfSha256Hash]
+          );
+        }
       }
     });
   }

@@ -3,17 +3,35 @@ import { StatusBar } from 'expo-status-bar';
 import { StyleSheet, View } from 'react-native';
 import { HomeScreen } from './src/screens/HomeScreen';
 import { QuoteBuilderScreen } from './src/screens/QuoteBuilderScreen';
+import { QuoteDetailScreen } from './src/screens/QuoteDetailScreen';
+import { Quote } from './src/types';
 
 export default function App() {
-  const [currentScreen, setCurrentScreen] = useState<'HOME' | 'BUILDER'>('HOME');
+  const [currentScreen, setCurrentScreen] = useState<'HOME' | 'BUILDER' | 'DETAIL'>('HOME');
+  const [activeQuote, setActiveQuote] = useState<Quote | null>(null);
+
+  const handleSelectQuote = (quote: Quote) => {
+    setActiveQuote(quote);
+    setCurrentScreen('DETAIL');
+  };
 
   return (
     <View style={styles.container}>
-      <StatusBar style="dark" />
-      {currentScreen === 'HOME' ? (
-        <HomeScreen onNewQuote={() => setCurrentScreen('BUILDER')} />
-      ) : (
+      <StatusBar style="light" />
+      {currentScreen === 'HOME' && (
+        <HomeScreen
+          onNewQuote={() => setCurrentScreen('BUILDER')}
+          onSelectQuote={handleSelectQuote}
+        />
+      )}
+      {currentScreen === 'BUILDER' && (
         <QuoteBuilderScreen onBack={() => setCurrentScreen('HOME')} />
+      )}
+      {currentScreen === 'DETAIL' && activeQuote && (
+        <QuoteDetailScreen
+          quote={activeQuote}
+          onBack={() => setCurrentScreen('HOME')}
+        />
       )}
     </View>
   );
@@ -22,6 +40,6 @@ export default function App() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#0B0F19',
   },
 });

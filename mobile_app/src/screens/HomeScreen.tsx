@@ -6,16 +6,21 @@ import {
   FlatList,
   TouchableOpacity,
   RefreshControl,
-  Modal,
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { Theme } from '../theme';
 import { Quote } from '../types';
 import { useQuoteStore } from '../store/useQuoteStore';
 import { PDFService } from '../services/PDFService';
+import { JobCard } from '../components/JobCard';
 import { PaymentQRModal } from '../components/PaymentQRModal';
 
-export const HomeScreen: React.FC<{ onNewQuote: () => void }> = ({ onNewQuote }) => {
+interface HomeScreenProps {
+  onNewQuote: () => void;
+  onSelectQuote: (quote: Quote) => void;
+}
+
+export const HomeScreen: React.FC<HomeScreenProps> = ({ onNewQuote, onSelectQuote }) => {
   const { quotes, loadQuotes, activeFilter, setFilter, isLoading } = useQuoteStore();
   const [selectedPaymentQuote, setSelectedPaymentQuote] = useState<Quote | null>(null);
 
@@ -32,68 +37,13 @@ export const HomeScreen: React.FC<{ onNewQuote: () => void }> = ({ onNewQuote })
     .filter((q) => q.status === 'SIGNED_LOCKED')
     .reduce((sum, q) => sum + q.totalAmountCents, 0);
 
+  const totalCollected = quotes
+    .filter((q) => q.status === 'PAID')
+    .reduce((sum, q) => sum + q.totalAmountCents, 0);
+
   const handleSharePDF = async (quote: Quote) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     await PDFService.generateAndSharePDF(quote);
-  };
-
-  const renderQuoteCard = ({ item }: { item: Quote }) => {
-    const isLocked = item.status === 'SIGNED_LOCKED';
-    const isPaid = item.status === 'PAID';
-
-    return (
-      <View style={styles.card}>
-        <View style={styles.cardHeader}>
-          <View>
-            <Text style={styles.clientName}>{item.clientName}</Text>
-            <Text style={styles.quoteSub}>#{item.quoteNumber} • {new Date(item.createdAt).toLocaleDateString()}</Text>
-          </View>
-          <Text style={styles.amount}>${(item.totalAmountCents / 100).toFixed(2)}</Text>
-        </View>
-
-        {/* Status Pill */}
-        <View style={styles.statusRow}>
-          <View
-            style={[
-              styles.pill,
-              isPaid ? styles.pillPaid : isLocked ? styles.pillSigned : styles.pillDraft,
-            ]}
-          >
-            <Text
-              style={[
-                styles.pillText,
-                isPaid ? styles.pillTextPaid : isLocked ? styles.pillTextSigned : styles.pillTextDraft,
-              ]}
-            >
-              {isPaid ? '✔ PAID & SETTLED' : isLocked ? '🔒 SIGNED & LOCKED' : '📝 DRAFT'}
-            </Text>
-          </View>
-
-          {item.pdfSha256Hash && (
-            <Text style={styles.hashBadge}>SHA-256: {item.pdfSha256Hash.substring(0, 8)}...</Text>
-          )}
-        </View>
-
-        {/* Action Buttons */}
-        <View style={styles.cardActions}>
-          <TouchableOpacity style={styles.actionBtnOutline} onPress={() => handleSharePDF(item)}>
-            <Text style={styles.actionBtnOutlineText}>📄 Share PDF</Text>
-          </TouchableOpacity>
-
-          {!isPaid && (
-            <TouchableOpacity
-              style={styles.actionBtnSolid}
-              onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                setSelectedPaymentQuote(item);
-              }}
-            >
-              <Text style={styles.actionBtnSolidText}>💵 Collect Pay</Text>
-            </TouchableOpacity>
-          )}
-        </View>
-      </View>
-    );
   };
 
   return (
@@ -102,21 +52,33 @@ export const HomeScreen: React.FC<{ onNewQuote: () => void }> = ({ onNewQuote })
       <View style={styles.header}>
         <View>
           <Text style={styles.brandTitle}>🔨 JobSign</Text>
-          <Text style={styles.brandSub}>Field Agreement & Settlement</Text>
+          <Text style={styles.brandSub}>Field Agreement & Instant Settlement</Text>
         </View>
         <View style={styles.proBadge}>
           <Text style={styles.proBadgeText}>PRO ⭐️</Text>
         </View>
       </View>
 
-      {/* Metrics Banner */}
-      <View style={styles.metricsCard}>
-        <Text style={styles.metricsLabel}>APPROVED & UNCOLLECTED</Text>
-        <Text style={styles.metricsVal}>${(totalUncollected / 100).toFixed(2)}</Text>
-        <Text style={styles.metricsSub}>{quotes.length} Total Jobs on Record (Offline SQLite)</Text>
+      {/* High-Impact Metrics Dashboard */}
+      <View style={styles.metricsContainer}>
+        <View style={styles.metricCard}>
+          <Text style={styles.metricLabel}>TO COLLECT</Text>
+          <Text style={[styles.metricVal, { color: Theme.colors.amber }]}>
+            ${(totalUncollected / 100).toFixed(0)}
+          </Text>
+          <Text style={styles.metricSub}>Approved on glass</Text>
+        </View>
+
+        <View style={styles.metricCard}>
+          <Text style={styles.metricLabel}>PAID IN FULL</Text>
+          <Text style={[styles.metricVal, { color: Theme.colors.emerald }]}>
+            ${(totalCollected / 100).toFixed(0)}
+          </Text>
+          <Text style={styles.metricSub}>Direct 0% fee P2P</Text>
+        </View>
       </View>
 
-      {/* Filter Tabs */}
+      {/* Segmented Filter Pills */}
       <View style={styles.filterRow}>
         {(['ALL', 'SIGNED_LOCKED', 'PAID', 'DRAFT'] as const).map((tab) => (
           <TouchableOpacity
@@ -134,17 +96,26 @@ export const HomeScreen: React.FC<{ onNewQuote: () => void }> = ({ onNewQuote })
         ))}
       </View>
 
-      {/* Quotes List */}
+      {/* Active Jobs Pipeline */}
       <FlatList
         data={filteredQuotes}
         keyExtractor={(item) => item.id}
-        renderItem={renderQuoteCard}
+        renderItem={({ item }) => (
+          <JobCard
+            quote={item}
+            onPress={() => onSelectQuote(item)}
+            onSharePDF={() => handleSharePDF(item)}
+            onCollectPay={() => setSelectedPaymentQuote(item)}
+          />
+        )}
         contentContainerStyle={styles.listContent}
-        refreshControl={<RefreshControl refreshing={isLoading} onRefresh={loadQuotes} />}
+        refreshControl={<RefreshControl refreshing={isLoading} onRefresh={loadQuotes} tintColor="#38BDF8" />}
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
-            <Text style={styles.emptyTitle}>No estimates in this view</Text>
-            <Text style={styles.emptyDesc}>Tap the button below to build your first 60-second quote.</Text>
+            <Text style={styles.emptyTitle}>Zero active estimates in this view</Text>
+            <Text style={styles.emptyDesc}>
+              Tap below to assemble your first 60-second quote with client signature.
+            </Text>
           </View>
         }
       />
@@ -152,6 +123,7 @@ export const HomeScreen: React.FC<{ onNewQuote: () => void }> = ({ onNewQuote })
       {/* Floating Action Button */}
       <TouchableOpacity
         style={styles.fab}
+        activeOpacity={0.9}
         onPress={() => {
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
           onNewQuote();
@@ -182,15 +154,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 20,
     paddingTop: 54,
-    paddingBottom: 14,
-    backgroundColor: '#FFFFFF',
-    borderBottomWidth: 1.5,
-    borderColor: Theme.colors.borderSubtle,
+    paddingBottom: 16,
+    backgroundColor: '#111827',
+    borderBottomWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
   },
   brandTitle: {
-    fontSize: 22,
+    fontSize: 24,
     fontWeight: '900',
-    color: Theme.colors.primary,
+    color: Theme.colors.textPrimary,
     letterSpacing: -0.5,
   },
   brandSub: {
@@ -200,56 +172,59 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   proBadge: {
-    backgroundColor: '#FEF3C7',
+    backgroundColor: 'rgba(245, 158, 11, 0.15)',
     borderWidth: 1,
-    borderColor: '#F59E0B',
+    borderColor: Theme.colors.amber,
     paddingHorizontal: 12,
-    paddingVertical: 6,
+    paddingVertical: 5,
     borderRadius: Theme.borderRadius.full,
   },
   proBadgeText: {
-    color: '#B45309',
+    color: '#FBBF24',
     fontWeight: '900',
     fontSize: 12,
   },
-  metricsCard: {
-    backgroundColor: '#FFFFFF',
-    margin: 16,
+  metricsContainer: {
+    flexDirection: 'row',
+    gap: 12,
     padding: 16,
-    borderRadius: Theme.borderRadius.md,
-    borderWidth: 1.5,
-    borderColor: Theme.colors.border,
   },
-  metricsLabel: {
+  metricCard: {
+    flex: 1,
+    backgroundColor: '#1E293B',
+    padding: 14,
+    borderRadius: Theme.borderRadius.md,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  metricLabel: {
     fontSize: 11,
     fontWeight: '800',
     color: Theme.colors.textSecondary,
     letterSpacing: 0.8,
   },
-  metricsVal: {
-    fontSize: 28,
+  metricVal: {
+    fontSize: 26,
     fontWeight: '900',
-    color: Theme.colors.primary,
-    marginTop: 4,
+    marginVertical: 4,
   },
-  metricsSub: {
-    fontSize: 12,
-    color: Theme.colors.textSecondary,
-    marginTop: 4,
+  metricSub: {
+    fontSize: 11,
+    color: Theme.colors.textMuted,
   },
   filterRow: {
     flexDirection: 'row',
     paddingHorizontal: 16,
     gap: 8,
-    marginBottom: 8,
+    marginBottom: 10,
   },
   filterChip: {
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: Theme.borderRadius.full,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#1E293B',
     borderWidth: 1,
-    borderColor: Theme.colors.border,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
   },
   filterChipActive: {
     backgroundColor: Theme.colors.primary,
@@ -265,107 +240,7 @@ const styles = StyleSheet.create({
   },
   listContent: {
     padding: 16,
-    paddingBottom: 100,
-  },
-  card: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: Theme.borderRadius.md,
-    padding: 16,
-    borderWidth: 1.5,
-    borderColor: Theme.colors.border,
-    marginBottom: 12,
-  },
-  cardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-  },
-  clientName: {
-    fontSize: 17,
-    fontWeight: '800',
-    color: Theme.colors.textPrimary,
-  },
-  quoteSub: {
-    fontSize: 13,
-    color: Theme.colors.textSecondary,
-    marginTop: 3,
-  },
-  amount: {
-    fontSize: 18,
-    fontWeight: '900',
-    color: Theme.colors.primary,
-  },
-  statusRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginTop: 12,
-  },
-  pill: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: Theme.borderRadius.full,
-  },
-  pillSigned: {
-    backgroundColor: Theme.colors.accentLight,
-  },
-  pillPaid: {
-    backgroundColor: Theme.colors.successLight,
-  },
-  pillDraft: {
-    backgroundColor: Theme.colors.warningLight,
-  },
-  pillText: {
-    fontSize: 11,
-    fontWeight: '800',
-  },
-  pillTextSigned: {
-    color: Theme.colors.accent,
-  },
-  pillTextPaid: {
-    color: Theme.colors.success,
-  },
-  pillTextDraft: {
-    color: Theme.colors.warning,
-  },
-  hashBadge: {
-    fontSize: 10,
-    color: Theme.colors.textMuted,
-    fontFamily: 'monospace',
-  },
-  cardActions: {
-    flexDirection: 'row',
-    gap: 10,
-    marginTop: 16,
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderColor: Theme.colors.borderSubtle,
-  },
-  actionBtnOutline: {
-    flex: 1,
-    backgroundColor: '#F8FAFC',
-    borderWidth: 1,
-    borderColor: Theme.colors.border,
-    paddingVertical: 10,
-    borderRadius: Theme.borderRadius.sm,
-    alignItems: 'center',
-  },
-  actionBtnOutlineText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: Theme.colors.textPrimary,
-  },
-  actionBtnSolid: {
-    flex: 1,
-    backgroundColor: Theme.colors.success,
-    paddingVertical: 10,
-    borderRadius: Theme.borderRadius.sm,
-    alignItems: 'center',
-  },
-  actionBtnSolidText: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: '#FFFFFF',
+    paddingBottom: 110,
   },
   emptyContainer: {
     alignItems: 'center',
@@ -388,16 +263,12 @@ const styles = StyleSheet.create({
     bottom: 24,
     left: 20,
     right: 20,
-    backgroundColor: Theme.colors.accent,
+    backgroundColor: Theme.colors.primary,
     minHeight: Theme.touchTarget.minHeight,
     borderRadius: Theme.borderRadius.md,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#2563EB',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.3,
-    shadowRadius: 10,
-    elevation: 6,
+    ...Theme.shadows.glowPrimary,
   },
   fabText: {
     color: '#FFFFFF',
