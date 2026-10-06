@@ -197,7 +197,7 @@ export class PDFService {
               photoBase64
                 ? `
               <div class="photo-box">
-                <div class="photo-title">📷 EXHIBIT A: Worksite Condition & Scope Verification Photo</div>
+                <div class="photo-title">EXHIBIT A: Worksite Condition & Scope Verification Photo</div>
                 <img src="${photoBase64}" style="max-width: 100%; max-height: 250px; border-radius: 6px; display: block; margin-bottom: 6px;" />
                 <div style="font-size: 11px; color: #64748B;">Pre-commencement worksite photo captured and sealed at agreement execution.</div>
               </div>
@@ -234,7 +234,7 @@ export class PDFService {
                 isPaid
                   ? `
                 <div class="waiver-box">
-                  <strong>✔ AUTOMATIC CONDITIONAL LIEN WAIVER & RELEASE:</strong><br/>
+                  <strong>AUTOMATIC CONDITIONAL LIEN WAIVER & RELEASE:</strong><br/>
                   Upon clearance of the final settlement of $${(quote.totalAmountCents / 100).toFixed(2)}, contractor hereby waives and releases any and all mechanic's lien, stop payment notice, or bond rights for labor and materials furnished through ${new Date().toLocaleDateString()}.
                 </div>
               `

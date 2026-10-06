@@ -10,6 +10,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
+import { Check } from 'lucide-react-native';
 import { PurchasesPackage } from 'react-native-purchases';
 import { Theme, getThemeColors, ThemeColors } from '../theme';
 import { useQuoteStore } from '../store/useQuoteStore';
@@ -146,31 +147,31 @@ export const PaywallModal: React.FC<PaywallModalProps> = ({ visible, onClose }) 
             {/* Feature List */}
             <View style={styles.featuresBox}>
               <View style={styles.featureRow}>
-                <Text style={styles.checkIcon}>✔</Text>
+                <Check size={16} color={colors.emerald} />
                 <Text style={styles.featureText}>
                   <Text style={styles.featureTextBold}>Unlimited Signed Estimates</Text> (Never capped at 3/mo)
                 </Text>
               </View>
               <View style={styles.featureRow}>
-                <Text style={styles.checkIcon}>✔</Text>
+                <Check size={16} color={colors.emerald} />
                 <Text style={styles.featureText}>
                   <Text style={styles.featureTextBold}>Courtroom SHA-256 Audit Seals</Text> with GPS timestamps
                 </Text>
               </View>
               <View style={styles.featureRow}>
-                <Text style={styles.checkIcon}>✔</Text>
+                <Check size={16} color={colors.emerald} />
                 <Text style={styles.featureText}>
                   <Text style={styles.featureTextBold}>Mid-Job Change Orders</Text> signed right on-site
                 </Text>
               </View>
               <View style={styles.featureRow}>
-                <Text style={styles.checkIcon}>✔</Text>
+                <Check size={16} color={colors.emerald} />
                 <Text style={styles.featureText}>
                   <Text style={styles.featureTextBold}>Automatic Mechanic's Lien Waivers</Text> upon settlement
                 </Text>
               </View>
               <View style={styles.featureRow}>
-                <Text style={styles.checkIcon}>✔</Text>
+                <Check size={16} color={colors.emerald} />
                 <Text style={styles.featureText}>
                   <Text style={styles.featureTextBold}>Custom Business Profile & Logo</Text> on clean PDFs
                 </Text>

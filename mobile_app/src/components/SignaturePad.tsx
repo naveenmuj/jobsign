@@ -2,6 +2,7 @@ import React, { useRef, useState, useMemo } from 'react';
 import { View, PanResponder, StyleSheet, Text, TouchableOpacity, ActivityIndicator } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import * as Haptics from 'expo-haptics';
+import { Check } from 'lucide-react-native';
 import { Theme, getThemeColors, ThemeColors } from '../theme';
 import { useQuoteStore } from '../store/useQuoteStore';
 
@@ -111,7 +112,7 @@ export const SignaturePad: React.FC<SignaturePadProps> = ({
         activeOpacity={0.8}
       >
         <View style={[styles.checkbox, hasConsented && styles.checkboxActive]}>
-          {hasConsented && <Text style={styles.checkIcon}>✔</Text>}
+          {hasConsented && <Check size={12} color="#FFFFFF" strokeWidth={3} />}
         </View>
         <Text style={styles.consentText}>
           I affirmatively consent to execute this agreement electronically under 15 U.S. Code § 7001 (ESIGN Act) & UETA.
