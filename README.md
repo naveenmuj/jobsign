@@ -51,6 +51,7 @@ All foundational research, competitor tears, legal invariants, and execution arc
 | [**PRIVACY_POLICY.md**](./docs/PRIVACY_POLICY.md) | Google Play Store & App Store compliant GDPR/CCPA privacy policy. |
 | [**ASO_AND_STORE_METADATA.md**](./docs/ASO_AND_STORE_METADATA.md) | High-converting keywords, store descriptions, and screenshot captions. |
 | [**GOOGLE_PLAY_CLOSED_TESTING_GUIDE.md**](./docs/GOOGLE_PLAY_CLOSED_TESTING_GUIDE.md) | 14-day 15-tester closed testing blueprint for Google Play Console. |
+| [**IN_APP_PURCHASES_SETUP_GUIDE.md**](./docs/IN_APP_PURCHASES_SETUP_GUIDE.md) | **In-App Purchase (RevenueCat) Setup & Activation Guide** with product IDs and credential checklist. |
 
 ---
 
@@ -71,13 +72,15 @@ mobile_app/
 │   │   ├── PaymentQRModal.tsx    # Dynamic Zelle/Venmo/CashApp QR sheet (0% fee)
 │   │   ├── PaywallModal.tsx      # In-app purchase tiers & conversion trigger
 │   │   └── SignaturePad.tsx      # 120 FPS vector signature canvas with legal consent
+│   ├── config/
+│   │   └── billing.ts            # RevenueCat API config & Early-Bird low-cost pricing tiers
 │   ├── screens/
 │   │   ├── HomeScreen.tsx        # KPI metrics dashboard, live search & filter pills
 │   │   ├── QuoteBuilderScreen.tsx# 60-sec quote builder, camera photo, terms chips
 │   │   ├── QuoteDetailScreen.tsx # Locked courtroom view, quick call/SMS, photo exhibit
 │   │   └── SettingsScreen.tsx    # Branding profile, item presets, SQLite backup vault
 │   ├── services/
-│   │   ├── BillingService.ts     # RevenueCat subscription manager
+│   │   ├── BillingService.ts     # RevenueCat subscription manager with dev sandbox fallback
 │   │   ├── DatabaseService.ts    # Embedded SQLite WAL engine
 │   │   ├── OutboxService.ts      # Offline network state listener & auto-sync
 │   │   └── PDFService.ts         # Vector PDF engine with SHA-256 audit certificate
@@ -109,10 +112,10 @@ npx expo start --android
 
 ---
 
-## 💰 Business Model & Unit Economics
+## 💰 Business Model & Early-Bird Unit Economics
 
 - **Free Tier:** 3 signed agreements/month forever.
-- **Pro Monthly:** $6.99 / month (Cancel anytime).
-- **Pro Annual:** $44.99 / year (~$3.75/month billed annually) — *Target 65% of conversions*.
-- **Lifetime License:** $79.99 one-time payment — *Eliminates subscription fatigue*.
+- **Early-Bird Monthly:** **\$3.99 / month** (50% launch discount, cancel anytime).
+- **Early-Bird Annual:** **\$29.99 / year** (~**\$2.50 / month** billed annually) — *Best value, saves 65%*.
+- **Founder Lifetime:** **\$49.99 one-time** — *Zero subscriptions, pay once, own forever*.
 - **Transaction Commission:** **0%** (Direct Zelle / Venmo / CashApp payments).

@@ -117,12 +117,12 @@ export const SettingsScreen: React.FC<{ onBack: () => void }> = ({ onBack }) => 
               <Text style={styles.proTitle}>{isPro ? '⭐️ JobSign PRO Active' : 'FREE TIER (3 Quotes/Mo)'}</Text>
               <Text style={styles.proSub}>
                 {isPro
-                  ? 'Unlimited signed estimates, custom branding & court audit seals.'
-                  : 'Upgrade for unlimited signed estimates ($44.99/yr or $79.99 lifetime).'}
+                  ? 'Unlimited signed estimates, custom branding & courtroom audit seals.'
+                  : 'Early-Bird Launch Sale: Unlimited signed estimates (From $2.50/mo or $49.99 lifetime).'}
               </Text>
             </View>
           </View>
-          {!isPro && (
+          {!isPro ? (
             <TouchableOpacity
               style={styles.upgradeBtn}
               onPress={() => {
@@ -130,7 +130,17 @@ export const SettingsScreen: React.FC<{ onBack: () => void }> = ({ onBack }) => 
                 setShowPaywall(true);
               }}
             >
-              <Text style={styles.upgradeBtnText}>⭐️ UPGRADE TO PRO</Text>
+              <Text style={styles.upgradeBtnText}>⭐️ UPGRADE TO PRO (SAVE 65%)</Text>
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity
+              style={[styles.upgradeBtn, { backgroundColor: '#1E293B', borderWidth: 1, borderColor: '#38BDF8' }]}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                setShowPaywall(true);
+              }}
+            >
+              <Text style={[styles.upgradeBtnText, { color: '#38BDF8' }]}>⚙️ VIEW MEMBERSHIP / RESTORE</Text>
             </TouchableOpacity>
           )}
           {__DEV__ && (

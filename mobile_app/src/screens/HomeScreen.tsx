@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   RefreshControl,
   TextInput,
+  Alert,
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { Theme } from '../theme';
@@ -16,6 +17,7 @@ import { PDFService } from '../services/PDFService';
 import { JobCard } from '../components/JobCard';
 import { PaymentQRModal } from '../components/PaymentQRModal';
 import { OfflineOutboxModal } from '../components/OfflineOutboxModal';
+import { PaywallModal } from '../components/PaywallModal';
 import { OutboxService } from '../services/OutboxService';
 
 interface HomeScreenProps {
@@ -30,11 +32,14 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   onOpenSettings,
 }) => {
   console.log('[JobSign] HomeScreen component rendering...');
-  const { quotes, loadQuotes, activeFilter, setFilter, profile, isPro, isLoading } = useQuoteStore();
+  const { quotes, loadQuotes, activeFilter, setFilter, profile, isPro, isLoading, getMonthlyQuoteUsage } = useQuoteStore();
   const [selectedPaymentQuote, setSelectedPaymentQuote] = useState<Quote | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [pendingOutboxCount, setPendingOutboxCount] = useState(0);
   const [showOutboxModal, setShowOutboxModal] = useState(false);
+  const [showPaywall, setShowPaywall] = useState(false);
+
+  const usage = getMonthlyQuoteUsage();
 
   const refreshOutboxCount = async () => {
     const pending = await OutboxService.getPending();
@@ -104,11 +109,18 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.proBadge, isPro && styles.proBadgeActive]}
-            onPress={onOpenSettings}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              if (isPro) {
+                onOpenSettings();
+              } else {
+                setShowPaywall(true);
+              }
+            }}
             hitSlop={{ top: 10, bottom: 10, left: 6, right: 6 }}
           >
             <Text style={[styles.proBadgeText, isPro && styles.proBadgeTextActive]}>
-              {isPro ? 'PRO ⭐️' : 'FREE'}
+              {isPro ? 'PRO ⭐️' : 'UPGRADE'}
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
@@ -151,6 +163,27 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
           <Text style={styles.metricSub}>Direct 0% fee P2P</Text>
         </View>
       </View>
+
+      {/* Free Tier Usage Banner or Pro Active Status */}
+      <TouchableOpacity
+        style={[
+          styles.usageBanner,
+          isPro ? styles.usageBannerPro : usage.isExceeded ? styles.usageBannerExceeded : styles.usageBannerNormal,
+        ]}
+        onPress={() => {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          if (!isPro) setShowPaywall(true);
+        }}
+        activeOpacity={0.85}
+      >
+        <Text style={[styles.usageBannerText, isPro && styles.usageBannerTextPro]}>
+          {isPro
+            ? '⭐️ PRO PROTECTION ACTIVE • UNLIMITED ESTIMATES & AUDIT SEALS'
+            : usage.isExceeded
+            ? `⚠️ FREE LIMIT REACHED (${usage.count}/${usage.limit} quotes) • TAP TO UPGRADE ⭐️`
+            : `⚡ FREE TIER: ${usage.count} of ${usage.limit} quotes used this month • Upgrade for $2.50/mo ⭐️`}
+        </Text>
+      </TouchableOpacity>
 
       {/* Live Search Bar */}
       <View style={styles.searchBarContainer}>
@@ -234,6 +267,17 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
         activeOpacity={0.9}
         onPress={() => {
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+          if (!isPro && usage.isExceeded) {
+            Alert.alert(
+              'Free Plan Limit Reached ⚠️',
+              `You have reached the free tier limit of ${usage.limit} quotes this month.\n\nUpgrade to JobSign Pro to unlock unlimited courtroom-sealed estimates, change orders, and direct settlement QR codes.`,
+              [
+                { text: 'Later', style: 'cancel' },
+                { text: 'View Early-Bird Plans ⭐️', onPress: () => setShowPaywall(true) },
+              ]
+            );
+            return;
+          }
           onNewQuote();
         }}
       >
@@ -253,6 +297,12 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
         visible={showOutboxModal}
         onClose={() => setShowOutboxModal(false)}
         onQueueUpdated={refreshOutboxCount}
+      />
+
+      {/* In-App Purchase Paywall Modal */}
+      <PaywallModal
+        visible={showPaywall}
+        onClose={() => setShowPaywall(false)}
       />
     </View>
   );
@@ -483,5 +533,36 @@ const styles = StyleSheet.create({
     color: Theme.colors.textMuted,
     fontSize: 13,
     fontWeight: 'bold',
+  },
+  usageBanner: {
+    marginHorizontal: 16,
+    marginBottom: 12,
+    paddingVertical: 9,
+    paddingHorizontal: 14,
+    borderRadius: Theme.borderRadius.md,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  usageBannerNormal: {
+    backgroundColor: 'rgba(56, 189, 248, 0.08)',
+    borderColor: 'rgba(56, 189, 248, 0.25)',
+  },
+  usageBannerExceeded: {
+    backgroundColor: 'rgba(239, 68, 68, 0.12)',
+    borderColor: 'rgba(239, 68, 68, 0.4)',
+  },
+  usageBannerPro: {
+    backgroundColor: 'rgba(16, 185, 129, 0.08)',
+    borderColor: 'rgba(16, 185, 129, 0.3)',
+  },
+  usageBannerText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#38BDF8',
+    letterSpacing: 0.3,
+  },
+  usageBannerTextPro: {
+    color: Theme.colors.emerald,
   },
 });

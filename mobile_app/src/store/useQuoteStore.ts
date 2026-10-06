@@ -43,6 +43,12 @@ interface QuoteStore {
   setProStatus: (status: boolean) => void;
   setFilter: (filter: 'ALL' | 'DRAFT' | 'SIGNED_LOCKED' | 'PAID') => void;
   toggleSunlightMode: () => void;
+  getMonthlyQuoteUsage: () => {
+    count: number;
+    limit: number;
+    remaining: number;
+    isExceeded: boolean;
+  };
 }
 
 export const useQuoteStore = create<QuoteStore>()(
@@ -100,6 +106,23 @@ export const useQuoteStore = create<QuoteStore>()(
 
       toggleSunlightMode: () =>
         set((state) => ({ isSunlightMode: !state.isSunlightMode })),
+
+      getMonthlyQuoteUsage: () => {
+        const quotes = get().quotes;
+        const now = new Date();
+        const thisMonthQuotes = quotes.filter((q) => {
+          const d = new Date(q.createdAt);
+          return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+        });
+        const count = thisMonthQuotes.length;
+        const limit = 3;
+        return {
+          count,
+          limit,
+          remaining: Math.max(0, limit - count),
+          isExceeded: count >= limit,
+        };
+      },
     }),
     {
       name: 'jobsign-store-storage',
@@ -108,6 +131,7 @@ export const useQuoteStore = create<QuoteStore>()(
         profile: state.profile,
         presets: state.presets,
         isSunlightMode: state.isSunlightMode,
+        isPro: state.isPro,
       }),
     }
   )
