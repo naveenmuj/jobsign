@@ -9,7 +9,7 @@ import {
   Alert,
   ActivityIndicator,
 } from 'react-native';
-import Svg, { Rect } from 'react-native-svg';
+import QRCode from 'react-native-qrcode-svg';
 import * as Haptics from 'expo-haptics';
 import { Theme } from '../theme';
 import { OutboxItem } from '../types';
@@ -181,20 +181,12 @@ export const OfflineOutboxModal: React.FC<OfflineOutboxModalProps> = ({
                 Zero bars in basement? Have client scan this screen to receive document token instantly.
               </Text>
               <View style={styles.qrFrame}>
-                <Svg height="170" width="170" viewBox="0 0 100 100">
-                  <Rect x="5" y="5" width="25" height="25" fill="#0F172A" />
-                  <Rect x="10" y="10" width="15" height="15" fill="#FFFFFF" />
-                  <Rect x="70" y="5" width="25" height="25" fill="#0F172A" />
-                  <Rect x="75" y="10" width="15" height="15" fill="#FFFFFF" />
-                  <Rect x="5" y="70" width="25" height="25" fill="#0F172A" />
-                  <Rect x="10" y="75" width="15" height="15" fill="#FFFFFF" />
-                  <Rect x="35" y="35" width="30" height="30" fill="#0F172A" />
-                  <Rect x="40" y="15" width="8" height="8" fill="#0F172A" />
-                  <Rect x="55" y="15" width="8" height="8" fill="#0F172A" />
-                  <Rect x="15" y="45" width="8" height="8" fill="#0F172A" />
-                  <Rect x="75" y="45" width="8" height="8" fill="#0F172A" />
-                  <Rect x="45" y="75" width="12" height="12" fill="#0F172A" />
-                </Svg>
+                <QRCode
+                  value={`jobsign://offline-handshake?pending=${pendingCount}&ts=${Date.now()}`}
+                  size={170}
+                  color="#0F172A"
+                  backgroundColor="#FFFFFF"
+                />
               </View>
               <Text style={styles.qrSub}>Offline P2P Encrypted Handshake Token</Text>
             </View>

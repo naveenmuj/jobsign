@@ -16,7 +16,8 @@
       "bundleIdentifier": "com.jobsign.app",
       "infoPlist": {
         "NSCameraUsageDescription": "JobSign requires camera access to attach worksite damage proof photos to your contracts.",
-        "NSPhotoLibraryUsageDescription": "JobSign accesses your photo library to attach worksite proof photos."
+        "NSPhotoLibraryUsageDescription": "JobSign accesses your photo library to attach worksite proof photos.",
+        "NSLocationWhenInUseUsageDescription": "JobSign embeds worksite GPS coordinates into electronic contracts to establish irrebuttable location proof under the ESIGN Act and UETA in small claims court."
       }
     },
     "android": {
@@ -30,8 +31,8 @@
       },
       "permissions": [
         "CAMERA",
-        "READ_EXTERNAL_STORAGE",
-        "WRITE_EXTERNAL_STORAGE",
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
         "INTERNET",
         "ACCESS_NETWORK_STATE"
       ],
@@ -46,6 +47,12 @@
         "expo-camera",
         {
           "cameraPermission": "JobSign requires camera access to capture worksite pre-existing damage proof."
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "JobSign records worksite GPS coordinates to provide legally binding audit records for electronic contracts."
         }
       ],
       "expo-sqlite"

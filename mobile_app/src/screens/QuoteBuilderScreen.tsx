@@ -11,6 +11,8 @@ import {
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as Haptics from 'expo-haptics';
+import * as Crypto from 'expo-crypto';
+import * as Location from 'expo-location';
 import { Theme } from '../theme';
 import { LineItem, Quote } from '../types';
 import { useQuoteStore } from '../store/useQuoteStore';
@@ -18,6 +20,7 @@ import { SignaturePad } from '../components/SignaturePad';
 import { PDFService } from '../services/PDFService';
 import { PaywallModal } from '../components/PaywallModal';
 import { OutboxService } from '../services/OutboxService';
+import { DatabaseService } from '../services/DatabaseService';
 
 export const QuoteBuilderScreen: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   const { presets, addQuote, profile, quotes, isPro } = useQuoteStore();
@@ -72,7 +75,7 @@ export const QuoteBuilderScreen: React.FC<{ onBack: () => void }> = ({ onBack })
   const handleAddPreset = (preset: (typeof presets)[0]) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     const newItem: LineItem = {
-      id: Math.random().toString(36).substring(7),
+      id: Crypto.randomUUID(),
       description: preset.title,
       unitPriceCents: preset.priceCents,
       quantity: 1,
@@ -93,7 +96,7 @@ export const QuoteBuilderScreen: React.FC<{ onBack: () => void }> = ({ onBack })
     }
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     const newItem: LineItem = {
-      id: Math.random().toString(36).substring(7),
+      id: Crypto.randomUUID(),
       description: customDesc.trim(),
       unitPriceCents: cents,
       quantity: 1,
@@ -142,9 +145,25 @@ export const QuoteBuilderScreen: React.FC<{ onBack: () => void }> = ({ onBack })
   };
 
   const handleSaveSignature = async (svgPath: string) => {
+    // Acquire GPS coordinates for UETA/ESIGN courtroom proof (graceful degrade if offline/denied)
+    let gpsLat: number | undefined = undefined;
+    let gpsLng: number | undefined = undefined;
+    try {
+      const { status } = await Location.getForegroundPermissionsAsync();
+      if (status === 'granted') {
+        const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+        gpsLat = loc.coords.latitude;
+        gpsLng = loc.coords.longitude;
+      }
+    } catch {
+      // Degrades gracefully offline or if GPS unavailable
+    }
+
+    const nextQuoteNum = await DatabaseService.getNextQuoteNumber();
+
     const newQuote: Quote = {
-      id: Math.random().toString(36).substring(7),
-      quoteNumber: Math.floor(1000 + Math.random() * 9000),
+      id: Crypto.randomUUID(),
+      quoteNumber: nextQuoteNum,
       clientName: clientName.trim(),
       clientPhone: clientPhone.trim() || undefined,
       jobDescription: jobDescription.trim() || undefined,
@@ -157,6 +176,8 @@ export const QuoteBuilderScreen: React.FC<{ onBack: () => void }> = ({ onBack })
       totalAmountCents,
       signatureSvg: svgPath,
       signatureTimestamp: Date.now(),
+      signatureGpsLat: gpsLat,
+      signatureGpsLng: gpsLng,
       createdAt: Date.now(),
       updatedAt: Date.now(),
       lineItems: items,
@@ -194,6 +215,21 @@ export const QuoteBuilderScreen: React.FC<{ onBack: () => void }> = ({ onBack })
     );
   };
 
+  const handleBack = () => {
+    if (clientName.trim().length > 0 || items.length > 0) {
+      Alert.alert(
+        'Discard In-Progress Estimate?',
+        'You have unsaved changes. Exiting will lose this estimate.',
+        [
+          { text: 'Keep Editing', style: 'cancel' },
+          { text: 'Discard', style: 'destructive', onPress: onBack },
+        ]
+      );
+    } else {
+      onBack();
+    }
+  };
+
   if (isSigning) {
     return (
       <SignaturePad
@@ -209,7 +245,11 @@ export const QuoteBuilderScreen: React.FC<{ onBack: () => void }> = ({ onBack })
     <View style={styles.container}>
       {/* Top Header */}
       <View style={styles.header}>
-        <TouchableOpacity style={styles.backBtn} onPress={onBack}>
+        <TouchableOpacity
+          style={styles.backBtn}
+          onPress={handleBack}
+          hitSlop={{ top: 14, bottom: 14, left: 14, right: 14 }}
+        >
           <Text style={styles.backBtnText}>⬅ Back</Text>
         </TouchableOpacity>
         <Text style={styles.title}>New 60-Sec Estimate</Text>
@@ -296,7 +336,11 @@ export const QuoteBuilderScreen: React.FC<{ onBack: () => void }> = ({ onBack })
                   <Text style={styles.itemSub}>Qty: {item.quantity} × ${(item.unitPriceCents / 100).toFixed(2)}</Text>
                 </View>
                 <Text style={styles.itemTotal}>${(item.totalCents / 100).toFixed(2)}</Text>
-                <TouchableOpacity onPress={() => handleRemoveItem(item.id)} style={styles.removeBtn}>
+                <TouchableOpacity
+                  onPress={() => handleRemoveItem(item.id)}
+                  style={styles.removeBtn}
+                  hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                >
                   <Text style={styles.removeBtnText}>✕</Text>
                 </TouchableOpacity>
               </View>

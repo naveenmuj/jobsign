@@ -2,14 +2,17 @@ import * as SQLite from 'expo-sqlite';
 import { Quote, LineItem, ChangeOrder, OutboxItem } from '../types';
 
 export class DatabaseService {
-  private static db: SQLite.SQLiteDatabase | null = null;
+  private static dbPromise: Promise<SQLite.SQLiteDatabase> | null = null;
 
   public static async getDB(): Promise<SQLite.SQLiteDatabase> {
-    if (!this.db) {
-      this.db = await SQLite.openDatabaseAsync('jobsign.db');
-      await this.initSchema(this.db);
+    if (!this.dbPromise) {
+      this.dbPromise = (async () => {
+        const db = await SQLite.openDatabaseAsync('jobsign.db');
+        await this.initSchema(db);
+        return db;
+      })();
     }
-    return this.db;
+    return this.dbPromise;
   }
 
   private static async initSchema(db: SQLite.SQLiteDatabase) {
@@ -19,7 +22,7 @@ export class DatabaseService {
 
       CREATE TABLE IF NOT EXISTS quotes (
         id TEXT PRIMARY KEY NOT NULL,
-        quote_number INTEGER NOT NULL,
+        quote_number INTEGER UNIQUE NOT NULL,
         client_name TEXT NOT NULL,
         client_phone TEXT,
         client_email TEXT,
@@ -58,7 +61,8 @@ export class DatabaseService {
         added_total_cents INTEGER NOT NULL,
         signature_svg TEXT NOT NULL,
         signature_timestamp INTEGER NOT NULL,
-        pdf_sha256_hash TEXT NOT NULL
+        pdf_sha256_hash TEXT NOT NULL,
+        added_items_json TEXT
       );
 
       CREATE TABLE IF NOT EXISTS offline_outbox (
@@ -73,10 +77,19 @@ export class DatabaseService {
       );
 
       CREATE INDEX IF NOT EXISTS idx_quotes_status ON quotes(status);
+      CREATE INDEX IF NOT EXISTS idx_quotes_number ON quotes(quote_number);
       CREATE INDEX IF NOT EXISTS idx_line_items_quote_id ON line_items(quote_id);
       CREATE INDEX IF NOT EXISTS idx_change_orders_quote_id ON change_orders(quote_id);
       CREATE INDEX IF NOT EXISTS idx_outbox_status ON offline_outbox(status);
     `);
+  }
+
+  public static async getNextQuoteNumber(): Promise<number> {
+    const db = await this.getDB();
+    const row = await db.getFirstAsync<{ max_num: number | null }>(
+      'SELECT MAX(quote_number) as max_num FROM quotes'
+    );
+    return ((row?.max_num || 1000) as number) + 1;
   }
 
   public static async getAllQuotes(): Promise<Quote[]> {
@@ -128,7 +141,7 @@ export class DatabaseService {
           quoteId: c.quote_id,
           orderNumber: c.order_number,
           reason: c.reason,
-          addedItems: [],
+          addedItems: c.added_items_json ? JSON.parse(c.added_items_json) : [],
           addedTotalCents: c.added_total_cents,
           signatureSvg: c.signature_svg,
           signatureTimestamp: c.signature_timestamp,
@@ -189,9 +202,19 @@ export class DatabaseService {
         await db.runAsync('DELETE FROM change_orders WHERE quote_id = ?', [quote.id]);
         for (const co of quote.changeOrders) {
           await db.runAsync(
-            `INSERT INTO change_orders (id, quote_id, order_number, reason, added_total_cents, signature_svg, signature_timestamp, pdf_sha256_hash)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-            [co.id, co.quoteId, co.orderNumber, co.reason, co.addedTotalCents, co.signatureSvg, co.signatureTimestamp, co.pdfSha256Hash]
+            `INSERT INTO change_orders (id, quote_id, order_number, reason, added_total_cents, signature_svg, signature_timestamp, pdf_sha256_hash, added_items_json)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [
+              co.id,
+              co.quoteId,
+              co.orderNumber,
+              co.reason,
+              co.addedTotalCents,
+              co.signatureSvg,
+              co.signatureTimestamp,
+              co.pdfSha256Hash,
+              JSON.stringify(co.addedItems || []),
+            ]
           );
         }
       }

@@ -14,7 +14,17 @@ import { useQuoteStore } from '../store/useQuoteStore';
 import { PDFService } from '../services/PDFService';
 
 export const SettingsScreen: React.FC<{ onBack: () => void }> = ({ onBack }) => {
-  const { profile, updateProfile, isPro, setProStatus, presets, addPreset, removePreset } = useQuoteStore();
+  const {
+    profile,
+    updateProfile,
+    isPro,
+    setProStatus,
+    presets,
+    addPreset,
+    removePreset,
+    isSunlightMode,
+    toggleSunlightMode,
+  } = useQuoteStore();
 
   const [businessName, setBusinessName] = useState(profile.businessName);
   const [ownerName, setOwnerName] = useState(profile.ownerName);
@@ -70,7 +80,11 @@ export const SettingsScreen: React.FC<{ onBack: () => void }> = ({ onBack }) => 
     <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity style={styles.backBtn} onPress={onBack}>
+        <TouchableOpacity
+          style={styles.backBtn}
+          onPress={onBack}
+          hitSlop={{ top: 14, bottom: 14, left: 14, right: 14 }}
+        >
           <Text style={styles.backText}>⬅ Back</Text>
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Business & App Settings</Text>
@@ -90,15 +104,41 @@ export const SettingsScreen: React.FC<{ onBack: () => void }> = ({ onBack }) => 
               </Text>
             </View>
           </View>
-          <TouchableOpacity
-            style={[styles.proToggleBtn, isPro && styles.proToggleBtnActive]}
-            onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-              setProStatus(!isPro);
-            }}
-          >
-            <Text style={styles.proToggleText}>{isPro ? '✔ ACTIVE PRO' : '⚡ TEST PRO UNLOCK'}</Text>
-          </TouchableOpacity>
+          {__DEV__ && (
+            <TouchableOpacity
+              style={[styles.proToggleBtn, isPro && styles.proToggleBtnActive]}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+                setProStatus(!isPro);
+              }}
+            >
+              <Text style={styles.proToggleText}>{isPro ? '✔ ACTIVE PRO' : '⚡ [DEV] TOGGLE PRO'}</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+
+        {/* Sunlight High Contrast Mode Card */}
+        <View style={styles.card}>
+          <Text style={styles.cardLabel}>FIELD ENVIRONMENT</Text>
+          <View style={styles.sunlightRow}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.sunlightTitle}>☀️ Sunlight High-Contrast Mode</Text>
+              <Text style={styles.sunlightSub}>
+                Maximizes outdoor screen legibility and contrast for direct sunlight.
+              </Text>
+            </View>
+            <TouchableOpacity
+              style={[styles.sunlightBtn, isSunlightMode && styles.sunlightBtnActive]}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                toggleSunlightMode();
+              }}
+            >
+              <Text style={[styles.sunlightBtnText, isSunlightMode && styles.sunlightBtnTextActive]}>
+                {isSunlightMode ? 'ON' : 'OFF'}
+              </Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* Business Branding Profile */}
@@ -392,5 +432,43 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '900',
     letterSpacing: 0.5,
+  },
+  sunlightRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: 12,
+  },
+  sunlightTitle: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: Theme.colors.textPrimary,
+  },
+  sunlightSub: {
+    fontSize: 11.5,
+    color: Theme.colors.textSecondary,
+    marginTop: 2,
+    lineHeight: 16,
+  },
+  sunlightBtn: {
+    backgroundColor: '#334155',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: Theme.borderRadius.sm,
+    borderWidth: 1,
+    borderColor: '#475569',
+  },
+  sunlightBtnActive: {
+    backgroundColor: Theme.colors.amber,
+    borderColor: '#F59E0B',
+  },
+  sunlightBtnText: {
+    color: '#94A3B8',
+    fontWeight: 'bold',
+    fontSize: 13,
+  },
+  sunlightBtnTextActive: {
+    color: '#0F172A',
+    fontWeight: '900',
   },
 });

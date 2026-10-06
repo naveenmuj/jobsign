@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, Modal, TouchableOpacity, Alert } from 'react-native';
-import Svg, { Rect } from 'react-native-svg';
+import { View, Text, StyleSheet, Modal, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
+import QRCode from 'react-native-qrcode-svg';
 import * as Haptics from 'expo-haptics';
 import { Theme } from '../theme';
 import { Quote } from '../types';
@@ -10,22 +10,66 @@ export const PaymentQRModal: React.FC<{ quote: Quote; onClose: () => void }> = (
   quote,
   onClose,
 }) => {
-  const { addQuote } = useQuoteStore();
+  const { addQuote, profile } = useQuoteStore();
   const [activeRail, setActiveRail] = useState<'ZELLE' | 'VENMO' | 'CASHAPP' | 'BANK'>('ZELLE');
+  const [isProcessing, setIsProcessing] = useState(false);
 
   const amountFormatted = `$${(quote.totalAmountCents / 100).toFixed(2)}`;
 
-  const handleMarkAsPaid = async () => {
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    const updated: Quote = {
-      ...quote,
-      status: 'PAID',
-      updatedAt: Date.now(),
-    };
-    await addQuote(updated);
-    Alert.alert('Payment Recorded! 🎉', `Job #${quote.quoteNumber} has been marked PAID and closed.`);
-    onClose();
+  const getPayload = (): string => {
+    const amtStr = (quote.totalAmountCents / 100).toFixed(2);
+    switch (activeRail) {
+      case 'ZELLE':
+        return profile.zelleAccount
+          ? `zelle:${profile.zelleAccount}?amount=${amtStr}`
+          : `zelle:payments@jobsign.app?amount=${amtStr}`;
+      case 'VENMO':
+        return profile.venmoAccount
+          ? `https://venmo.com/${profile.venmoAccount.replace('@', '')}?txn=pay&amount=${amtStr}&note=Agreement%20${quote.quoteNumber}`
+          : 'https://venmo.com';
+      case 'CASHAPP':
+        return profile.cashAppAccount
+          ? `https://cash.app/${profile.cashAppAccount.replace('$', '')}/${amtStr}`
+          : 'https://cash.app';
+      case 'BANK':
+        return `Direct Bank Settlement for ${profile.businessName}\nAmount Due: $${amtStr}\nRef: Agreement #${quote.quoteNumber}`;
+    }
   };
+
+  const handleMarkAsPaid = () => {
+    Alert.alert(
+      'Confirm Settlement Received',
+      `Mark Agreement #${quote.quoteNumber} (${amountFormatted}) as PAID IN FULL?\n\nThis certifies receipt of funds and automatically generates an audited Mechanic's Lien Waiver and Release on the receipt.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Confirm & Release Lien',
+          style: 'default',
+          onPress: async () => {
+            if (isProcessing) return;
+            setIsProcessing(true);
+            try {
+              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+              const updated: Quote = {
+                ...quote,
+                status: 'PAID',
+                updatedAt: Date.now(),
+              };
+              await addQuote(updated);
+              Alert.alert('Payment Recorded! 🎉', `Job #${quote.quoteNumber} has been marked PAID and closed.`);
+              onClose();
+            } catch (err: any) {
+              Alert.alert('Error', err?.message || 'Could not update payment status.');
+            } finally {
+              setIsProcessing(false);
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const currentPayload = getPayload();
 
   return (
     <Modal visible animationType="slide" transparent onRequestClose={onClose}>
@@ -37,7 +81,11 @@ export const PaymentQRModal: React.FC<{ quote: Quote; onClose: () => void }> = (
               <Text style={styles.title}>Direct Settlement (0% Fee)</Text>
               <Text style={styles.sub}>Client scans contractor phone screen</Text>
             </View>
-            <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
+            <TouchableOpacity
+              onPress={onClose}
+              style={styles.closeBtn}
+              hitSlop={{ top: 14, bottom: 14, left: 14, right: 14 }}
+            >
               <Text style={styles.closeText}>✕</Text>
             </TouchableOpacity>
           </View>
@@ -66,24 +114,15 @@ export const PaymentQRModal: React.FC<{ quote: Quote; onClose: () => void }> = (
             ))}
           </View>
 
-          {/* Simulated High-Density QR Canvas */}
+          {/* Dynamic High-Density QR Canvas */}
           <View style={styles.qrContainer}>
             <View style={styles.qrFrame}>
-              {/* Visual simulated QR pattern */}
-              <Svg height="180" width="180" viewBox="0 0 100 100">
-                <Rect x="5" y="5" width="25" height="25" fill="#0F172A" />
-                <Rect x="10" y="10" width="15" height="15" fill="#FFFFFF" />
-                <Rect x="70" y="5" width="25" height="25" fill="#0F172A" />
-                <Rect x="75" y="10" width="15" height="15" fill="#FFFFFF" />
-                <Rect x="5" y="70" width="25" height="25" fill="#0F172A" />
-                <Rect x="10" y="75" width="15" height="15" fill="#FFFFFF" />
-                <Rect x="35" y="35" width="30" height="30" fill="#0F172A" />
-                <Rect x="40" y="15" width="8" height="8" fill="#0F172A" />
-                <Rect x="55" y="15" width="8" height="8" fill="#0F172A" />
-                <Rect x="15" y="45" width="8" height="8" fill="#0F172A" />
-                <Rect x="75" y="45" width="8" height="8" fill="#0F172A" />
-                <Rect x="45" y="75" width="12" height="12" fill="#0F172A" />
-              </Svg>
+              <QRCode
+                value={currentPayload}
+                size={180}
+                color="#0F172A"
+                backgroundColor="#FFFFFF"
+              />
             </View>
             <Text style={styles.qrHint}>
               Have client open camera or {activeRail} app to pay {amountFormatted} directly.
@@ -91,8 +130,16 @@ export const PaymentQRModal: React.FC<{ quote: Quote; onClose: () => void }> = (
           </View>
 
           {/* 1-Tap Confirmation */}
-          <TouchableOpacity style={styles.confirmPaidBtn} onPress={handleMarkAsPaid}>
-            <Text style={styles.confirmPaidText}>✔ CONFIRM PAID IN FULL</Text>
+          <TouchableOpacity
+            style={[styles.confirmPaidBtn, isProcessing && { opacity: 0.7 }]}
+            onPress={handleMarkAsPaid}
+            disabled={isProcessing}
+          >
+            {isProcessing ? (
+              <ActivityIndicator color="#FFFFFF" />
+            ) : (
+              <Text style={styles.confirmPaidText}>✔ CONFIRM PAID IN FULL</Text>
+            )}
           </TouchableOpacity>
         </View>
       </View>
@@ -159,21 +206,20 @@ const styles = StyleSheet.create({
   },
   railTabs: {
     flexDirection: 'row',
-    gap: 8,
+    backgroundColor: '#F1F5F9',
+    borderRadius: Theme.borderRadius.sm,
+    padding: 4,
     marginBottom: 16,
   },
   railTab: {
     flex: 1,
     paddingVertical: 10,
-    backgroundColor: '#F8FAFC',
-    borderWidth: 1,
-    borderColor: Theme.colors.border,
-    borderRadius: Theme.borderRadius.sm,
     alignItems: 'center',
+    borderRadius: 6,
   },
   railTabActive: {
-    backgroundColor: Theme.colors.accent,
-    borderColor: Theme.colors.accent,
+    backgroundColor: '#FFFFFF',
+    ...Theme.shadows.card,
   },
   railTabText: {
     fontSize: 12,
@@ -181,38 +227,36 @@ const styles = StyleSheet.create({
     color: Theme.colors.textSecondary,
   },
   railTabTextActive: {
-    color: '#FFFFFF',
+    color: Theme.colors.primary,
+    fontWeight: '800',
   },
   qrContainer: {
     alignItems: 'center',
-    paddingVertical: 10,
+    paddingVertical: 12,
   },
   qrFrame: {
-    padding: 12,
+    padding: 14,
     backgroundColor: '#FFFFFF',
+    borderRadius: Theme.borderRadius.md,
     borderWidth: 2,
     borderColor: Theme.colors.border,
-    borderRadius: Theme.borderRadius.md,
+    marginBottom: 12,
   },
   qrHint: {
     fontSize: 12,
     color: Theme.colors.textSecondary,
-    marginTop: 12,
     textAlign: 'center',
     paddingHorizontal: 20,
+    lineHeight: 16,
   },
   confirmPaidBtn: {
-    backgroundColor: Theme.colors.success,
+    backgroundColor: Theme.colors.emerald,
     minHeight: Theme.touchTarget.minHeight,
     borderRadius: Theme.borderRadius.md,
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 20,
-    shadowColor: '#16A34A',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 6,
-    elevation: 4,
+    marginTop: 16,
+    ...Theme.shadows.glowSuccess,
   },
   confirmPaidText: {
     color: '#FFFFFF',

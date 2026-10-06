@@ -9,6 +9,7 @@ import {
   Alert,
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
+import * as Crypto from 'expo-crypto';
 import { Theme } from '../theme';
 import { ChangeOrder, LineItem, Quote } from '../types';
 import { SignaturePad } from './SignaturePad';
@@ -31,6 +32,7 @@ export const ChangeOrderModal: React.FC<ChangeOrderModalProps> = ({
   const [description, setDescription] = useState('');
   const [amountInput, setAmountInput] = useState('');
   const [isSigning, setIsSigning] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
   const parsedCents = Math.round((parseFloat(amountInput) || 0) * 100);
   const formattedAddOn = `$${(parsedCents / 100).toFixed(2)}`;
@@ -49,44 +51,56 @@ export const ChangeOrderModal: React.FC<ChangeOrderModalProps> = ({
   };
 
   const handleSaveSignature = async (svgPath: string) => {
-    const newCO: ChangeOrder = {
-      id: Math.random().toString(36).substring(7),
-      quoteId: quote.id,
-      orderNumber: (quote.changeOrders?.length || 0) + 1,
-      reason: reason.trim(),
-      addedItems: [
-        {
-          id: Math.random().toString(36).substring(7),
-          description: description.trim() || reason.trim(),
-          unitPriceCents: parsedCents,
-          quantity: 1,
-          totalCents: parsedCents,
-        },
-      ],
-      addedTotalCents: parsedCents,
-      signatureSvg: svgPath,
-      signatureTimestamp: Date.now(),
-      pdfSha256Hash: '',
-    };
+    if (isSaving) return;
+    setIsSaving(true);
 
-    newCO.pdfSha256Hash = await PDFService.computeHash(quote);
+    try {
+      const coId = Crypto.randomUUID();
+      const newCO: ChangeOrder = {
+        id: coId,
+        quoteId: quote.id,
+        orderNumber: (quote.changeOrders?.length || 0) + 1,
+        reason: reason.trim(),
+        addedItems: [
+          {
+            id: Crypto.randomUUID(),
+            description: description.trim() || reason.trim(),
+            unitPriceCents: parsedCents,
+            quantity: 1,
+            totalCents: parsedCents,
+          },
+        ],
+        addedTotalCents: parsedCents,
+        signatureSvg: svgPath,
+        signatureTimestamp: Date.now(),
+        pdfSha256Hash: '',
+      };
 
-    const updatedQuote: Quote = {
-      ...quote,
-      totalAmountCents: quote.totalAmountCents + parsedCents,
-      subtotalCents: quote.subtotalCents + parsedCents,
-      changeOrders: [...(quote.changeOrders || []), newCO],
-      updatedAt: Date.now(),
-    };
+      const updatedQuote: Quote = {
+        ...quote,
+        totalAmountCents: quote.totalAmountCents + parsedCents,
+        subtotalCents: quote.subtotalCents + parsedCents,
+        changeOrders: [...(quote.changeOrders || []), newCO],
+        updatedAt: Date.now(),
+      };
 
-    await addQuote(updatedQuote);
-    setIsSigning(false);
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    Alert.alert(
-      'Change Order Approved! ✍️',
-      `Add-on #${newCO.orderNumber} ($${(parsedCents / 100).toFixed(2)}) is locked. New job total is ${newTotalFormatted}.`
-    );
-    onClose();
+      const updatedHash = await PDFService.computeHash(updatedQuote);
+      newCO.pdfSha256Hash = updatedHash;
+      updatedQuote.pdfSha256Hash = updatedHash;
+
+      await addQuote(updatedQuote);
+      setIsSigning(false);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      Alert.alert(
+        'Change Order Approved! ✍️',
+        `Add-on #${newCO.orderNumber} ($${(parsedCents / 100).toFixed(2)}) is locked. New job total is ${newTotalFormatted}.`
+      );
+      onClose();
+    } catch (e: any) {
+      Alert.alert('Save Failed', e?.message || 'Could not save change order.');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   if (!visible) return null;
@@ -114,7 +128,11 @@ export const ChangeOrderModal: React.FC<ChangeOrderModalProps> = ({
               <Text style={styles.title}>➕ Mid-Job Change Order</Text>
               <Text style={styles.sub}>Job #{quote.quoteNumber} for {quote.clientName}</Text>
             </View>
-            <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
+            <TouchableOpacity
+              onPress={onClose}
+              style={styles.closeBtn}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+            >
               <Text style={styles.closeText}>✕</Text>
             </TouchableOpacity>
           </View>

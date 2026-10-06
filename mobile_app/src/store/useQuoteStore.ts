@@ -1,4 +1,7 @@
 import { create } from 'zustand';
+import { persist, createJSONStorage } from 'zustand/middleware';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Crypto from 'expo-crypto';
 import { Quote, ItemPreset, ContractorProfile } from '../types';
 import { DatabaseService } from '../services/DatabaseService';
 
@@ -28,6 +31,7 @@ interface QuoteStore {
   presets: ItemPreset[];
   profile: ContractorProfile;
   isPro: boolean;
+  isSunlightMode: boolean;
   activeFilter: 'ALL' | 'DRAFT' | 'SIGNED_LOCKED' | 'PAID';
   isLoading: boolean;
   loadQuotes: () => Promise<void>;
@@ -37,50 +41,68 @@ interface QuoteStore {
   removePreset: (id: string) => void;
   setProStatus: (status: boolean) => void;
   setFilter: (filter: 'ALL' | 'DRAFT' | 'SIGNED_LOCKED' | 'PAID') => void;
+  toggleSunlightMode: () => void;
 }
 
-export const useQuoteStore = create<QuoteStore>((set, get) => ({
-  quotes: [],
-  presets: DEFAULT_PRESETS,
-  profile: DEFAULT_PROFILE,
-  isPro: false,
-  activeFilter: 'ALL',
-  isLoading: false,
+export const useQuoteStore = create<QuoteStore>()(
+  persist(
+    (set, get) => ({
+      quotes: [],
+      presets: DEFAULT_PRESETS,
+      profile: DEFAULT_PROFILE,
+      isPro: false,
+      isSunlightMode: false,
+      activeFilter: 'ALL',
+      isLoading: false,
 
-  loadQuotes: async () => {
-    set({ isLoading: true });
-    try {
-      const data = await DatabaseService.getAllQuotes();
-      set({ quotes: data, isLoading: false });
-    } catch (err) {
-      console.error('Error loading quotes:', err);
-      set({ isLoading: false });
+      loadQuotes: async () => {
+        set({ isLoading: true });
+        try {
+          const data = await DatabaseService.getAllQuotes();
+          set({ quotes: data, isLoading: false });
+        } catch (err) {
+          console.error('Error loading quotes:', err);
+          set({ isLoading: false });
+        }
+      },
+
+      addQuote: async (quote: Quote) => {
+        await DatabaseService.saveQuote(quote);
+        const updated = [quote, ...get().quotes.filter((q) => q.id !== quote.id)];
+        set({ quotes: updated });
+      },
+
+      updateProfile: (updates) => {
+        set((state) => ({ profile: { ...state.profile, ...updates } }));
+      },
+
+      addPreset: (newPreset) => {
+        const preset: ItemPreset = {
+          ...newPreset,
+          id: Crypto.randomUUID(),
+        };
+        set((state) => ({ presets: [...state.presets, preset] }));
+      },
+
+      removePreset: (id) => {
+        set((state) => ({ presets: state.presets.filter((p) => p.id !== id) }));
+      },
+
+      setProStatus: (status) => set({ isPro: status }),
+
+      setFilter: (filter) => set({ activeFilter: filter }),
+
+      toggleSunlightMode: () =>
+        set((state) => ({ isSunlightMode: !state.isSunlightMode })),
+    }),
+    {
+      name: 'jobsign-store-storage',
+      storage: createJSONStorage(() => AsyncStorage),
+      partialize: (state) => ({
+        profile: state.profile,
+        presets: state.presets,
+        isSunlightMode: state.isSunlightMode,
+      }),
     }
-  },
-
-  addQuote: async (quote: Quote) => {
-    await DatabaseService.saveQuote(quote);
-    const updated = [quote, ...get().quotes.filter((q) => q.id !== quote.id)];
-    set({ quotes: updated });
-  },
-
-  updateProfile: (updates) => {
-    set((state) => ({ profile: { ...state.profile, ...updates } }));
-  },
-
-  addPreset: (newPreset) => {
-    const preset: ItemPreset = {
-      ...newPreset,
-      id: Math.random().toString(36).substring(7),
-    };
-    set((state) => ({ presets: [...state.presets, preset] }));
-  },
-
-  removePreset: (id) => {
-    set((state) => ({ presets: state.presets.filter((p) => p.id !== id) }));
-  },
-
-  setProStatus: (status) => set({ isPro: status }),
-
-  setFilter: (filter) => set({ activeFilter: filter }),
-}));
+  )
+);
