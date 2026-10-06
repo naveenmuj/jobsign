@@ -4,10 +4,11 @@ import { StyleSheet, View } from 'react-native';
 import { HomeScreen } from './src/screens/HomeScreen';
 import { QuoteBuilderScreen } from './src/screens/QuoteBuilderScreen';
 import { QuoteDetailScreen } from './src/screens/QuoteDetailScreen';
+import { SettingsScreen } from './src/screens/SettingsScreen';
 import { Quote } from './src/types';
 
 export default function App() {
-  const [currentScreen, setCurrentScreen] = useState<'HOME' | 'BUILDER' | 'DETAIL'>('HOME');
+  const [currentScreen, setCurrentScreen] = useState<'HOME' | 'BUILDER' | 'DETAIL' | 'SETTINGS'>('HOME');
   const [activeQuote, setActiveQuote] = useState<Quote | null>(null);
 
   const handleSelectQuote = (quote: Quote) => {
@@ -22,6 +23,7 @@ export default function App() {
         <HomeScreen
           onNewQuote={() => setCurrentScreen('BUILDER')}
           onSelectQuote={handleSelectQuote}
+          onOpenSettings={() => setCurrentScreen('SETTINGS')}
         />
       )}
       {currentScreen === 'BUILDER' && (
@@ -32,6 +34,9 @@ export default function App() {
           quote={activeQuote}
           onBack={() => setCurrentScreen('HOME')}
         />
+      )}
+      {currentScreen === 'SETTINGS' && (
+        <SettingsScreen onBack={() => setCurrentScreen('HOME')} />
       )}
     </View>
   );

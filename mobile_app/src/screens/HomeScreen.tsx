@@ -18,10 +18,15 @@ import { PaymentQRModal } from '../components/PaymentQRModal';
 interface HomeScreenProps {
   onNewQuote: () => void;
   onSelectQuote: (quote: Quote) => void;
+  onOpenSettings: () => void;
 }
 
-export const HomeScreen: React.FC<HomeScreenProps> = ({ onNewQuote, onSelectQuote }) => {
-  const { quotes, loadQuotes, activeFilter, setFilter, isLoading } = useQuoteStore();
+export const HomeScreen: React.FC<HomeScreenProps> = ({
+  onNewQuote,
+  onSelectQuote,
+  onOpenSettings,
+}) => {
+  const { quotes, loadQuotes, activeFilter, setFilter, profile, isPro, isLoading } = useQuoteStore();
   const [selectedPaymentQuote, setSelectedPaymentQuote] = useState<Quote | null>(null);
 
   useEffect(() => {
@@ -43,7 +48,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNewQuote, onSelectQuot
 
   const handleSharePDF = async (quote: Quote) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    await PDFService.generateAndSharePDF(quote);
+    await PDFService.generateAndSharePDF(quote, profile);
   };
 
   return (
@@ -52,10 +57,20 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNewQuote, onSelectQuot
       <View style={styles.header}>
         <View>
           <Text style={styles.brandTitle}>🔨 JobSign</Text>
-          <Text style={styles.brandSub}>Field Agreement & Instant Settlement</Text>
+          <Text style={styles.brandSub}>{profile.businessName}</Text>
         </View>
-        <View style={styles.proBadge}>
-          <Text style={styles.proBadgeText}>PRO ⭐️</Text>
+        <View style={styles.headerRight}>
+          <TouchableOpacity
+            style={[styles.proBadge, isPro && styles.proBadgeActive]}
+            onPress={onOpenSettings}
+          >
+            <Text style={[styles.proBadgeText, isPro && styles.proBadgeTextActive]}>
+              {isPro ? 'PRO ⭐️' : 'FREE'}
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.settingsIconBtn} onPress={onOpenSettings}>
+            <Text style={styles.settingsIconText}>⚙️</Text>
+          </TouchableOpacity>
         </View>
       </View>
 
@@ -171,18 +186,40 @@ const styles = StyleSheet.create({
     color: Theme.colors.textSecondary,
     marginTop: 2,
   },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
   proBadge: {
-    backgroundColor: 'rgba(245, 158, 11, 0.15)',
+    backgroundColor: 'rgba(148, 163, 184, 0.15)',
     borderWidth: 1,
-    borderColor: Theme.colors.amber,
-    paddingHorizontal: 12,
+    borderColor: '#64748B',
+    paddingHorizontal: 10,
     paddingVertical: 5,
     borderRadius: Theme.borderRadius.full,
   },
+  proBadgeActive: {
+    backgroundColor: 'rgba(245, 158, 11, 0.15)',
+    borderColor: Theme.colors.amber,
+  },
   proBadgeText: {
-    color: '#FBBF24',
+    color: '#94A3B8',
     fontWeight: '900',
-    fontSize: 12,
+    fontSize: 11,
+  },
+  proBadgeTextActive: {
+    color: '#FBBF24',
+  },
+  settingsIconBtn: {
+    padding: 6,
+    backgroundColor: '#1E293B',
+    borderRadius: Theme.borderRadius.sm,
+    borderWidth: 1,
+    borderColor: '#334155',
+  },
+  settingsIconText: {
+    fontSize: 15,
   },
   metricsContainer: {
     flexDirection: 'row',
