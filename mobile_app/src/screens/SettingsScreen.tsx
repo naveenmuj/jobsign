@@ -13,6 +13,7 @@ import { getThemeColors, ThemeColors, Theme } from '../theme';
 import { useQuoteStore } from '../store/useQuoteStore';
 import { PDFService } from '../services/PDFService';
 import { PaywallModal } from '../components/PaywallModal';
+import { BillingService } from '../services/BillingService';
 import { runSelfDiagnostics } from '../services/DiagnosticService';
 import {
   ChevronLeft,
@@ -341,6 +342,13 @@ export const SettingsScreen: React.FC<{ onBack: () => void }> = ({ onBack }) => 
   const [cashApp, setCashApp] = useState(profile.cashAppAccount || '');
   const [showPaywall, setShowPaywall] = useState(false);
 
+  const handleOpenPaywall = async () => {
+    const presented = await BillingService.presentRevenueCatPaywall();
+    if (!presented) {
+      setShowPaywall(true);
+    }
+  };
+
   // Custom preset modal state
   const [newPresetTitle, setNewPresetTitle] = useState('');
   const [newPresetPrice, setNewPresetPrice] = useState('');
@@ -440,7 +448,7 @@ export const SettingsScreen: React.FC<{ onBack: () => void }> = ({ onBack }) => 
               style={styles.upgradeBtn}
               onPress={() => {
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                setShowPaywall(true);
+                handleOpenPaywall();
               }}
             >
               <Zap size={16} color="#0F172A" />
@@ -451,7 +459,7 @@ export const SettingsScreen: React.FC<{ onBack: () => void }> = ({ onBack }) => 
               style={styles.manageMembershipBtn}
               onPress={() => {
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                setShowPaywall(true);
+                handleOpenPaywall();
               }}
             >
               <Text style={styles.manageMembershipText}>Manage Membership / Restore</Text>

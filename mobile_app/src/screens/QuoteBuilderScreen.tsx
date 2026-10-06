@@ -20,6 +20,7 @@ import { useQuoteStore } from '../store/useQuoteStore';
 import { SignaturePad } from '../components/SignaturePad';
 import { PDFService } from '../services/PDFService';
 import { PaywallModal } from '../components/PaywallModal';
+import { BillingService } from '../services/BillingService';
 import { OutboxService } from '../services/OutboxService';
 import { DatabaseService } from '../services/DatabaseService';
 import { ChevronLeft, Camera, Image as ImageIcon, Plus, X, PenLine } from 'lucide-react-native';
@@ -448,7 +449,9 @@ export const QuoteBuilderScreen: React.FC<{ onBack: () => void }> = ({ onBack })
     });
 
     if (!isPro && currentMonthQuotes.length >= 3) {
-      setShowPaywall(true);
+      BillingService.presentRevenueCatPaywall().then((presented) => {
+        if (!presented) setShowPaywall(true);
+      });
       return;
     }
 

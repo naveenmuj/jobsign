@@ -20,6 +20,7 @@ import { PaymentQRModal } from '../components/PaymentQRModal';
 import { OfflineOutboxModal } from '../components/OfflineOutboxModal';
 import { PaywallModal } from '../components/PaywallModal';
 import { OutboxService } from '../services/OutboxService';
+import { BillingService } from '../services/BillingService';
 
 interface HomeScreenProps {
   onNewQuote: () => void;
@@ -295,6 +296,13 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
 
   const usage = getMonthlyQuoteUsage();
 
+  const handleOpenPaywall = async () => {
+    const presented = await BillingService.presentRevenueCatPaywall();
+    if (!presented) {
+      setShowPaywall(true);
+    }
+  };
+
   const refreshOutboxCount = async () => {
     const pending = await OutboxService.getPending();
     setPendingOutboxCount(pending.length);
@@ -368,7 +376,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
               if (isPro) {
                 onOpenSettings();
               } else {
-                setShowPaywall(true);
+                handleOpenPaywall();
               }
             }}
             hitSlop={{ top: 10, bottom: 10, left: 6, right: 6 }}
@@ -426,7 +434,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
         ]}
         onPress={() => {
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-          if (!isPro) setShowPaywall(true);
+          if (!isPro) handleOpenPaywall();
         }}
         activeOpacity={0.85}
       >
@@ -527,7 +535,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
               `You've used all ${usage.limit} free estimates this month.\n\nUpgrade to JobSign Pro for unlimited estimates, digital seals, and change orders.`,
               [
                 { text: 'Later', style: 'cancel' },
-                { text: 'View Pro Plans', onPress: () => setShowPaywall(true) },
+                { text: 'View Pro Plans', onPress: handleOpenPaywall },
               ]
             );
             return;

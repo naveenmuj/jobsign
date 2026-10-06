@@ -4,6 +4,7 @@ import Purchases, {
   PurchasesError,
   LOG_LEVEL,
 } from 'react-native-purchases';
+import RevenueCatUI, { PAYWALL_RESULT } from 'react-native-purchases-ui';
 import { BILLING_CONFIG, getRevenueCatApiKey } from '../config/billing';
 import { useQuoteStore } from '../store/useQuoteStore';
 
@@ -18,23 +19,19 @@ export class BillingService {
   private static customerInfoListenerAttached = false;
 
   /**
-   * Initializes RevenueCat with device API keys and attaches customer update listeners.
+   * Initializes RevenueCat with platform API keys and attaches customer update listeners.
    */
   public static async init(): Promise<void> {
     if (this.isConfigured) return;
 
     const apiKey = getRevenueCatApiKey();
-    // In dev / test environments with sample placeholder keys, don't trigger native store network errors
-    if (!apiKey || apiKey.includes('sample_jobsign')) {
-      console.log('[BillingService] Running in local offline sandbox mode (sample API key active).');
+    if (!apiKey) {
+      console.log('[BillingService] No RevenueCat API key found.');
       return;
     }
 
     try {
-      if (__DEV__) {
-        Purchases.setLogLevel(LOG_LEVEL.WARN);
-      }
-
+      Purchases.setLogLevel(LOG_LEVEL.VERBOSE);
       Purchases.configure({ apiKey });
       this.isConfigured = true;
 
@@ -51,15 +48,19 @@ export class BillingService {
       console.log('✔ RevenueCat Billing Service configured and synchronized.');
     } catch (e: any) {
       this.isConfigured = false;
-      console.warn('RevenueCat initialization skipped in development sandbox:', e?.message || e);
+      console.warn('[BillingService] RevenueCat initialization note:', e?.message || e);
     }
   }
 
   /**
    * Synchronizes CustomerInfo with the Zustand store.
+   * Checks both 'jobsign_pro' and fallback ENTITLEMENT_ID.
    */
-  private static syncCustomerEntitlements(customerInfo: CustomerInfo): boolean {
-    const isPro = customerInfo.entitlements.active[BILLING_CONFIG.ENTITLEMENT_ID] !== undefined;
+  public static syncCustomerEntitlements(customerInfo: CustomerInfo): boolean {
+    const isPro =
+      typeof customerInfo.entitlements.active['jobsign_pro'] !== 'undefined' ||
+      typeof customerInfo.entitlements.active[BILLING_CONFIG.ENTITLEMENT_ID] !== 'undefined';
+
     useQuoteStore.getState().setProStatus(isPro);
     return isPro;
   }
@@ -74,7 +75,7 @@ export class BillingService {
 
       const customerInfo = await Purchases.getCustomerInfo();
       return this.syncCustomerEntitlements(customerInfo);
-    } catch {
+    } catch (e) {
       // Degrades gracefully offline: relies on persistent store status
       return useQuoteStore.getState().isPro;
     }
@@ -89,11 +90,42 @@ export class BillingService {
       if (!this.isConfigured) return useQuoteStore.getState().isPro;
 
       const customerInfo = await Purchases.getCustomerInfo();
-      const isActive = customerInfo.entitlements.active[BILLING_CONFIG.ENTITLEMENT_ID] !== undefined;
+      const isActive =
+        typeof customerInfo.entitlements.active['jobsign_pro'] !== 'undefined' ||
+        typeof customerInfo.entitlements.active[BILLING_CONFIG.ENTITLEMENT_ID] !== 'undefined';
+
       useQuoteStore.getState().setProStatus(isActive);
       return isActive;
     } catch {
       return useQuoteStore.getState().isPro;
+    }
+  }
+
+  /**
+   * Presents the RevenueCat UI Paywall configured in the RevenueCat dashboard.
+   * Returns true if user purchased or restored pro access, false otherwise.
+   */
+  public static async presentRevenueCatPaywall(): Promise<boolean> {
+    try {
+      if (!this.isConfigured) await this.init();
+
+      const paywallResult: PAYWALL_RESULT = await RevenueCatUI.presentPaywall();
+
+      switch (paywallResult) {
+        case PAYWALL_RESULT.PURCHASED:
+        case PAYWALL_RESULT.RESTORED:
+          await this.syncCurrentCustomerInfo();
+          useQuoteStore.getState().setProStatus(true);
+          return true;
+        case PAYWALL_RESULT.NOT_PRESENTED:
+        case PAYWALL_RESULT.ERROR:
+        case PAYWALL_RESULT.CANCELLED:
+        default:
+          return false;
+      }
+    } catch (e) {
+      console.log('[BillingService] RevenueCatUI presentPaywall not available or unconfigured:', e);
+      return false;
     }
   }
 
