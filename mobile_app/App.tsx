@@ -30,6 +30,10 @@ export default function App() {
   // Handle Android hardware back button
   useEffect(() => {
     const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (currentScreen === 'BUILDER') {
+        // Intercepted by QuoteBuilderScreen's own unsaved-changes guard
+        return false;
+      }
       if (currentScreen !== 'HOME') {
         setCurrentScreen('HOME');
         return true;

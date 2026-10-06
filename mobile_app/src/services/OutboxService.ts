@@ -1,5 +1,7 @@
 import * as Network from 'expo-network';
 import * as Haptics from 'expo-haptics';
+import * as Crypto from 'expo-crypto';
+import * as SMS from 'expo-sms';
 import { DatabaseService } from './DatabaseService';
 import { OutboxItem, Quote } from '../types';
 
@@ -22,7 +24,7 @@ export class OutboxService {
     channel: 'SMS' | 'EMAIL' | 'SHARE'
   ): Promise<OutboxItem> {
     const item: OutboxItem = {
-      id: Math.random().toString(36).substring(7),
+      id: Crypto.randomUUID(),
       quoteId: quote.id,
       clientName: quote.clientName,
       recipientContact,

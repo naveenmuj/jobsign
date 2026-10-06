@@ -51,6 +51,8 @@ export async function runSelfDiagnostics(): Promise<{ passed: boolean; results: 
     const found = loaded.find((q) => q.id === testQuote.id);
     if (found && found.totalAmountCents === 37888) {
       results.push('✔ SQLite Write & Read Verification: 100% Match');
+      // Clean up test quote so database is pristine
+      await DatabaseService.deleteQuote(testQuote.id);
     } else {
       throw new Error('Database read mismatch');
     }

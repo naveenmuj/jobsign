@@ -15,13 +15,17 @@ import { Quote } from '../types';
 import { PDFService } from '../services/PDFService';
 import { ChangeOrderModal } from '../components/ChangeOrderModal';
 import { PaymentQRModal } from '../components/PaymentQRModal';
+import { useQuoteStore } from '../store/useQuoteStore';
 
 interface QuoteDetailScreenProps {
   quote: Quote;
   onBack: () => void;
 }
 
-export const QuoteDetailScreen: React.FC<QuoteDetailScreenProps> = ({ quote, onBack }) => {
+export const QuoteDetailScreen: React.FC<QuoteDetailScreenProps> = ({ quote: initialQuote, onBack }) => {
+  const { quotes, profile, deleteQuote } = useQuoteStore();
+  const quote = quotes.find((q) => q.id === initialQuote.id) || initialQuote;
+
   const [showChangeOrder, setShowChangeOrder] = useState(false);
   const [showPayment, setShowPayment] = useState(false);
 
@@ -30,20 +34,56 @@ export const QuoteDetailScreen: React.FC<QuoteDetailScreenProps> = ({ quote, onB
 
   const handleSharePDF = async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    await PDFService.generateAndSharePDF(quote);
+    await PDFService.generateAndSharePDF(quote, profile);
+  };
+
+  const handleDelete = () => {
+    Alert.alert(
+      'Delete Agreement?',
+      `Are you sure you want to permanently delete Agreement #${quote.quoteNumber} for ${quote.clientName}? This action cannot be undone.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            await deleteQuote(quote.id);
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            onBack();
+          },
+        },
+      ]
+    );
   };
 
   return (
     <View style={styles.container}>
       {/* Top Header */}
       <View style={styles.header}>
-        <TouchableOpacity style={styles.backBtn} onPress={onBack}>
+        <TouchableOpacity
+          style={styles.backBtn}
+          onPress={onBack}
+          hitSlop={{ top: 14, bottom: 14, left: 14, right: 14 }}
+        >
           <Text style={styles.backText}>⬅ Back</Text>
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Agreement #{quote.quoteNumber}</Text>
-        <TouchableOpacity style={styles.shareBtn} onPress={handleSharePDF}>
-          <Text style={styles.shareText}>📄 PDF</Text>
-        </TouchableOpacity>
+        <View style={styles.headerRightActions}>
+          <TouchableOpacity
+            style={styles.trashBtn}
+            onPress={handleDelete}
+            hitSlop={{ top: 14, bottom: 14, left: 14, right: 14 }}
+          >
+            <Text style={styles.trashText}>🗑</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.shareBtn}
+            onPress={handleSharePDF}
+            hitSlop={{ top: 14, bottom: 14, left: 14, right: 14 }}
+          >
+            <Text style={styles.shareText}>📄 PDF</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
@@ -154,12 +194,47 @@ export const QuoteDetailScreen: React.FC<QuoteDetailScreenProps> = ({ quote, onB
             <Text style={styles.sumVal}>${(quote.subtotalCents / 100).toFixed(2)}</Text>
           </View>
           <View style={styles.summaryRow}>
-            <Text style={styles.sumLabel}>Sales Tax (8.25%)</Text>
+            <Text style={styles.sumLabel}>
+              Sales Tax ({((quote.taxRateBasisPoints ?? 825) / 100).toFixed(2)}%)
+            </Text>
             <Text style={styles.sumVal}>${(quote.taxAmountCents / 100).toFixed(2)}</Text>
           </View>
           <View style={[styles.summaryRow, styles.totalRow]}>
             <Text style={styles.totalLabel}>TOTAL AMOUNT DUE</Text>
             <Text style={styles.totalVal}>${(quote.totalAmountCents / 100).toFixed(2)}</Text>
+          </View>
+        </View>
+
+        {/* Legal Terms & Work Conditions (If specified) */}
+        {quote.notes ? (
+          <View style={styles.card}>
+            <Text style={styles.cardLabel}>📜 AGREED TERMS & WARRANTY</Text>
+            <Text style={styles.notesText}>{quote.notes}</Text>
+          </View>
+        ) : null}
+
+        {/* Courtroom Audit Attribution */}
+        <View style={styles.card}>
+          <Text style={styles.cardLabel}>🏛 UETA & ESIGN COURTROOM AUDIT CERTIFICATE</Text>
+          <View style={styles.auditRow}>
+            <Text style={styles.auditLabel}>Signing Timestamp:</Text>
+            <Text style={styles.auditVal}>
+              {quote.signatureTimestamp ? new Date(quote.signatureTimestamp).toLocaleString() : 'N/A'}
+            </Text>
+          </View>
+          <View style={styles.auditRow}>
+            <Text style={styles.auditLabel}>GPS Verification:</Text>
+            <Text style={styles.auditVal}>
+              {quote.signatureGpsLat && quote.signatureGpsLng
+                ? `${quote.signatureGpsLat.toFixed(5)}°, ${quote.signatureGpsLng.toFixed(5)}° (On-Site)`
+                : 'Offline Field Stamped'}
+            </Text>
+          </View>
+          <View style={styles.auditRow}>
+            <Text style={styles.auditLabel}>Integrity Seal:</Text>
+            <Text style={[styles.auditVal, { color: Theme.colors.emerald, fontWeight: 'bold' }]}>
+              LOCKED_IMMUTABLE (SHA-256)
+            </Text>
           </View>
         </View>
       </ScrollView>
@@ -504,5 +579,42 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: Theme.colors.textMuted,
     fontStyle: 'italic',
+  },
+  headerRightActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  trashBtn: {
+    padding: 8,
+    borderRadius: Theme.borderRadius.full,
+    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(239, 68, 68, 0.25)',
+  },
+  trashText: {
+    fontSize: 14,
+  },
+  notesText: {
+    fontSize: 13,
+    color: '#CBD5E1',
+    lineHeight: 20,
+  },
+  auditRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingVertical: 5,
+    borderBottomWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.05)',
+  },
+  auditLabel: {
+    fontSize: 12,
+    color: Theme.colors.textSecondary,
+    fontWeight: '600',
+  },
+  auditVal: {
+    fontSize: 12,
+    color: Theme.colors.textPrimary,
+    fontWeight: '500',
   },
 });

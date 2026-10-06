@@ -36,6 +36,7 @@ interface QuoteStore {
   isLoading: boolean;
   loadQuotes: () => Promise<void>;
   addQuote: (quote: Quote) => Promise<void>;
+  deleteQuote: (id: string) => Promise<void>;
   updateProfile: (profile: Partial<ContractorProfile>) => void;
   addPreset: (preset: Omit<ItemPreset, 'id'>) => void;
   removePreset: (id: string) => void;
@@ -70,6 +71,11 @@ export const useQuoteStore = create<QuoteStore>()(
         await DatabaseService.saveQuote(quote);
         const updated = [quote, ...get().quotes.filter((q) => q.id !== quote.id)];
         set({ quotes: updated });
+      },
+
+      deleteQuote: async (id: string) => {
+        await DatabaseService.deleteQuote(id);
+        set((state) => ({ quotes: state.quotes.filter((q) => q.id !== id) }));
       },
 
       updateProfile: (updates) => {

@@ -92,6 +92,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
               setShowOutboxModal(true);
             }}
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
           >
             <Text style={styles.outboxIconText}>📡</Text>
             {pendingOutboxCount > 0 && (
@@ -103,12 +104,17 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
           <TouchableOpacity
             style={[styles.proBadge, isPro && styles.proBadgeActive]}
             onPress={onOpenSettings}
+            hitSlop={{ top: 10, bottom: 10, left: 6, right: 6 }}
           >
             <Text style={[styles.proBadgeText, isPro && styles.proBadgeTextActive]}>
               {isPro ? 'PRO ⭐️' : 'FREE'}
             </Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.settingsIconBtn} onPress={onOpenSettings}>
+          <TouchableOpacity
+            style={styles.settingsIconBtn}
+            onPress={onOpenSettings}
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+          >
             <Text style={styles.settingsIconText}>⚙️</Text>
           </TouchableOpacity>
         </View>
@@ -156,7 +162,11 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
           onChangeText={setSearchQuery}
         />
         {searchQuery.length > 0 && (
-          <TouchableOpacity onPress={() => setSearchQuery('')} style={styles.clearSearchBtn}>
+          <TouchableOpacity
+            onPress={() => setSearchQuery('')}
+            style={styles.clearSearchBtn}
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+          >
             <Text style={styles.clearSearchText}>✕</Text>
           </TouchableOpacity>
         )}

@@ -114,6 +114,17 @@ export const PaymentQRModal: React.FC<{ quote: Quote; onClose: () => void }> = (
             ))}
           </View>
 
+          {/* Missing Handle Warning */}
+          {((activeRail === 'ZELLE' && !profile.zelleAccount) ||
+            (activeRail === 'VENMO' && !profile.venmoAccount) ||
+            (activeRail === 'CASHAPP' && !profile.cashAppAccount)) && (
+            <View style={styles.warnBanner}>
+              <Text style={styles.warnText}>
+                ⚠️ You haven't added your {activeRail === 'CASHAPP' ? 'Cash App' : activeRail} username in Settings yet.
+              </Text>
+            </View>
+          )}
+
           {/* Dynamic High-Density QR Canvas */}
           <View style={styles.qrContainer}>
             <View style={styles.qrFrame}>
@@ -263,5 +274,19 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '900',
     letterSpacing: 0.5,
+  },
+  warnBanner: {
+    backgroundColor: 'rgba(245, 158, 11, 0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(245, 158, 11, 0.3)',
+    borderRadius: Theme.borderRadius.sm,
+    padding: 10,
+    marginBottom: 10,
+  },
+  warnText: {
+    color: '#FBBF24',
+    fontSize: 12,
+    textAlign: 'center',
+    fontWeight: '600',
   },
 });

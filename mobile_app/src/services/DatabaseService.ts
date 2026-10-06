@@ -273,4 +273,13 @@ export class DatabaseService {
     const db = await this.getDB();
     await db.runAsync('DELETE FROM offline_outbox WHERE id = ?', [id]);
   }
+
+  public static async deleteQuote(id: string): Promise<void> {
+    const db = await this.getDB();
+    await db.withTransactionAsync(async () => {
+      await db.runAsync('DELETE FROM line_items WHERE quote_id = ?', [id]);
+      await db.runAsync('DELETE FROM change_orders WHERE quote_id = ?', [id]);
+      await db.runAsync('DELETE FROM quotes WHERE id = ?', [id]);
+    });
+  }
 }

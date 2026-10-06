@@ -12,6 +12,8 @@ import * as Haptics from 'expo-haptics';
 import { Theme } from '../theme';
 import { useQuoteStore } from '../store/useQuoteStore';
 import { PDFService } from '../services/PDFService';
+import { PaywallModal } from '../components/PaywallModal';
+import { runSelfDiagnostics } from '../services/DiagnosticService';
 
 export const SettingsScreen: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   const {
@@ -30,20 +32,26 @@ export const SettingsScreen: React.FC<{ onBack: () => void }> = ({ onBack }) => 
   const [ownerName, setOwnerName] = useState(profile.ownerName);
   const [phone, setPhone] = useState(profile.phone);
   const [license, setLicense] = useState(profile.licenseNumber || '');
+  const [defaultTaxRate, setDefaultTaxRate] = useState(
+    ((profile.defaultTaxBasisPoints ?? 825) / 100).toFixed(2)
+  );
   const [zelle, setZelle] = useState(profile.zelleAccount || '');
   const [venmo, setVenmo] = useState(profile.venmoAccount || '');
   const [cashApp, setCashApp] = useState(profile.cashAppAccount || '');
+  const [showPaywall, setShowPaywall] = useState(false);
 
   // Custom preset modal state
   const [newPresetTitle, setNewPresetTitle] = useState('');
   const [newPresetPrice, setNewPresetPrice] = useState('');
 
   const handleSaveProfile = () => {
+    const taxBasisPoints = Math.round((parseFloat(defaultTaxRate) || 8.25) * 100);
     updateProfile({
       businessName: businessName.trim(),
       ownerName: ownerName.trim(),
       phone: phone.trim(),
       licenseNumber: license.trim() || undefined,
+      defaultTaxBasisPoints: taxBasisPoints,
       zelleAccount: zelle.trim() || undefined,
       venmoAccount: venmo.trim() || undefined,
       cashAppAccount: cashApp.trim() || undefined,
@@ -76,6 +84,16 @@ export const SettingsScreen: React.FC<{ onBack: () => void }> = ({ onBack }) => 
     }
   };
 
+  const handleRunDiagnostics = async () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    const diag = await runSelfDiagnostics();
+    if (diag.passed) {
+      Alert.alert('System Integrity 100% OK 🛡️', diag.results.join('\n'));
+    } else {
+      Alert.alert('Diagnostic Alert', diag.results.join('\n'));
+    }
+  };
+
   return (
     <View style={styles.container}>
       {/* Header */}
@@ -95,7 +113,7 @@ export const SettingsScreen: React.FC<{ onBack: () => void }> = ({ onBack }) => 
         {/* Pro Plan Card */}
         <View style={styles.proCard}>
           <View style={styles.proRow}>
-            <View>
+            <View style={{ flex: 1 }}>
               <Text style={styles.proTitle}>{isPro ? '⭐️ JobSign PRO Active' : 'FREE TIER (3 Quotes/Mo)'}</Text>
               <Text style={styles.proSub}>
                 {isPro
@@ -104,6 +122,17 @@ export const SettingsScreen: React.FC<{ onBack: () => void }> = ({ onBack }) => 
               </Text>
             </View>
           </View>
+          {!isPro && (
+            <TouchableOpacity
+              style={styles.upgradeBtn}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                setShowPaywall(true);
+              }}
+            >
+              <Text style={styles.upgradeBtnText}>⭐️ UPGRADE TO PRO</Text>
+            </TouchableOpacity>
+          )}
           {__DEV__ && (
             <TouchableOpacity
               style={[styles.proToggleBtn, isPro && styles.proToggleBtnActive]}
@@ -173,6 +202,14 @@ export const SettingsScreen: React.FC<{ onBack: () => void }> = ({ onBack }) => 
             value={license}
             onChangeText={setLicense}
           />
+          <TextInput
+            style={[styles.input, { marginTop: 10 }]}
+            placeholder="Default Sales Tax Rate (%) (e.g. 8.25)"
+            placeholderTextColor={Theme.colors.textMuted}
+            keyboardType="decimal-pad"
+            value={defaultTaxRate}
+            onChangeText={setDefaultTaxRate}
+          />
         </View>
 
         {/* Direct Payment P2P Accounts */}
@@ -232,7 +269,11 @@ export const SettingsScreen: React.FC<{ onBack: () => void }> = ({ onBack }) => 
                 <Text style={styles.presetTitleText}>{p.title}</Text>
                 <Text style={styles.presetPriceText}>${(p.priceCents / 100).toFixed(0)}</Text>
               </View>
-              <TouchableOpacity onPress={() => removePreset(p.id)} style={styles.deletePresetBtn}>
+              <TouchableOpacity
+                onPress={() => removePreset(p.id)}
+                style={styles.deletePresetBtn}
+                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+              >
                 <Text style={styles.deletePresetText}>✕</Text>
               </TouchableOpacity>
             </View>
@@ -248,6 +289,12 @@ export const SettingsScreen: React.FC<{ onBack: () => void }> = ({ onBack }) => 
           <TouchableOpacity style={styles.backupBtn} onPress={handleExportBackup}>
             <Text style={styles.backupBtnText}>💾 Export Full SQLite Database Backup</Text>
           </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.backupBtn, { marginTop: 10, backgroundColor: '#334155' }]}
+            onPress={handleRunDiagnostics}
+          >
+            <Text style={styles.backupBtnText}>🔬 Run System Health & Court Audit Self-Test</Text>
+          </TouchableOpacity>
         </View>
 
         {/* Save Button */}
@@ -255,6 +302,9 @@ export const SettingsScreen: React.FC<{ onBack: () => void }> = ({ onBack }) => 
           <Text style={styles.saveBtnText}>💾 SAVE SETTINGS</Text>
         </TouchableOpacity>
       </ScrollView>
+
+      {/* Paywall Modal */}
+      <PaywallModal visible={showPaywall} onClose={() => setShowPaywall(false)} />
     </View>
   );
 };
@@ -314,6 +364,21 @@ const styles = StyleSheet.create({
     color: '#E2E8F0',
     marginTop: 4,
     lineHeight: 16,
+  },
+  upgradeBtn: {
+    marginTop: 12,
+    backgroundColor: Theme.colors.amber,
+    minHeight: 48,
+    borderRadius: Theme.borderRadius.md,
+    justifyContent: 'center',
+    alignItems: 'center',
+    ...Theme.shadows.glowSuccess,
+  },
+  upgradeBtnText: {
+    color: '#0F172A',
+    fontWeight: '900',
+    fontSize: 14,
+    letterSpacing: 0.5,
   },
   proToggleBtn: {
     marginTop: 12,

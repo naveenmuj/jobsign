@@ -214,7 +214,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.05)',
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.12)',
-    minHeight: 44,
+    minHeight: 50,
     borderRadius: Theme.borderRadius.md,
     justifyContent: 'center',
     alignItems: 'center',
@@ -227,7 +227,7 @@ const styles = StyleSheet.create({
   actionBtnPrimary: {
     flex: 1,
     backgroundColor: Theme.colors.emerald,
-    minHeight: 44,
+    minHeight: 50,
     borderRadius: Theme.borderRadius.md,
     justifyContent: 'center',
     alignItems: 'center',

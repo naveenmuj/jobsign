@@ -83,7 +83,11 @@ export const OfflineOutboxModal: React.FC<OfflineOutboxModalProps> = ({
                 </Text>
               </View>
             </View>
-            <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
+            <TouchableOpacity
+              onPress={onClose}
+              style={styles.closeBtn}
+              hitSlop={{ top: 14, bottom: 14, left: 14, right: 14 }}
+            >
               <Text style={styles.closeText}>✕</Text>
             </TouchableOpacity>
           </View>
@@ -143,6 +147,7 @@ export const OfflineOutboxModal: React.FC<OfflineOutboxModalProps> = ({
                         <TouchableOpacity
                           style={styles.delBtn}
                           onPress={() => handleDeleteItem(item.id)}
+                          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
                         >
                           <Text style={styles.delText}>Remove</Text>
                         </TouchableOpacity>
