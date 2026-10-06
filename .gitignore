@@ -26,8 +26,16 @@ build/
 .secret/
 service_account.json
 
+# Node & Expo
+**/node_modules/
+**/.expo/
+**/dist/
+**/web-build/
+*.tsbuildinfo
+
 # System & Editor
 .DS_Store
 .idea/
 .vscode/
 *.swp
+
