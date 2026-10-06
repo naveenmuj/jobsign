@@ -43,6 +43,8 @@ All foundational research, competitor tears, legal invariants, and execution arc
 | [**BRD.md**](./docs/BRD.md) | Full Business Requirements Document (Target Personas, Legal Invariants). |
 | [**TRD.md**](./docs/TRD.md) | Technical Requirements & Systems Architecture Document. |
 | [**01_FINAL_IMPLEMENTATION_PLAN.md**](./docs/01_FINAL_IMPLEMENTATION_PLAN.md) | Master Roadmap addressing Claude CLI critique points. |
+| [**CLAUDE_CODE_AUDIT_AND_REVIEW.md**](./docs/CLAUDE_CODE_AUDIT_AND_REVIEW.md) | Multi-perspective senior engineering code audit and gap remediation log. |
+| [**DEVICE_E2E_VERIFICATION_REPORT.md**](./docs/DEVICE_E2E_VERIFICATION_REPORT.md) | **100% Android Device E2E Test Report** with visual screenshot gallery on Pixel 10 Pro. |
 | [**UI_UX_DESIGN_AND_ANIMATION_SPEC.md**](./docs/UI_UX_DESIGN_AND_ANIMATION_SPEC.md) | High-contrast design tokens, motion specs, and touch targets. |
 | [**GAP_ANALYSIS_AND_MOATS.md**](./docs/GAP_ANALYSIS_AND_MOATS.md) | Small claims defensibility, scope-creep change orders, and offline edge cases. |
 | [**BUILD_PROGRESS_AND_AUDIT_REPORT.md**](./docs/BUILD_PROGRESS_AND_AUDIT_REPORT.md) | Detailed verification, unit tests, and production audit report. |
