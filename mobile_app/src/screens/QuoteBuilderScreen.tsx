@@ -7,21 +7,62 @@ import {
   TouchableOpacity,
   ScrollView,
   Alert,
+  Image,
 } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
 import * as Haptics from 'expo-haptics';
 import { Theme } from '../theme';
 import { LineItem, Quote } from '../types';
 import { useQuoteStore } from '../store/useQuoteStore';
 import { SignaturePad } from '../components/SignaturePad';
 import { PDFService } from '../services/PDFService';
+import { PaywallModal } from '../components/PaywallModal';
 
 export const QuoteBuilderScreen: React.FC<{ onBack: () => void }> = ({ onBack }) => {
-  const { presets, addQuote } = useQuoteStore();
+  const { presets, addQuote, profile, quotes, isPro } = useQuoteStore();
 
   const [clientName, setClientName] = useState('');
   const [clientPhone, setClientPhone] = useState('');
+  const [jobDescription, setJobDescription] = useState('');
+  const [photoUri, setPhotoUri] = useState<string | null>(null);
   const [items, setItems] = useState<LineItem[]>([]);
   const [isSigning, setIsSigning] = useState(false);
+  const [showPaywall, setShowPaywall] = useState(false);
+
+  // Take damage proof photo
+  const handleCapturePhoto = async () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Camera Permission', 'Please allow camera access to take worksite damage photos.');
+      return;
+    }
+
+    const result = await ImagePicker.launchCameraAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      aspect: [4, 3],
+      quality: 0.7,
+    });
+
+    if (!result.canceled && result.assets[0]) {
+      setPhotoUri(result.assets[0].uri);
+    }
+  };
+
+  const handlePickFromGallery = async () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      aspect: [4, 3],
+      quality: 0.7,
+    });
+
+    if (!result.canceled && result.assets[0]) {
+      setPhotoUri(result.assets[0].uri);
+    }
+  };
 
   // 1-Tap Preset Addition
   const handleAddPreset = (preset: (typeof presets)[0]) => {
@@ -43,13 +84,25 @@ export const QuoteBuilderScreen: React.FC<{ onBack: () => void }> = ({ onBack })
 
   // Calculations
   const subtotalCents = items.reduce((sum, item) => sum + item.totalCents, 0);
-  const taxBasisPoints = 825; // 8.25% default
+  const taxBasisPoints = profile.defaultTaxBasisPoints || 825;
   const taxAmountCents = Math.round((subtotalCents * taxBasisPoints) / 10000);
   const totalAmountCents = subtotalCents + taxAmountCents;
 
   const totalFormatted = `$${(totalAmountCents / 100).toFixed(2)}`;
 
   const handleStartSignature = () => {
+    // Check free tier limits (3 quotes/mo)
+    const currentMonthQuotes = quotes.filter((q) => {
+      const d = new Date(q.createdAt);
+      const now = new Date();
+      return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+    });
+
+    if (!isPro && currentMonthQuotes.length >= 3) {
+      setShowPaywall(true);
+      return;
+    }
+
     if (!clientName.trim()) {
       Alert.alert('Missing Client Name', 'Please enter client name before signing.');
       return;
@@ -67,6 +120,8 @@ export const QuoteBuilderScreen: React.FC<{ onBack: () => void }> = ({ onBack })
       quoteNumber: Math.floor(1000 + Math.random() * 9000),
       clientName: clientName.trim(),
       clientPhone: clientPhone.trim() || undefined,
+      jobDescription: jobDescription.trim() || undefined,
+      photoUri: photoUri || undefined,
       status: 'SIGNED_LOCKED',
       subtotalCents,
       taxRateBasisPoints: taxBasisPoints,
@@ -77,15 +132,13 @@ export const QuoteBuilderScreen: React.FC<{ onBack: () => void }> = ({ onBack })
       createdAt: Date.now(),
       updatedAt: Date.now(),
       lineItems: items,
+      changeOrders: [],
     };
 
-    // Seal and compute SHA-256
     newQuote.pdfSha256Hash = await PDFService.computeHash(newQuote);
-
     await addQuote(newQuote);
     setIsSigning(false);
 
-    // Prompt to share PDF immediately
     Alert.alert(
       'Estimate Locked & Approved! 🔒',
       `Quote #${newQuote.quoteNumber} for ${newQuote.clientName} is legally sealed. Would you like to text or email the PDF to the client now?`,
@@ -94,7 +147,7 @@ export const QuoteBuilderScreen: React.FC<{ onBack: () => void }> = ({ onBack })
         {
           text: 'Send PDF Now',
           onPress: async () => {
-            await PDFService.generateAndSharePDF(newQuote);
+            await PDFService.generateAndSharePDF(newQuote, profile);
             onBack();
           },
         },
@@ -127,7 +180,7 @@ export const QuoteBuilderScreen: React.FC<{ onBack: () => void }> = ({ onBack })
       <ScrollView contentContainerStyle={styles.scrollContent}>
         {/* Client Input */}
         <View style={styles.card}>
-          <Text style={styles.label}>CLIENT DETAILS</Text>
+          <Text style={styles.label}>CLIENT & WORKSITE DETAILS</Text>
           <TextInput
             style={styles.input}
             placeholder="Client Name (e.g. Sarah Jenkins)"
@@ -137,12 +190,41 @@ export const QuoteBuilderScreen: React.FC<{ onBack: () => void }> = ({ onBack })
           />
           <TextInput
             style={[styles.input, { marginTop: 10 }]}
-            placeholder="Phone Number (optional)"
+            placeholder="Phone Number (e.g. 512-555-0199)"
             placeholderTextColor={Theme.colors.textMuted}
             keyboardType="phone-pad"
             value={clientPhone}
             onChangeText={setClientPhone}
           />
+          <TextInput
+            style={[styles.input, { marginTop: 10 }]}
+            placeholder="Short Scope Summary (e.g. Electrical Breaker Swap)"
+            placeholderTextColor={Theme.colors.textMuted}
+            value={jobDescription}
+            onChangeText={setJobDescription}
+          />
+        </View>
+
+        {/* Damage Proof Photo Attachment */}
+        <View style={styles.card}>
+          <Text style={styles.label}>WORKSITE DAMAGE PROOF PHOTO</Text>
+          {photoUri ? (
+            <View style={styles.photoPreviewBox}>
+              <Image source={{ uri: photoUri }} style={styles.photoPreview} />
+              <TouchableOpacity style={styles.removePhotoBtn} onPress={() => setPhotoUri(null)}>
+                <Text style={styles.removePhotoText}>Remove Photo ✕</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <View style={styles.photoActionsRow}>
+              <TouchableOpacity style={styles.cameraBtn} onPress={handleCapturePhoto}>
+                <Text style={styles.cameraBtnText}>📷 Snap Worksite Photo</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.galleryBtn} onPress={handlePickFromGallery}>
+                <Text style={styles.galleryBtnText}>🖼 Gallery</Text>
+              </TouchableOpacity>
+            </View>
+          )}
         </View>
 
         {/* 1-Tap Item Presets Bar */}
@@ -190,7 +272,7 @@ export const QuoteBuilderScreen: React.FC<{ onBack: () => void }> = ({ onBack })
             <Text style={styles.summaryVal}>${(subtotalCents / 100).toFixed(2)}</Text>
           </View>
           <View style={styles.summaryRow}>
-            <Text style={styles.summaryLabel}>Estimated Tax (8.25%)</Text>
+            <Text style={styles.summaryLabel}>Sales Tax ({(taxBasisPoints / 100).toFixed(2)}%)</Text>
             <Text style={styles.summaryVal}>${(taxAmountCents / 100).toFixed(2)}</Text>
           </View>
           <View style={[styles.summaryRow, styles.totalRow]}>
@@ -206,6 +288,9 @@ export const QuoteBuilderScreen: React.FC<{ onBack: () => void }> = ({ onBack })
           <Text style={styles.signButtonText}>✍️ HAND PHONE TO CLIENT TO SIGN</Text>
         </TouchableOpacity>
       </View>
+
+      {/* Paywall Modal */}
+      <PaywallModal visible={showPaywall} onClose={() => setShowPaywall(false)} />
     </View>
   );
 };
@@ -222,9 +307,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 54,
     paddingBottom: 14,
-    backgroundColor: '#FFFFFF',
-    borderBottomWidth: 1.5,
-    borderColor: Theme.colors.borderSubtle,
+    backgroundColor: '#111827',
+    borderBottomWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
   },
   backBtn: {
     padding: 8,
@@ -232,23 +317,23 @@ const styles = StyleSheet.create({
   backBtnText: {
     fontSize: 15,
     fontWeight: 'bold',
-    color: Theme.colors.accent,
+    color: Theme.colors.primary,
   },
   title: {
     fontSize: 18,
     fontWeight: '800',
-    color: Theme.colors.primary,
+    color: Theme.colors.textPrimary,
   },
   scrollContent: {
     padding: 16,
     paddingBottom: 100,
   },
   card: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#1E293B',
     padding: 16,
     borderRadius: Theme.borderRadius.md,
-    borderWidth: 1.5,
-    borderColor: Theme.colors.border,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
     marginBottom: 16,
   },
   label: {
@@ -259,13 +344,64 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   input: {
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#0F172A',
     borderWidth: 1,
-    borderColor: Theme.colors.border,
+    borderColor: '#334155',
     borderRadius: Theme.borderRadius.sm,
     padding: 12,
     fontSize: 15,
     color: Theme.colors.textPrimary,
+  },
+  photoPreviewBox: {
+    alignItems: 'center',
+  },
+  photoPreview: {
+    width: '100%',
+    height: 180,
+    borderRadius: Theme.borderRadius.sm,
+    borderWidth: 1,
+    borderColor: '#334155',
+  },
+  removePhotoBtn: {
+    marginTop: 8,
+    padding: 6,
+  },
+  removePhotoText: {
+    color: '#EF4444',
+    fontSize: 13,
+    fontWeight: 'bold',
+  },
+  photoActionsRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  cameraBtn: {
+    flex: 2,
+    backgroundColor: '#0F172A',
+    borderWidth: 1,
+    borderColor: Theme.colors.primary,
+    paddingVertical: 12,
+    borderRadius: Theme.borderRadius.sm,
+    alignItems: 'center',
+  },
+  cameraBtnText: {
+    color: Theme.colors.primary,
+    fontWeight: '800',
+    fontSize: 13,
+  },
+  galleryBtn: {
+    flex: 1,
+    backgroundColor: '#0F172A',
+    borderWidth: 1,
+    borderColor: '#334155',
+    paddingVertical: 12,
+    borderRadius: Theme.borderRadius.sm,
+    alignItems: 'center',
+  },
+  galleryBtnText: {
+    color: Theme.colors.textSecondary,
+    fontWeight: '700',
+    fontSize: 13,
   },
   sectionHeader: {
     marginBottom: 8,
@@ -281,9 +417,9 @@ const styles = StyleSheet.create({
     paddingBottom: 16,
   },
   presetChip: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#1E293B',
     borderWidth: 1.5,
-    borderColor: Theme.colors.accent,
+    borderColor: Theme.colors.primary,
     borderRadius: Theme.borderRadius.full,
     paddingHorizontal: 14,
     paddingVertical: 10,
@@ -294,12 +430,12 @@ const styles = StyleSheet.create({
   presetTitle: {
     fontSize: 13,
     fontWeight: '700',
-    color: Theme.colors.accent,
+    color: Theme.colors.textPrimary,
   },
   presetPrice: {
     fontSize: 13,
     fontWeight: '800',
-    color: Theme.colors.primary,
+    color: Theme.colors.emerald,
   },
   emptyText: {
     color: Theme.colors.textMuted,
@@ -311,7 +447,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 10,
     borderBottomWidth: 1,
-    borderColor: Theme.colors.borderSubtle,
+    borderColor: 'rgba(255, 255, 255, 0.05)',
   },
   itemTitle: {
     fontSize: 14,
@@ -326,7 +462,7 @@ const styles = StyleSheet.create({
   itemTotal: {
     fontSize: 15,
     fontWeight: '800',
-    color: Theme.colors.primary,
+    color: Theme.colors.textPrimary,
     marginRight: 12,
   },
   removeBtn: {
@@ -338,11 +474,11 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   summaryCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#1E293B',
     padding: 16,
     borderRadius: Theme.borderRadius.md,
-    borderWidth: 1.5,
-    borderColor: Theme.colors.border,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
   },
   summaryRow: {
     flexDirection: 'row',
@@ -360,41 +496,37 @@ const styles = StyleSheet.create({
   },
   totalRow: {
     borderTopWidth: 1.5,
-    borderColor: Theme.colors.primary,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
     marginTop: 8,
     paddingTop: 10,
   },
   totalLabel: {
     fontSize: 17,
     fontWeight: '900',
-    color: Theme.colors.primary,
+    color: Theme.colors.textPrimary,
   },
   totalVal: {
     fontSize: 20,
     fontWeight: '900',
-    color: Theme.colors.primary,
+    color: Theme.colors.emerald,
   },
   bottomBar: {
     position: 'absolute',
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#111827',
     padding: 16,
-    borderTopWidth: 1.5,
-    borderColor: Theme.colors.borderSubtle,
+    borderTopWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
   },
   signButton: {
-    backgroundColor: Theme.colors.success,
+    backgroundColor: Theme.colors.emerald,
     minHeight: Theme.touchTarget.minHeight,
     borderRadius: Theme.borderRadius.md,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#16A34A',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 6,
-    elevation: 4,
+    ...Theme.shadows.glowSuccess,
   },
   signButtonText: {
     color: '#FFFFFF',
