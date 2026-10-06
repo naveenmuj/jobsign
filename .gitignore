@@ -1,0 +1,33 @@
+# Flutter / Dart
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+build/
+*.aab
+*.apk
+
+# Android
+**/android/.gradle/
+**/android/local.properties
+**/android/app/key.jks
+**/android/app/key.properties
+**/android/app/google-services.json
+
+# iOS
+**/ios/.symlinks/
+**/ios/Pods/
+**/ios/Podfile.lock
+**/ios/Runner/GoogleService-Info.plist
+
+# Secrets & Local Environment
+*.env
+*.env.local
+.secret/
+service_account.json
+
+# System & Editor
+.DS_Store
+.idea/
+.vscode/
+*.swp
