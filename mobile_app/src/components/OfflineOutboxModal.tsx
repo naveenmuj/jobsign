@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
 import * as Haptics from 'expo-haptics';
+import { X } from 'lucide-react-native';
 import { Theme, getThemeColors, ThemeColors } from '../theme';
 import { OutboxItem } from '../types';
 import { OutboxService } from '../services/OutboxService';
@@ -93,7 +94,7 @@ export const OfflineOutboxModal: React.FC<OfflineOutboxModalProps> = ({
               style={styles.closeBtn}
               hitSlop={{ top: 14, bottom: 14, left: 14, right: 14 }}
             >
-              <Text style={styles.closeText}>✕</Text>
+              <X size={18} color={colors.textSecondary} />
             </TouchableOpacity>
           </View>
 

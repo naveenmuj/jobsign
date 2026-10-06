@@ -10,7 +10,7 @@ import {
   Alert,
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
-import { Settings, WifiOff, Search, X } from 'lucide-react-native';
+import { Settings, WifiOff, Search, X, Check } from 'lucide-react-native';
 import { Theme, getThemeColors, ThemeColors } from '../theme';
 import { Quote } from '../types';
 import { useQuoteStore } from '../store/useQuoteStore';
@@ -381,9 +381,12 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
             }}
             hitSlop={{ top: 10, bottom: 10, left: 6, right: 6 }}
           >
-            <Text style={[styles.proBadgeText, isPro && styles.proBadgeTextActive]}>
-              {isPro ? 'Pro ✓' : 'Upgrade'}
-            </Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+              {isPro && <Check size={12} color={colors.amber} strokeWidth={2.5} />}
+              <Text style={[styles.proBadgeText, isPro && styles.proBadgeTextActive]}>
+                {isPro ? 'Pro' : 'Upgrade'}
+              </Text>
+            </View>
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.settingsIconBtn}

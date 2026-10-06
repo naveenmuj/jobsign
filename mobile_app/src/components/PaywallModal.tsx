@@ -10,7 +10,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
-import { Check } from 'lucide-react-native';
+import { Check, X } from 'lucide-react-native';
 import { PurchasesPackage } from 'react-native-purchases';
 import { Theme, getThemeColors, ThemeColors } from '../theme';
 import { useQuoteStore } from '../store/useQuoteStore';
@@ -131,7 +131,7 @@ export const PaywallModal: React.FC<PaywallModalProps> = ({ visible, onClose }) 
               style={styles.closeBtn}
               hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
             >
-              <Text style={styles.closeText}>✕</Text>
+              <X size={18} color={colors.textSecondary} />
             </TouchableOpacity>
           </View>
 

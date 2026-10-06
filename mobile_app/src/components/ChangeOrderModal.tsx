@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import * as Crypto from 'expo-crypto';
+import { X } from 'lucide-react-native';
 import { Theme, getThemeColors, ThemeColors } from '../theme';
 import { ChangeOrder, Quote } from '../types';
 import { SignaturePad } from './SignaturePad';
@@ -136,7 +137,7 @@ export const ChangeOrderModal: React.FC<ChangeOrderModalProps> = ({
               style={styles.closeBtn}
               hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
             >
-              <Text style={styles.closeText}>✕</Text>
+              <X size={18} color={colors.textSecondary} />
             </TouchableOpacity>
           </View>
 

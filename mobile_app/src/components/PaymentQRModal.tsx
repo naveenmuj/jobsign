@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { View, Text, StyleSheet, Modal, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
 import * as Haptics from 'expo-haptics';
+import { X } from 'lucide-react-native';
 import { Theme, getThemeColors, ThemeColors } from '../theme';
 import { Quote } from '../types';
 import { useQuoteStore } from '../store/useQuoteStore';
@@ -89,7 +90,7 @@ export const PaymentQRModal: React.FC<{ quote: Quote; onClose: () => void }> = (
               style={styles.closeBtn}
               hitSlop={{ top: 14, bottom: 14, left: 14, right: 14 }}
             >
-              <Text style={styles.closeText}>✕</Text>
+              <X size={18} color={colors.textSecondary} />
             </TouchableOpacity>
           </View>
 
