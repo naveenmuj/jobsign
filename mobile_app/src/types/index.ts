@@ -65,3 +65,14 @@ export interface Quote {
   lineItems: LineItem[];
   changeOrders?: ChangeOrder[];
 }
+
+export interface OutboxItem {
+  id: string;
+  quoteId: string;
+  clientName: string;
+  recipientContact: string;
+  channel: 'SMS' | 'EMAIL' | 'SHARE';
+  createdAt: number;
+  status: 'PENDING' | 'SENT' | 'FAILED';
+  errorMessage?: string;
+}

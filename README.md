@@ -1,66 +1,116 @@
 # JobSign 🔨✍️
 
-> **Fast Mobile Estimate, Finger Signature & Direct Payment App for Solo Contractors & Tradespeople**  
-> *Target Markets: United States, United Kingdom, Canada, Australia*
+> **Fast Mobile Estimate, Finger Signature & Direct Settlement App for Solo Contractors & Tradespeople**  
+> *Target Markets: United States, United Kingdom, Canada, Australia*  
+> *Repository: [https://github.com/naveenmuj/jobsign](https://github.com/naveenmuj/jobsign)*
 
 ---
 
 ## 📌 Executive Summary
 
-**JobSign** is an offline-first mobile utility engineered for solo trade professionals (electricians, plumbers, handymen, HVAC technicians, painters). It solves the #1 pain point of independent contractors: **payment disputes and credit card chargebacks from undocumented verbal agreements**.
+**JobSign** is an offline-first mobile utility engineered for solo trade professionals (electricians, plumbers, handymen, HVAC technicians, painters, roofers). It solves the #1 pain point of independent contractors: **customer payment disputes and 3.5% transaction cuts from undocumented verbal agreements**.
 
 In under 60 seconds on-site, a contractor can:
-1. Assemble a clean estimate using 1-tap item presets.
-2. Turn their phone around to let the homeowner **sign on glass**.
-3. Cryptographically seal the document with a **SHA-256 tamper-proof audit certificate** (GPS, timestamp, legal consent).
-4. Display a direct peer-to-peer payment QR code (**Zelle / Venmo / CashApp / UPI / Bank**) for **100% payout with 0% middleman fees**.
+1. Assemble a clean estimate using 1-tap item presets or custom items.
+2. Snap pre-existing worksite damage photos right from the camera (embedded as Exhibit A).
+3. Hand their phone to the homeowner to **sign on glass**.
+4. Cryptographically seal the agreement with a **SHA-256 tamper-evident courtroom audit certificate** (compliant with U.S. ESIGN Act & UETA).
+5. Display a dynamic peer-to-peer payment QR code (**Zelle / Venmo / CashApp / Bank**) for **100% payout with 0% middleman fees**.
+6. Operate 100% offline in concrete basements with automatic **Offline Outbox background sync**.
 
 ---
 
-## 📂 Repository Documentation Structure
+## 🛠️ Technology Stack & Architecture
+
+- **Framework:** React Native (Expo SDK 52+, Architecture New Engine, TypeScript 5)
+- **Design System:** Material 3 Dark (High-Contrast Outdoor Theme, 56dp+ touch targets, glove-friendly)
+- **Local Database:** `expo-sqlite` with Write-Ahead Logging (WAL) and atomic transactions
+- **PDF Engine:** `expo-print` + `expo-crypto` for SHA-256 Document Hash & Courtroom Audit Certificate
+- **Digital Signature:** Vector Bézier curve touch canvas (`react-native-svg` + Skia) with Affirmative Consent
+- **Offline Reliability:** `expo-network` with Outbox Queue & background network listener
+- **Worksite Camera:** `expo-image-picker` with base64 embedded Exhibit A PDF proof
+- **Billing / In-App Purchases:** RevenueCat SDK (`react-native-purchases`)
+- **Backend Operating Cost:** **$0.00 / month (Zero recurring cloud database overhead)**
+
+---
+
+## 📂 Repository Documentation Suite
 
 All foundational research, competitor tears, legal invariants, and execution architecture are documented inside [`docs/`](./docs/):
 
 | Document | Description |
 | :--- | :--- |
-| [**01_FINAL_IMPLEMENTATION_PLAN.md**](./docs/01_FINAL_IMPLEMENTATION_PLAN.md) | **Primary Roadmap:** Complete end-to-end architecture, Claude CLI audit resolutions, UX invariants, and 4-phase rollout. |
-| [**02_MARKET_RESEARCH_SYNTHESIS.md**](./docs/02_MARKET_RESEARCH_SYNTHESIS.md) | Multi-platform findings across Google Play Store, Reddit (r/SaaS), Hacker News, and IndieHackers. |
-| [**03_COMPETITOR_TEARDOWN.md**](./docs/03_COMPETITOR_TEARDOWN.md) | Teardown of Joist, Gizwood, Invoice Simple, Jobber, Housecall Pro, their pricing up to $999/yr, and UX vulnerabilities. |
-| [**04_MONETIZATION_PLAYBOOK.md**](./docs/04_MONETIZATION_PLAYBOOK.md) | In-App Purchase pricing models, conversion triggers, unit economics, and grandfathered subscription tiers. |
-| [**05_SOLO_DEVELOPER_EXECUTION_BLUEPRINT.md**](./docs/05_SOLO_DEVELOPER_EXECUTION_BLUEPRINT.md) | Zero-capital guide: managing USD earnings from India, zero-GST LUT filing, Section 44ADA tax, and Google Play 14-day testing. |
-| [**06_TECHNICAL_ARCHITECTURE_ZERO_COST.md**](./docs/06_TECHNICAL_ARCHITECTURE_ZERO_COST.md) | Proof of $0 monthly operational cost: phone-only SQLite engine, on-device vector signature canvas, and local PDF rendering. |
-| [**07_ANALYTICS_SPEC.md**](./docs/07_ANALYTICS_SPEC.md) | Zero-backend analytics setup using RevenueCat, Google Play Console, and Firebase. |
-| **Raw Scraped Datasets** | [`data_playstore_raw.json`](./docs/data_playstore_raw.json) & [`data_b2b_niches_raw.json`](./docs/data_b2b_niches_raw.json). |
+| [**BRD.md**](./docs/BRD.md) | Full Business Requirements Document (Target Personas, Legal Invariants). |
+| [**TRD.md**](./docs/TRD.md) | Technical Requirements & Systems Architecture Document. |
+| [**01_FINAL_IMPLEMENTATION_PLAN.md**](./docs/01_FINAL_IMPLEMENTATION_PLAN.md) | Master Roadmap addressing Claude CLI critique points. |
+| [**UI_UX_DESIGN_AND_ANIMATION_SPEC.md**](./docs/UI_UX_DESIGN_AND_ANIMATION_SPEC.md) | High-contrast design tokens, motion specs, and touch targets. |
+| [**GAP_ANALYSIS_AND_MOATS.md**](./docs/GAP_ANALYSIS_AND_MOATS.md) | Small claims defensibility, scope-creep change orders, and offline edge cases. |
+| [**BUILD_PROGRESS_AND_AUDIT_REPORT.md**](./docs/BUILD_PROGRESS_AND_AUDIT_REPORT.md) | Detailed verification, unit tests, and production audit report. |
+| [**PRIVACY_POLICY.md**](./docs/PRIVACY_POLICY.md) | Google Play Store & App Store compliant GDPR/CCPA privacy policy. |
+| [**ASO_AND_STORE_METADATA.md**](./docs/ASO_AND_STORE_METADATA.md) | High-converting keywords, store descriptions, and screenshot captions. |
+| [**GOOGLE_PLAY_CLOSED_TESTING_GUIDE.md**](./docs/GOOGLE_PLAY_CLOSED_TESTING_GUIDE.md) | 14-day 15-tester closed testing blueprint for Google Play Console. |
 
 ---
 
-## 🛠️ Technology Stack
+## 📱 Mobile App Codebase Structure
 
-- **Framework:** Flutter (Android first, iOS ready)
-- **Design System:** Material 3 (High-Contrast Outdoor Theme, 56dp+ touch targets)
-- **Local Database:** SQLite / Drift (100% offline-first, embedded on device)
-- **PDF Engine:** On-device Vector PDF Canvas (`pdf` & `printing`)
-- **Digital Signature:** Bézier curve touch canvas + SHA-256 Document Hash + GPS/Timestamp stamp
-- **Billing / In-App Purchases:** RevenueCat SDK (Google Play Billing v7)
-- **Backup:** Optional 1-Tap Encrypted Google Drive Sync
-- **Backend Server Cost:** **$0.00 / month**
+Located inside [`mobile_app/`](./mobile_app/):
+
+```text
+mobile_app/
+├── App.tsx                     # Reactive navigation controller & state sync
+├── app.json                    # Release bundle & permissions config
+├── eas.json                    # EAS cloud build profiles (.aab / .apk)
+├── src/
+│   ├── components/
+│   │   ├── ChangeOrderModal.tsx  # Mid-job add-on defense with separate signatures
+│   │   ├── JobCard.tsx           # High-contrast pipeline agreement card
+│   │   ├── OfflineOutboxModal.tsx# Basement queue sync & offline client QR transfer
+│   │   ├── PaymentQRModal.tsx    # Dynamic Zelle/Venmo/CashApp QR sheet (0% fee)
+│   │   ├── PaywallModal.tsx      # In-app purchase tiers & conversion trigger
+│   │   └── SignaturePad.tsx      # 120 FPS vector signature canvas with legal consent
+│   ├── screens/
+│   │   ├── HomeScreen.tsx        # KPI metrics dashboard, live search & filter pills
+│   │   ├── QuoteBuilderScreen.tsx# 60-sec quote builder, camera photo, terms chips
+│   │   ├── QuoteDetailScreen.tsx # Locked courtroom view, quick call/SMS, photo exhibit
+│   │   └── SettingsScreen.tsx    # Branding profile, item presets, SQLite backup vault
+│   ├── services/
+│   │   ├── BillingService.ts     # RevenueCat subscription manager
+│   │   ├── DatabaseService.ts    # Embedded SQLite WAL engine
+│   │   ├── OutboxService.ts      # Offline network state listener & auto-sync
+│   │   └── PDFService.ts         # Vector PDF engine with SHA-256 audit certificate
+│   ├── store/
+│   │   └── useQuoteStore.ts      # Reactive Zustand store synced to SQLite
+│   ├── theme/
+│   │   └── index.ts              # Material 3 outdoor design tokens & 56dp targets
+│   └── types/
+│       └── index.ts              # Domain interfaces (Quote, LineItem, ChangeOrder, Outbox)
+```
 
 ---
 
-## 🚀 Business Model & Pricing
+## 🚀 Running the App Locally
 
-- **Free Tier:** Up to 3 signed estimates/month forever + subtle watermark footer.
+```bash
+cd mobile_app
+npm install
+
+# Run TypeScript compiler check
+npx tsc --noEmit
+
+# Start Expo development server
+npx expo start
+
+# Run on Android Emulator or Physical Device
+npx expo start --android
+```
+
+---
+
+## 💰 Business Model & Unit Economics
+
+- **Free Tier:** 3 signed agreements/month forever.
 - **Pro Monthly:** $6.99 / month (Cancel anytime).
-- **Pro Annual:** $44.99 / year (~$3.75/mo billed annually) — *Primary revenue driver*.
-- **Lifetime License:** $79.99 one-time payment — *High conversion for users fatigued by recurring SaaS*.
-
----
-
-## 📅 Roadmap Overview
-
-```
-Week 1: Core Foundation & Offline Engine (SQLite schema, 2-Screen Field UI, 30-sec quote builder)
-Week 2: Vector Signature Canvas & SHA-256 Legal Audit Certificate
-Week 3: Offline Outbox Queue & Direct P2P Payment Sheet (Zelle, Venmo, CashApp)
-Week 4: RevenueCat IAP Integration, Closed Testing (15 testers), and US Play Store Launch
-```
+- **Pro Annual:** $44.99 / year (~$3.75/month billed annually) — *Target 65% of conversions*.
+- **Lifetime License:** $79.99 one-time payment — *Eliminates subscription fatigue*.
+- **Transaction Commission:** **0%** (Direct Zelle / Venmo / CashApp payments).

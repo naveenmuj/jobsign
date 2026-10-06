@@ -6,6 +6,7 @@ import {
   FlatList,
   TouchableOpacity,
   RefreshControl,
+  TextInput,
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { Theme } from '../theme';
@@ -14,6 +15,8 @@ import { useQuoteStore } from '../store/useQuoteStore';
 import { PDFService } from '../services/PDFService';
 import { JobCard } from '../components/JobCard';
 import { PaymentQRModal } from '../components/PaymentQRModal';
+import { OfflineOutboxModal } from '../components/OfflineOutboxModal';
+import { OutboxService } from '../services/OutboxService';
 
 interface HomeScreenProps {
   onNewQuote: () => void;
@@ -28,14 +31,37 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
 }) => {
   const { quotes, loadQuotes, activeFilter, setFilter, profile, isPro, isLoading } = useQuoteStore();
   const [selectedPaymentQuote, setSelectedPaymentQuote] = useState<Quote | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [pendingOutboxCount, setPendingOutboxCount] = useState(0);
+  const [showOutboxModal, setShowOutboxModal] = useState(false);
+
+  const refreshOutboxCount = async () => {
+    const pending = await OutboxService.getPending();
+    setPendingOutboxCount(pending.length);
+  };
 
   useEffect(() => {
     loadQuotes();
+    refreshOutboxCount();
+    OutboxService.startAutoSync(() => {
+      refreshOutboxCount();
+    });
+    return () => {
+      OutboxService.stopAutoSync();
+    };
   }, []);
 
   const filteredQuotes = quotes.filter((q) => {
-    if (activeFilter === 'ALL') return true;
-    return q.status === activeFilter;
+    const matchesStatus = activeFilter === 'ALL' || q.status === activeFilter;
+    if (!matchesStatus) return false;
+    if (!searchQuery.trim()) return true;
+    const query = searchQuery.toLowerCase().trim();
+    return (
+      q.clientName.toLowerCase().includes(query) ||
+      String(q.quoteNumber).includes(query) ||
+      (q.jobDescription && q.jobDescription.toLowerCase().includes(query)) ||
+      (q.clientPhone && q.clientPhone.includes(query))
+    );
   });
 
   const totalUncollected = quotes
@@ -61,6 +87,20 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
         </View>
         <View style={styles.headerRight}>
           <TouchableOpacity
+            style={styles.outboxIconBtn}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              setShowOutboxModal(true);
+            }}
+          >
+            <Text style={styles.outboxIconText}>📡</Text>
+            {pendingOutboxCount > 0 && (
+              <View style={styles.outboxBadge}>
+                <Text style={styles.outboxBadgeText}>{pendingOutboxCount}</Text>
+              </View>
+            )}
+          </TouchableOpacity>
+          <TouchableOpacity
             style={[styles.proBadge, isPro && styles.proBadgeActive]}
             onPress={onOpenSettings}
           >
@@ -73,6 +113,18 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
           </TouchableOpacity>
         </View>
       </View>
+
+      {/* Offline Outbox Alert Banner (If pending) */}
+      {pendingOutboxCount > 0 && (
+        <TouchableOpacity
+          style={styles.outboxBanner}
+          onPress={() => setShowOutboxModal(true)}
+        >
+          <Text style={styles.outboxBannerText}>
+            📡 {pendingOutboxCount} Agreement(s) in Offline Outbox • Tap to Sync
+          </Text>
+        </TouchableOpacity>
+      )}
 
       {/* High-Impact Metrics Dashboard */}
       <View style={styles.metricsContainer}>
@@ -91,6 +143,23 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
           </Text>
           <Text style={styles.metricSub}>Direct 0% fee P2P</Text>
         </View>
+      </View>
+
+      {/* Live Search Bar */}
+      <View style={styles.searchBarContainer}>
+        <Text style={styles.searchIcon}>🔍</Text>
+        <TextInput
+          style={styles.searchInput}
+          placeholder="Search client, agreement #, or notes..."
+          placeholderTextColor={Theme.colors.textMuted}
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+        />
+        {searchQuery.length > 0 && (
+          <TouchableOpacity onPress={() => setSearchQuery('')} style={styles.clearSearchBtn}>
+            <Text style={styles.clearSearchText}>✕</Text>
+          </TouchableOpacity>
+        )}
       </View>
 
       {/* Segmented Filter Pills */}
@@ -124,12 +193,25 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
           />
         )}
         contentContainerStyle={styles.listContent}
-        refreshControl={<RefreshControl refreshing={isLoading} onRefresh={loadQuotes} tintColor="#38BDF8" />}
+        refreshControl={
+          <RefreshControl
+            refreshing={isLoading}
+            onRefresh={() => {
+              loadQuotes();
+              refreshOutboxCount();
+            }}
+            tintColor="#38BDF8"
+          />
+        }
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
-            <Text style={styles.emptyTitle}>Zero active estimates in this view</Text>
+            <Text style={styles.emptyTitle}>
+              {searchQuery ? 'No matching agreements found' : 'Zero active estimates in this view'}
+            </Text>
             <Text style={styles.emptyDesc}>
-              Tap below to assemble your first 60-second quote with client signature.
+              {searchQuery
+                ? 'Try searching by a different name or quote number.'
+                : 'Tap below to assemble your first 60-second quote with client signature.'}
             </Text>
           </View>
         }
@@ -154,6 +236,13 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
           onClose={() => setSelectedPaymentQuote(null)}
         />
       )}
+
+      {/* Offline Outbox Modal */}
+      <OfflineOutboxModal
+        visible={showOutboxModal}
+        onClose={() => setShowOutboxModal(false)}
+        onQueueUpdated={refreshOutboxCount}
+      />
     </View>
   );
 };
@@ -312,5 +401,76 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '900',
     letterSpacing: 0.5,
+  },
+  outboxIconBtn: {
+    position: 'relative',
+    padding: 6,
+    backgroundColor: '#1E293B',
+    borderRadius: Theme.borderRadius.sm,
+    borderWidth: 1,
+    borderColor: '#334155',
+  },
+  outboxIconText: {
+    fontSize: 15,
+  },
+  outboxBadge: {
+    position: 'absolute',
+    top: -4,
+    right: -4,
+    backgroundColor: Theme.colors.amber,
+    borderRadius: 8,
+    minWidth: 16,
+    height: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 3,
+  },
+  outboxBadgeText: {
+    color: '#0F172A',
+    fontSize: 10,
+    fontWeight: '900',
+  },
+  outboxBanner: {
+    backgroundColor: 'rgba(245, 158, 11, 0.15)',
+    borderBottomWidth: 1,
+    borderColor: 'rgba(245, 158, 11, 0.3)',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    alignItems: 'center',
+  },
+  outboxBannerText: {
+    color: '#FBBF24',
+    fontSize: 12,
+    fontWeight: '800',
+    letterSpacing: 0.3,
+  },
+  searchBarContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#1E293B',
+    marginHorizontal: 16,
+    marginBottom: 12,
+    borderRadius: Theme.borderRadius.md,
+    paddingHorizontal: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  searchIcon: {
+    fontSize: 14,
+    marginRight: 8,
+  },
+  searchInput: {
+    flex: 1,
+    height: 42,
+    color: '#FFFFFF',
+    fontSize: 14,
+  },
+  clearSearchBtn: {
+    padding: 6,
+  },
+  clearSearchText: {
+    color: Theme.colors.textMuted,
+    fontSize: 13,
+    fontWeight: 'bold',
   },
 });

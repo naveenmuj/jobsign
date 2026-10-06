@@ -1,5 +1,5 @@
 import * as SQLite from 'expo-sqlite';
-import { Quote, LineItem, ChangeOrder } from '../types';
+import { Quote, LineItem, ChangeOrder, OutboxItem } from '../types';
 
 export class DatabaseService {
   private static db: SQLite.SQLiteDatabase | null = null;
@@ -61,9 +61,21 @@ export class DatabaseService {
         pdf_sha256_hash TEXT NOT NULL
       );
 
+      CREATE TABLE IF NOT EXISTS offline_outbox (
+        id TEXT PRIMARY KEY NOT NULL,
+        quote_id TEXT NOT NULL REFERENCES quotes(id) ON DELETE CASCADE,
+        client_name TEXT NOT NULL,
+        recipient_contact TEXT NOT NULL,
+        channel TEXT NOT NULL,
+        created_at INTEGER NOT NULL,
+        status TEXT NOT NULL,
+        error_message TEXT
+      );
+
       CREATE INDEX IF NOT EXISTS idx_quotes_status ON quotes(status);
       CREATE INDEX IF NOT EXISTS idx_line_items_quote_id ON line_items(quote_id);
       CREATE INDEX IF NOT EXISTS idx_change_orders_quote_id ON change_orders(quote_id);
+      CREATE INDEX IF NOT EXISTS idx_outbox_status ON offline_outbox(status);
     `);
   }
 
@@ -184,5 +196,58 @@ export class DatabaseService {
         }
       }
     });
+  }
+
+  public static async saveOutboxItem(item: OutboxItem): Promise<void> {
+    const db = await this.getDB();
+    await db.runAsync(
+      `INSERT OR REPLACE INTO offline_outbox (
+        id, quote_id, client_name, recipient_contact, channel, created_at, status, error_message
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        item.id,
+        item.quoteId,
+        item.clientName,
+        item.recipientContact,
+        item.channel,
+        item.createdAt,
+        item.status,
+        item.errorMessage || null,
+      ]
+    );
+  }
+
+  public static async getAllOutboxItems(): Promise<OutboxItem[]> {
+    const db = await this.getDB();
+    const rows = await db.getAllAsync<any>(
+      'SELECT * FROM offline_outbox ORDER BY created_at DESC'
+    );
+    return rows.map((r) => ({
+      id: r.id,
+      quoteId: r.quote_id,
+      clientName: r.client_name,
+      recipientContact: r.recipient_contact,
+      channel: r.channel,
+      createdAt: r.created_at,
+      status: r.status,
+      errorMessage: r.error_message || undefined,
+    }));
+  }
+
+  public static async updateOutboxStatus(
+    id: string,
+    status: 'PENDING' | 'SENT' | 'FAILED',
+    errorMessage?: string
+  ): Promise<void> {
+    const db = await this.getDB();
+    await db.runAsync(
+      'UPDATE offline_outbox SET status = ?, error_message = ? WHERE id = ?',
+      [status, errorMessage || null, id]
+    );
+  }
+
+  public static async deleteOutboxItem(id: string): Promise<void> {
+    const db = await this.getDB();
+    await db.runAsync('DELETE FROM offline_outbox WHERE id = ?', [id]);
   }
 }

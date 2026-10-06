@@ -82,11 +82,11 @@ export const PaywallModal: React.FC<PaywallModalProps> = ({ visible, onClose }) 
                 <Text style={styles.tierBadgeText}>MOST POPULAR • SAVE 50%</Text>
               </View>
               <View style={styles.tierRow}>
-                <div>
+                <View>
                   <Text style={styles.tierTitle}>Annual Protection</Text>
                   <Text style={styles.tierSub}>Just $3.75 / month</Text>
-                </div>
-                <Text style={styles.tierPrice}>$44.99 <span style={styles.tierPeriod}>/ yr</span></Text>
+                </View>
+                <Text style={styles.tierPrice}>$44.99 <Text style={styles.tierPeriod}>/ yr</Text></Text>
               </View>
             </TouchableOpacity>
 
@@ -98,11 +98,11 @@ export const PaywallModal: React.FC<PaywallModalProps> = ({ visible, onClose }) 
                 <Text style={styles.tierBadgeText}>ONE-TIME • NEVER PAY AGAIN</Text>
               </View>
               <View style={styles.tierRow}>
-                <div>
+                <View>
                   <Text style={styles.tierTitle}>Lifetime Access</Text>
                   <Text style={styles.tierSub}>Zero recurring subscriptions</Text>
-                </div>
-                <Text style={styles.tierPrice}>$79.99 <span style={styles.tierPeriod}>once</span></Text>
+                </View>
+                <Text style={styles.tierPrice}>$79.99 <Text style={styles.tierPeriod}>once</Text></Text>
               </View>
             </TouchableOpacity>
 
@@ -111,11 +111,11 @@ export const PaywallModal: React.FC<PaywallModalProps> = ({ visible, onClose }) 
               onPress={() => setSelectedTier('MONTHLY')}
             >
               <View style={styles.tierRow}>
-                <div>
+                <View>
                   <Text style={styles.tierTitle}>Monthly Flexible</Text>
                   <Text style={styles.tierSub}>Cancel anytime</Text>
-                </div>
-                <Text style={styles.tierPrice}>$6.99 <span style={styles.tierPeriod}>/ mo</span></Text>
+                </View>
+                <Text style={styles.tierPrice}>$6.99 <Text style={styles.tierPeriod}>/ mo</Text></Text>
               </View>
             </TouchableOpacity>
 

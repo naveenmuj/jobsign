@@ -17,6 +17,7 @@ import { useQuoteStore } from '../store/useQuoteStore';
 import { SignaturePad } from '../components/SignaturePad';
 import { PDFService } from '../services/PDFService';
 import { PaywallModal } from '../components/PaywallModal';
+import { OutboxService } from '../services/OutboxService';
 
 export const QuoteBuilderScreen: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   const { presets, addQuote, profile, quotes, isPro } = useQuoteStore();
@@ -24,6 +25,9 @@ export const QuoteBuilderScreen: React.FC<{ onBack: () => void }> = ({ onBack })
   const [clientName, setClientName] = useState('');
   const [clientPhone, setClientPhone] = useState('');
   const [jobDescription, setJobDescription] = useState('');
+  const [notes, setNotes] = useState('');
+  const [customDesc, setCustomDesc] = useState('');
+  const [customPrice, setCustomPrice] = useState('');
   const [photoUri, setPhotoUri] = useState<string | null>(null);
   const [items, setItems] = useState<LineItem[]>([]);
   const [isSigning, setIsSigning] = useState(false);
@@ -77,6 +81,29 @@ export const QuoteBuilderScreen: React.FC<{ onBack: () => void }> = ({ onBack })
     setItems((prev) => [...prev, newItem]);
   };
 
+  const handleAddCustomItem = () => {
+    if (!customDesc.trim()) {
+      Alert.alert('Description Required', 'Please enter a description for the item.');
+      return;
+    }
+    const cents = Math.round((parseFloat(customPrice) || 0) * 100);
+    if (cents <= 0) {
+      Alert.alert('Valid Price Required', 'Please enter a valid dollar amount.');
+      return;
+    }
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    const newItem: LineItem = {
+      id: Math.random().toString(36).substring(7),
+      description: customDesc.trim(),
+      unitPriceCents: cents,
+      quantity: 1,
+      totalCents: cents,
+    };
+    setItems((prev) => [...prev, newItem]);
+    setCustomDesc('');
+    setCustomPrice('');
+  };
+
   const handleRemoveItem = (id: string) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setItems((prev) => prev.filter((i) => i.id !== id));
@@ -121,6 +148,7 @@ export const QuoteBuilderScreen: React.FC<{ onBack: () => void }> = ({ onBack })
       clientName: clientName.trim(),
       clientPhone: clientPhone.trim() || undefined,
       jobDescription: jobDescription.trim() || undefined,
+      notes: notes.trim() || undefined,
       photoUri: photoUri || undefined,
       status: 'SIGNED_LOCKED',
       subtotalCents,
@@ -138,6 +166,17 @@ export const QuoteBuilderScreen: React.FC<{ onBack: () => void }> = ({ onBack })
     newQuote.pdfSha256Hash = await PDFService.computeHash(newQuote);
     await addQuote(newQuote);
     setIsSigning(false);
+
+    const isOnline = await OutboxService.isOnline();
+    if (!isOnline && clientPhone.trim()) {
+      await OutboxService.enqueue(newQuote, clientPhone.trim(), 'SMS');
+      Alert.alert(
+        'Offline Mode Active 📡',
+        `Quote #${newQuote.quoteNumber} for ${newQuote.clientName} is legally sealed on glass with SHA-256.\n\nBecause cell reception is unavailable in the field, this agreement has been queued in your Offline Outbox. It will auto-dispatch via SMS the moment your phone reconnects to 4G/Wi-Fi.`,
+        [{ text: 'Got it', onPress: onBack }]
+      );
+      return;
+    }
 
     Alert.alert(
       'Estimate Locked & Approved! 🔒',
@@ -248,7 +287,7 @@ export const QuoteBuilderScreen: React.FC<{ onBack: () => void }> = ({ onBack })
         <View style={styles.card}>
           <Text style={styles.label}>ESTIMATE LINE ITEMS ({items.length})</Text>
           {items.length === 0 ? (
-            <Text style={styles.emptyText}>Tap a preset above to quickly add items.</Text>
+            <Text style={styles.emptyText}>Tap a preset above or type a custom item below.</Text>
           ) : (
             items.map((item) => (
               <View key={item.id} style={styles.itemRow}>
@@ -263,6 +302,28 @@ export const QuoteBuilderScreen: React.FC<{ onBack: () => void }> = ({ onBack })
               </View>
             ))
           )}
+
+          {/* Inline Custom Item Adder */}
+          <View style={styles.addCustomRow}>
+            <TextInput
+              style={[styles.input, styles.customDescInput]}
+              placeholder="Custom item or part..."
+              placeholderTextColor={Theme.colors.textMuted}
+              value={customDesc}
+              onChangeText={setCustomDesc}
+            />
+            <TextInput
+              style={[styles.input, styles.customPriceInput]}
+              placeholder="0.00"
+              placeholderTextColor={Theme.colors.textMuted}
+              keyboardType="decimal-pad"
+              value={customPrice}
+              onChangeText={setCustomPrice}
+            />
+            <TouchableOpacity style={styles.addCustomBtn} onPress={handleAddCustomItem}>
+              <Text style={styles.addCustomBtnText}>➕ Add</Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* Financial Summary */}
@@ -279,6 +340,39 @@ export const QuoteBuilderScreen: React.FC<{ onBack: () => void }> = ({ onBack })
             <Text style={styles.totalLabel}>TOTAL</Text>
             <Text style={styles.totalVal}>{totalFormatted}</Text>
           </View>
+        </View>
+
+        {/* Legal Terms & Custom Scope Notes */}
+        <View style={styles.card}>
+          <Text style={styles.label}>LEGAL TERMS & WORK CONDITIONS</Text>
+          <View style={styles.termsChipRow}>
+            {[
+              'Payment due upon completion',
+              'Lien waiver issued upon payment',
+              'Homeowner supplies fixtures',
+              '1-Year Workmanship Warranty',
+            ].map((term) => (
+              <TouchableOpacity
+                key={term}
+                style={styles.termChip}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  setNotes((prev) => (prev ? `${prev}\n• ${term}` : `• ${term}`));
+                }}
+              >
+                <Text style={styles.termChipText}>+ {term}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+          <TextInput
+            style={[styles.input, styles.notesInput]}
+            placeholder="Special terms, payment schedule, or exclusions..."
+            placeholderTextColor={Theme.colors.textMuted}
+            multiline
+            numberOfLines={3}
+            value={notes}
+            onChangeText={setNotes}
+          />
         </View>
       </ScrollView>
 
@@ -533,5 +627,59 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '900',
     letterSpacing: 0.5,
+  },
+  addCustomRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 14,
+    paddingTop: 14,
+    borderTopWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    alignItems: 'center',
+  },
+  customDescInput: {
+    flex: 2,
+    fontSize: 13,
+  },
+  customPriceInput: {
+    flex: 1,
+    fontSize: 13,
+    textAlign: 'right',
+  },
+  addCustomBtn: {
+    backgroundColor: Theme.colors.primary,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    borderRadius: Theme.borderRadius.sm,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  addCustomBtnText: {
+    color: '#FFFFFF',
+    fontWeight: 'bold',
+    fontSize: 13,
+  },
+  termsChipRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 10,
+  },
+  termChip: {
+    backgroundColor: '#0F172A',
+    borderWidth: 1,
+    borderColor: '#334155',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: Theme.borderRadius.full,
+  },
+  termChipText: {
+    color: Theme.colors.textSecondary,
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  notesInput: {
+    minHeight: 65,
+    textAlignVertical: 'top',
   },
 });

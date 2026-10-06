@@ -33,10 +33,10 @@ export const PaymentQRModal: React.FC<{ quote: Quote; onClose: () => void }> = (
         <View style={styles.sheet}>
           {/* Header */}
           <View style={styles.header}>
-            <div>
+            <View>
               <Text style={styles.title}>Direct Settlement (0% Fee)</Text>
               <Text style={styles.sub}>Client scans contractor phone screen</Text>
-            </div>
+            </View>
             <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
               <Text style={styles.closeText}>✕</Text>
             </TouchableOpacity>

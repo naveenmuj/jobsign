@@ -39,6 +39,18 @@ export class PDFService {
     const license = profile?.licenseNumber ? `Lic: ${profile.licenseNumber}` : 'Licensed & Insured';
     const isPaid = quote.status === 'PAID';
 
+    let photoBase64 = '';
+    if (quote.photoUri) {
+      try {
+        const base64Str = await FileSystem.readAsStringAsync(quote.photoUri, {
+          encoding: 'base64',
+        });
+        photoBase64 = `data:image/jpeg;base64,${base64Str}`;
+      } catch (e) {
+        console.log('PDF photo embed handled gracefully:', e);
+      }
+    }
+
     const html = `
       <!DOCTYPE html>
       <html>
@@ -58,7 +70,9 @@ export class PDFService {
             .summary-box { float: right; width: 280px; margin-top: 20px; font-size: 14px; }
             .summary-row { display: flex; justify-content: space-between; padding: 5px 0; }
             .total-row { font-size: 18px; font-weight: bold; border-top: 2px solid #0F172A; padding-top: 8px; }
-            .signature-section { clear: both; margin-top: 40px; border: 1.5px solid #CBD5E1; border-radius: 8px; padding: 18px; background: #FFFFFF; }
+            .photo-box { clear: both; margin-top: 30px; border: 1.5px solid #CBD5E1; border-radius: 8px; padding: 16px; background: #FFFFFF; page-break-inside: avoid; }
+            .photo-title { font-size: 12px; font-weight: 800; color: #0F172A; text-transform: uppercase; margin-bottom: 10px; }
+            .signature-section { clear: both; margin-top: 30px; border: 1.5px solid #CBD5E1; border-radius: 8px; padding: 18px; background: #FFFFFF; }
             .legal-text { font-size: 11px; color: #475569; line-height: 1.4; margin-top: 8px; }
             .waiver-box { margin-top: 14px; padding: 10px; background: #ECFDF5; border: 1px solid #A7F3D0; border-radius: 6px; font-size: 11px; color: #065F46; }
             .audit-page { page-break-before: always; margin-top: 40px; padding: 24px; background: #F8FAFC; border: 1px solid #CBD5E1; border-radius: 8px; }
@@ -144,6 +158,18 @@ export class PDFService {
             </div>
           </div>
 
+          ${
+            photoBase64
+              ? `
+            <div class="photo-box">
+              <div class="photo-title">📷 EXHIBIT A: Worksite Condition & Scope Verification Photo</div>
+              <img src="${photoBase64}" style="max-width: 100%; max-height: 250px; border-radius: 6px; display: block; margin-bottom: 6px;" />
+              <div style="font-size: 11px; color: #64748B;">Pre-commencement worksite photo captured and sealed at agreement execution.</div>
+            </div>
+          `
+              : ''
+          }
+
           <div class="signature-section">
             <div style="font-size: 13px; font-weight: bold; text-transform: uppercase;">Client Signature of Approval:</div>
             ${
@@ -177,6 +203,39 @@ export class PDFService {
             <p><strong>Signing Timestamp:</strong> ${quote.signatureTimestamp ? new Date(quote.signatureTimestamp).toISOString() : 'N/A'} (UTC)</p>
             <p><strong>Integrity Seal:</strong> <span style="color: #16A34A; font-weight: bold;">LOCKED_IMMUTABLE</span></p>
             <p><strong>Governing Standards:</strong> 15 U.S. Code § 7001 (ESIGN Act) & Uniform Electronic Transactions Act (UETA).</p>
+            
+            ${
+              quote.changeOrders && quote.changeOrders.length > 0
+                ? `
+              <div style="margin-top: 20px; border-top: 1.5px solid #CBD5E1; padding-top: 14px;">
+                <h4 style="margin: 0 0 10px 0; color: #6B21A8; font-size: 13px; text-transform: uppercase;">
+                  AUDITED CHANGE ORDER RIDERS (${quote.changeOrders.length})
+                </h4>
+                ${quote.changeOrders
+                  .map(
+                    (co) => `
+                  <div style="background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 6px; padding: 10px; margin-bottom: 10px;">
+                    <div style="display: flex; justify-content: space-between; font-weight: bold; font-size: 12px;">
+                      <span>Add-On #${co.orderNumber}: ${co.reason}</span>
+                      <span style="color: #6B21A8;">+$${(co.addedTotalCents / 100).toFixed(2)}</span>
+                    </div>
+                    <div style="font-size: 11px; color: #64748B; margin-top: 4px;">
+                      Executed: ${new Date(co.signatureTimestamp).toISOString()} • Hash: <code>${(co.pdfSha256Hash || '').substring(0, 24)}...</code>
+                    </div>
+                    ${
+                      co.signatureSvg
+                        ? `<div style="margin-top: 6px;"><svg height="45" width="180" viewBox="0 0 500 200">${co.signatureSvg}</svg></div>`
+                        : ''
+                    }
+                  </div>
+                `
+                  )
+                  .join('')}
+              </div>
+            `
+                : ''
+            }
+
             <p style="font-size: 11px; color: #64748B; margin-top: 14px; line-height: 1.5;">
               This audit certificate certifies that this document was rendered and executed in-person on a mobile touch interface with client affirmative consent. Any retroactive alteration of line items, amounts, or text strings alters the cryptographic digest and immediately invalidates this certificate.
             </p>

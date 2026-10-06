@@ -6,6 +6,8 @@ import {
   ScrollView,
   TouchableOpacity,
   Alert,
+  Image,
+  Linking,
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { Theme } from '../theme';
@@ -63,14 +65,55 @@ export const QuoteDetailScreen: React.FC<QuoteDetailScreenProps> = ({ quote, onB
 
         {/* Client & Scope Card */}
         <View style={styles.card}>
-          <Text style={styles.cardLabel}>CLIENT & LOCATION</Text>
-          <Text style={styles.clientName}>{quote.clientName}</Text>
+          <View style={styles.clientHeaderRow}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.cardLabel}>CLIENT & LOCATION</Text>
+              <Text style={styles.clientName}>{quote.clientName}</Text>
+            </View>
+            {quote.clientPhone && (
+              <View style={styles.contactActionsRow}>
+                <TouchableOpacity
+                  style={styles.contactBtn}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    Linking.openURL(`tel:${quote.clientPhone}`);
+                  }}
+                >
+                  <Text style={styles.contactBtnText}>📞 Call</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.contactBtn, styles.contactBtnSms]}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    Linking.openURL(`sms:${quote.clientPhone}?body=Hi ${quote.clientName}, regarding agreement #${quote.quoteNumber}...`);
+                  }}
+                >
+                  <Text style={styles.contactBtnText}>💬 Text</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+          </View>
           {quote.clientPhone && <Text style={styles.clientDetail}>📞 {quote.clientPhone}</Text>}
           {quote.jobDescription && (
             <Text style={styles.clientDetail}>🛠 {quote.jobDescription}</Text>
           )}
           <Text style={styles.clientDate}>Created: {new Date(quote.createdAt).toLocaleString()}</Text>
         </View>
+
+        {/* Worksite Evidence Photo (If captured) */}
+        {quote.photoUri && (
+          <View style={styles.card}>
+            <Text style={styles.cardLabel}>📷 WORKSITE DAMAGE PROOF PHOTO</Text>
+            <Image
+              source={{ uri: quote.photoUri }}
+              style={styles.photoPreview}
+              resizeMode="cover"
+            />
+            <Text style={styles.photoCaption}>
+              Captured before work started. Sealed inside PDF Exhibit A.
+            </Text>
+          </View>
+        )}
 
         {/* Line Items Card */}
         <View style={styles.card}>
@@ -423,5 +466,43 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontWeight: '900',
     fontSize: 15,
+  },
+  clientHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+  },
+  contactActionsRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  contactBtn: {
+    backgroundColor: '#334155',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: Theme.borderRadius.sm,
+    borderWidth: 1,
+    borderColor: '#475569',
+  },
+  contactBtnSms: {
+    backgroundColor: 'rgba(56, 189, 248, 0.15)',
+    borderColor: '#38BDF8',
+  },
+  contactBtnText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
+  photoPreview: {
+    width: '100%',
+    height: 180,
+    borderRadius: Theme.borderRadius.sm,
+    backgroundColor: '#0F172A',
+    marginBottom: 8,
+  },
+  photoCaption: {
+    fontSize: 11,
+    color: Theme.colors.textMuted,
+    fontStyle: 'italic',
   },
 });

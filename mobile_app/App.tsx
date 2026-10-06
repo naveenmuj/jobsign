@@ -7,12 +7,16 @@ import { QuoteDetailScreen } from './src/screens/QuoteDetailScreen';
 import { SettingsScreen } from './src/screens/SettingsScreen';
 import { Quote } from './src/types';
 
+import { useQuoteStore } from './src/store/useQuoteStore';
+
 export default function App() {
   const [currentScreen, setCurrentScreen] = useState<'HOME' | 'BUILDER' | 'DETAIL' | 'SETTINGS'>('HOME');
-  const [activeQuote, setActiveQuote] = useState<Quote | null>(null);
+  const [activeQuoteId, setActiveQuoteId] = useState<string | null>(null);
+  const quotes = useQuoteStore((state) => state.quotes);
+  const activeQuote = quotes.find((q) => q.id === activeQuoteId) || null;
 
   const handleSelectQuote = (quote: Quote) => {
-    setActiveQuote(quote);
+    setActiveQuoteId(quote.id);
     setCurrentScreen('DETAIL');
   };
 
