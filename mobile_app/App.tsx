@@ -2,7 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { StyleSheet, View, BackHandler, LogBox } from 'react-native';
 
-LogBox.ignoreLogs(['Error configuring Purchases', 'RevenueCat initialization skipped']);
+LogBox.ignoreLogs([
+  'Error configuring Purchases',
+  'RevenueCat initialization skipped',
+  '[RevenueCatUI]',
+  'Error presenting paywall',
+  'document is not available',
+]);
 import { HomeScreen } from './src/screens/HomeScreen';
 import { QuoteBuilderScreen } from './src/screens/QuoteBuilderScreen';
 import { QuoteDetailScreen } from './src/screens/QuoteDetailScreen';

@@ -107,6 +107,13 @@ export class BillingService {
    */
   public static async presentRevenueCatPaywall(): Promise<boolean> {
     try {
+      // In Expo Go sandbox, RevenueCatUI defaults to browser DOM mode which lacks document in Hermes.
+      // Returning false cleanly falls back to JobSign's native styled PaywallModal.
+      const isExpoGo = !!((globalThis as any).expo?.modules?.ExpoGo);
+      if (isExpoGo) {
+        return false;
+      }
+
       if (!this.isConfigured) await this.init();
 
       const paywallResult: PAYWALL_RESULT = await RevenueCatUI.presentPaywall();
