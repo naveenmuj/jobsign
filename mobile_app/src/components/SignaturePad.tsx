@@ -33,7 +33,8 @@ export const SignaturePad: React.FC<SignaturePadProps> = ({
       onStartShouldSetPanResponder: () => true,
       onPanResponderGrant: (evt) => {
         const { locationX, locationY } = evt.nativeEvent;
-        currentPath.current = `M${locationX.toFixed(1)},${locationY.toFixed(1)}`;
+        currentPath.current = `M${locationX.toFixed(1)},${locationY.toFixed(1)} L${(locationX + 0.1).toFixed(1)},${(locationY + 0.1).toFixed(1)}`;
+        setPaths((prev) => [...prev, currentPath.current]);
       },
       onPanResponderMove: (evt) => {
         const { locationX, locationY } = evt.nativeEvent;
@@ -41,10 +42,7 @@ export const SignaturePad: React.FC<SignaturePadProps> = ({
         setPaths((prev) => [...prev.slice(0, -1), currentPath.current]);
       },
       onPanResponderRelease: () => {
-        if (currentPath.current) {
-          setPaths((prev) => [...prev, currentPath.current]);
-          currentPath.current = '';
-        }
+        currentPath.current = '';
       },
     })
   ).current;
