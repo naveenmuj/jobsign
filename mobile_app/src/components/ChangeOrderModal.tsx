@@ -7,7 +7,6 @@ import {
   TextInput,
   TouchableOpacity,
   ScrollView,
-  Alert,
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import * as Crypto from 'expo-crypto';
@@ -16,6 +15,7 @@ import { Theme, getThemeColors, ThemeColors } from '../theme';
 import { ChangeOrder, Quote } from '../types';
 import { SignaturePad } from './SignaturePad';
 import { PDFService } from '../services/PDFService';
+import { AlertService } from '../services/AlertService';
 import { useQuoteStore } from '../store/useQuoteStore';
 import { useAppSafeArea } from '../utils/safeArea';
 import { useKeyboard } from '../utils/useKeyboard';
@@ -31,11 +31,13 @@ export const ChangeOrderModal: React.FC<ChangeOrderModalProps> = ({
   visible,
   onClose,
 }) => {
-  const { addQuote, isDarkMode } = useQuoteStore();
+  const { addQuote, profile, isDarkMode } = useQuoteStore();
   const colors = getThemeColors(isDarkMode);
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const insets = useAppSafeArea();
   const { keyboardHeight, isKeyboardVisible } = useKeyboard();
+
+  const curSymbol = quote.currencySymbol || profile?.currencySymbol || '$';
 
   const [reason, setReason] = useState('');
   const [description, setDescription] = useState('');
@@ -44,16 +46,24 @@ export const ChangeOrderModal: React.FC<ChangeOrderModalProps> = ({
   const [isSaving, setIsSaving] = useState(false);
 
   const parsedCents = Math.round((parseFloat(amountInput) || 0) * 100);
-  const formattedAddOn = `$${(parsedCents / 100).toFixed(2)}`;
-  const newTotalFormatted = `$${((quote.totalAmountCents + parsedCents) / 100).toFixed(2)}`;
+  const formattedAddOn = `${curSymbol}${(parsedCents / 100).toFixed(2)}`;
+  const newTotalFormatted = `${curSymbol}${((quote.totalAmountCents + parsedCents) / 100).toFixed(2)}`;
 
   const handleProceedToSign = () => {
     if (!reason.trim()) {
-      Alert.alert('Reason Required', 'Please specify why this change order is needed (e.g. Hidden Pipe Leak).');
+      AlertService.alert({
+        title: 'Reason Required',
+        message: 'Please specify why this change order is needed (e.g. Hidden Pipe Leak).',
+        type: 'WARNING',
+      });
       return;
     }
     if (parsedCents <= 0) {
-      Alert.alert('Invalid Amount', 'Please enter a valid extra dollar amount.');
+      AlertService.alert({
+        title: 'Invalid Amount',
+        message: 'Please enter a valid extra amount.',
+        type: 'WARNING',
+      });
       return;
     }
     setIsSigning(true);
@@ -100,13 +110,18 @@ export const ChangeOrderModal: React.FC<ChangeOrderModalProps> = ({
       await addQuote(updatedQuote);
       setIsSigning(false);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      Alert.alert(
-        'Change Order Approved',
-        `Add-on #${newCO.orderNumber} ($${(parsedCents / 100).toFixed(2)}) is locked. New job total is ${newTotalFormatted}.`
-      );
+      AlertService.alert({
+        title: 'Change Order Approved',
+        message: `Add-on #${newCO.orderNumber} (${curSymbol}${(parsedCents / 100).toFixed(2)}) is locked. New job total is ${newTotalFormatted}.`,
+        type: 'SUCCESS',
+      });
       onClose();
     } catch (e: any) {
-      Alert.alert('Save Failed', e?.message || 'Could not save change order.');
+      AlertService.alert({
+        title: 'Save Failed',
+        message: e?.message || 'Could not save change order.',
+        type: 'DANGER',
+      });
     } finally {
       setIsSaving(false);
     }
@@ -178,7 +193,7 @@ export const ChangeOrderModal: React.FC<ChangeOrderModalProps> = ({
               onChangeText={setReason}
             />
 
-            <Text style={[styles.label, { marginTop: 14 }]}>ADDITIONAL AMOUNT ($ USD)</Text>
+            <Text style={[styles.label, { marginTop: 14 }]}>ADDITIONAL AMOUNT ({curSymbol})</Text>
             <TextInput
               style={[styles.input, styles.priceInput]}
               placeholder="0.00"
@@ -192,7 +207,7 @@ export const ChangeOrderModal: React.FC<ChangeOrderModalProps> = ({
             <View style={styles.comparisonBox}>
               <View style={styles.compareRow}>
                 <Text style={styles.compareLabel}>Original Agreement:</Text>
-                <Text style={styles.compareVal}>${(quote.totalAmountCents / 100).toFixed(2)}</Text>
+                <Text style={styles.compareVal}>{curSymbol}{(quote.totalAmountCents / 100).toFixed(2)}</Text>
               </View>
               <View style={styles.compareRow}>
                 <Text style={styles.compareLabel}>This Add-On:</Text>

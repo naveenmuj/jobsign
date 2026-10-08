@@ -75,6 +75,7 @@ export class PDFService {
     const address = profile?.address?.trim() || '';
     const license = profile?.licenseNumber?.trim() ? `Lic: ${profile.licenseNumber.trim()}` : '';
     const isPaid = quote.status === 'PAID';
+    const curSymbol = quote.currencySymbol || profile?.currencySymbol || '$';
 
     // Compute initials if no logo provided
     const initials = businessName
@@ -415,8 +416,8 @@ export class PDFService {
                 <tr>
                   <td><strong>${escapeHtml(item.description)}</strong></td>
                   <td style="text-align: center;">${item.quantity}</td>
-                  <td style="text-align: right;">$${(item.unitPriceCents / 100).toFixed(2)}</td>
-                  <td style="text-align: right;"><strong>$${(item.totalCents / 100).toFixed(2)}</strong></td>
+                  <td style="text-align: right;">${curSymbol}${(item.unitPriceCents / 100).toFixed(2)}</td>
+                  <td style="text-align: right;"><strong>${curSymbol}${(item.totalCents / 100).toFixed(2)}</strong></td>
                 </tr>
               `
                 )
@@ -434,8 +435,8 @@ export class PDFService {
                   <tr>
                     <td><strong>Add-On #${co.orderNumber}: ${escapeHtml(co.reason)}</strong></td>
                     <td style="text-align: center;">1.0</td>
-                    <td style="text-align: right;">$${(co.addedTotalCents / 100).toFixed(2)}</td>
-                    <td style="text-align: right; color: #6B21A8;"><strong>+$${(co.addedTotalCents / 100).toFixed(2)}</strong></td>
+                    <td style="text-align: right;">${curSymbol}${(co.addedTotalCents / 100).toFixed(2)}</td>
+                    <td style="text-align: right; color: #6B21A8;"><strong>+${curSymbol}${(co.addedTotalCents / 100).toFixed(2)}</strong></td>
                   </tr>
                 `
                   )
@@ -451,13 +452,13 @@ export class PDFService {
             <table class="summary-table">
               <tr>
                 <td class="label-col">Subtotal:</td>
-                <td class="val-col">$${(quote.subtotalCents / 100).toFixed(2)}</td>
+                <td class="val-col">${curSymbol}${(quote.subtotalCents / 100).toFixed(2)}</td>
               </tr>
               ${
                 quote.taxAmountCents > 0
                   ? `<tr>
                       <td class="label-col">${escapeHtml(quote.taxLabel || 'Sales Tax')} (${(quote.taxRateBasisPoints / 100).toFixed(2)}%):</td>
-                      <td class="val-col">$${(quote.taxAmountCents / 100).toFixed(2)}</td>
+                      <td class="val-col">${curSymbol}${(quote.taxAmountCents / 100).toFixed(2)}</td>
                     </tr>`
                   : `<tr>
                       <td class="label-col">${escapeHtml(quote.taxLabel || 'Tax')}:</td>
@@ -466,7 +467,7 @@ export class PDFService {
               }
               <tr class="total-row">
                 <td class="label-col">${isPaid ? 'PAID IN FULL:' : 'TOTAL APPROVED:'}</td>
-                <td class="val-col">$${(quote.totalAmountCents / 100).toFixed(2)}</td>
+                <td class="val-col">${curSymbol}${(quote.totalAmountCents / 100).toFixed(2)}</td>
               </tr>
             </table>
             <div style="clear: both;"></div>
@@ -537,7 +538,7 @@ export class PDFService {
                 ? `
               <div class="waiver-callout">
                 <strong>AUTOMATIC CONDITIONAL LIEN WAIVER & RELEASE:</strong><br/>
-                Upon final clearance of settlement funds in the amount of $${(quote.totalAmountCents / 100).toFixed(2)}, contractor waives and releases any and all mechanic's lien, stop notice, or bond rights for labor and materials furnished through ${new Date().toLocaleDateString()}.
+                Upon final clearance of settlement funds in the amount of ${curSymbol}${(quote.totalAmountCents / 100).toFixed(2)}, contractor waives and releases any and all mechanic's lien, stop notice, or bond rights for labor and materials furnished through ${new Date().toLocaleDateString()}.
               </div>
             `
                 : ''
@@ -573,7 +574,7 @@ export class PDFService {
                   <div style="background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 6px; padding: 10px; margin-bottom: 10px;">
                     <div style="display: flex; justify-content: space-between; font-weight: bold; font-size: 12px;">
                       <span>Add-On #${co.orderNumber}: ${escapeHtml(co.reason)}</span>
-                      <span style="color: #6B21A8;">+$${(co.addedTotalCents / 100).toFixed(2)}</span>
+                      <span style="color: #6B21A8;">+${curSymbol}${(co.addedTotalCents / 100).toFixed(2)}</span>
                     </div>
                     <div style="font-size: 11px; color: #64748B; margin-top: 4px;">
                       Executed: ${new Date(co.signatureTimestamp).toISOString()} • Hash: <code>${(co.pdfSha256Hash || '').substring(0, 24)}...</code>

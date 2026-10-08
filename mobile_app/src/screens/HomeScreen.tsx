@@ -7,7 +7,6 @@ import {
   TouchableOpacity,
   RefreshControl,
   TextInput,
-  Alert,
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { Settings, WifiOff, Search, X, Check } from 'lucide-react-native';
@@ -15,6 +14,7 @@ import { Theme, getThemeColors, ThemeColors } from '../theme';
 import { Quote } from '../types';
 import { useQuoteStore } from '../store/useQuoteStore';
 import { PDFService } from '../services/PDFService';
+import { AlertService } from '../services/AlertService';
 import { JobCard } from '../components/JobCard';
 import { PaymentQRModal } from '../components/PaymentQRModal';
 import { OfflineOutboxModal } from '../components/OfflineOutboxModal';
@@ -343,6 +343,8 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
     );
   });
 
+  const curSymbol = profile?.currencySymbol || '$';
+
   const totalUncollected = quotes
     .filter((q) => q.status === 'SIGNED_LOCKED')
     .reduce((sum, q) => sum + q.totalAmountCents, 0);
@@ -457,7 +459,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
         <View style={styles.metricCard}>
           <Text style={styles.metricLabel}>Outstanding</Text>
           <Text style={[styles.metricVal, { color: colors.amber }]}>
-            ${(totalUncollected / 100).toFixed(0)}
+            {curSymbol}{(totalUncollected / 100).toFixed(0)}
           </Text>
           <Text style={styles.metricSub}>Awaiting collection</Text>
         </View>
@@ -465,7 +467,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
         <View style={styles.metricCard}>
           <Text style={styles.metricLabel}>Collected</Text>
           <Text style={[styles.metricVal, { color: colors.emerald }]}>
-            ${(totalCollected / 100).toFixed(0)}
+            {curSymbol}{(totalCollected / 100).toFixed(0)}
           </Text>
           <Text style={styles.metricSub}>Zero-fee direct payment</Text>
         </View>
@@ -578,14 +580,15 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
         onPress={() => {
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
           if (!isPro && usage.isExceeded) {
-            Alert.alert(
-              'Free plan limit reached',
-              `You've used all ${usage.limit} free estimates this month.\n\nUpgrade to JobSign Pro for unlimited estimates, digital seals, and change orders.`,
-              [
+            AlertService.alert({
+              title: 'Free plan limit reached',
+              message: `You've used all ${usage.limit} free estimates this month.\n\nUpgrade to JobSign Pro for unlimited estimates, digital seals, and change orders.`,
+              type: 'INFO',
+              buttons: [
                 { text: 'Later', style: 'cancel' },
                 { text: 'View Pro Plans', onPress: handleOpenPaywall },
-              ]
-            );
+              ],
+            });
             return;
           }
           onNewQuote();

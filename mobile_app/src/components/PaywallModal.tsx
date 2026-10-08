@@ -6,7 +6,6 @@ import {
   Modal,
   TouchableOpacity,
   ScrollView,
-  Alert,
   ActivityIndicator,
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
@@ -15,6 +14,7 @@ import { PurchasesPackage } from 'react-native-purchases';
 import { Theme, getThemeColors, ThemeColors } from '../theme';
 import { useQuoteStore } from '../store/useQuoteStore';
 import { BillingService } from '../services/BillingService';
+import { AlertService } from '../services/AlertService';
 import { BILLING_CONFIG } from '../config/billing';
 import { FEATURE_FLAGS } from '../config/featureFlags';
 import { useAppSafeArea } from '../utils/safeArea';
@@ -68,22 +68,35 @@ export const PaywallModal: React.FC<PaywallModalProps> = ({ visible, onClose }) 
         const result = await BillingService.purchasePro(targetPkg);
         if (result.success) {
           setProStatus(true);
-          Alert.alert('Welcome to JobSign Pro', 'You now have unlimited estimates, custom branding, and digital audit seals.');
+          AlertService.alert({
+            title: 'Welcome to JobSign Pro',
+            message: 'You now have unlimited estimates, custom branding, and digital audit seals.',
+            type: 'SUCCESS',
+          });
           onClose();
         } else if (!result.userCancelled && result.errorMessage) {
-          Alert.alert('Purchase Note', result.errorMessage);
+          AlertService.alert({
+            title: 'Purchase Note',
+            message: result.errorMessage,
+            type: 'INFO',
+          });
         }
       } else {
         // Fallback for development / mock test sandbox
         setProStatus(true);
-        Alert.alert(
-          'JobSign Pro Activated',
-          `Sandbox Mock Purchase for ${selectedTier} plan was successful.\n(Live Google Play billing will be active once Play Console credentials are linked).`
-        );
+        AlertService.alert({
+          title: 'JobSign Pro Activated',
+          message: `Sandbox Mock Purchase for ${selectedTier} plan was successful.\n(Live Google Play billing will be active once Play Console credentials are linked).`,
+          type: 'SUCCESS',
+        });
         onClose();
       }
     } catch (e: any) {
-      Alert.alert('Purchase Error', e?.message || 'Could not complete in-app purchase.');
+      AlertService.alert({
+        title: 'Purchase Error',
+        message: e?.message || 'Could not complete in-app purchase.',
+        type: 'DANGER',
+      });
     } finally {
       setIsSubscribing(false);
     }
@@ -96,16 +109,25 @@ export const PaywallModal: React.FC<PaywallModalProps> = ({ visible, onClose }) 
       const result = await BillingService.restorePurchases();
       if (result.isPro) {
         setProStatus(true);
-        Alert.alert('Subscription Restored', 'Your active JobSign Pro subscription has been verified on this device.');
+        AlertService.alert({
+          title: 'Subscription Restored',
+          message: 'Your active JobSign Pro subscription has been verified on this device.',
+          type: 'SUCCESS',
+        });
         onClose();
       } else {
-        Alert.alert(
-          'No Subscription Found',
-          'No active Pro subscription was found for this account.'
-        );
+        AlertService.alert({
+          title: 'No Subscription Found',
+          message: 'No active Pro subscription was found for this account.',
+          type: 'INFO',
+        });
       }
     } catch (e: any) {
-      Alert.alert('Restore Failed', e?.message || 'Could not restore purchases.');
+      AlertService.alert({
+        title: 'Restore Failed',
+        message: e?.message || 'Could not restore purchases.',
+        type: 'DANGER',
+      });
     } finally {
       setIsRestoring(false);
     }

@@ -25,41 +25,57 @@ export const SignaturePad: React.FC<SignaturePadProps> = ({
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const insets = useAppSafeArea();
 
+  const strokesRef = useRef<string[]>([]);
   const [paths, setPaths] = useState<string[]>([]);
   const [hasConsented, setHasConsented] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
-  const currentPath = useRef<string>('');
 
   const panResponder = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: () => true,
+      onPanResponderTerminationRequest: () => false,
+      onShouldBlockNativeResponder: () => true,
+
       onPanResponderGrant: (evt) => {
         const { locationX, locationY } = evt.nativeEvent;
-        currentPath.current = `M${locationX.toFixed(1)},${locationY.toFixed(1)} L${(locationX + 0.1).toFixed(1)},${(locationY + 0.1).toFixed(1)}`;
-        setPaths((prev) => [...prev, currentPath.current]);
+        const startX = locationX.toFixed(1);
+        const startY = locationY.toFixed(1);
+        const newStroke = `M${startX},${startY} L${(Number(startX) + 0.5).toFixed(1)},${(Number(startY) + 0.5).toFixed(1)}`;
+        strokesRef.current.push(newStroke);
+        setPaths([...strokesRef.current]);
       },
+
       onPanResponderMove: (evt) => {
         const { locationX, locationY } = evt.nativeEvent;
-        currentPath.current += ` L${locationX.toFixed(1)},${locationY.toFixed(1)}`;
-        setPaths((prev) => [...prev.slice(0, -1), currentPath.current]);
+        const lastIdx = strokesRef.current.length - 1;
+        if (lastIdx >= 0) {
+          strokesRef.current[lastIdx] += ` L${locationX.toFixed(1)},${locationY.toFixed(1)}`;
+          setPaths([...strokesRef.current]);
+        }
       },
+
       onPanResponderRelease: () => {
-        currentPath.current = '';
+        setPaths([...strokesRef.current]);
+      },
+
+      onPanResponderTerminate: () => {
+        setPaths([...strokesRef.current]);
       },
     })
   ).current;
 
   const handleClear = () => {
+    strokesRef.current = [];
     setPaths([]);
-    currentPath.current = '';
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   };
 
   const handleConfirm = async () => {
-    if (paths.length === 0 || !hasConsented || isSaving) return;
+    if (strokesRef.current.length === 0 || !hasConsented || isSaving) return;
     setIsSaving(true);
     try {
-      const combinedSvgPath = paths.join(' ');
+      const combinedSvgPath = strokesRef.current.join(' ');
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       await onSave(combinedSvgPath);
     } finally {
@@ -81,11 +97,15 @@ export const SignaturePad: React.FC<SignaturePadProps> = ({
       </View>
 
       {/* Touch Canvas */}
-      <View style={styles.canvasContainer} {...panResponder.panHandlers}>
-        <Svg style={StyleSheet.absoluteFill}>
+      <View
+        style={styles.canvasContainer}
+        collapsable={false}
+        {...panResponder.panHandlers}
+      >
+        <Svg style={StyleSheet.absoluteFill} pointerEvents="none">
           {paths.map((d, index) => (
             <Path
-              key={index}
+              key={`stroke-${index}`}
               d={d}
               stroke={colors.primary}
               strokeWidth={3.5}

@@ -5,7 +5,6 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Alert,
   Image,
   Linking,
 } from 'react-native';
@@ -13,6 +12,7 @@ import * as Haptics from 'expo-haptics';
 import { Theme, getThemeColors, ThemeColors } from '../theme';
 import { Quote } from '../types';
 import { PDFService } from '../services/PDFService';
+import { AlertService } from '../services/AlertService';
 import { ChangeOrderModal } from '../components/ChangeOrderModal';
 import { PaymentQRModal } from '../components/PaymentQRModal';
 import { CompanyNamePromptModal } from '../components/CompanyNamePromptModal';
@@ -377,6 +377,7 @@ export const QuoteDetailScreen: React.FC<QuoteDetailScreenProps> = ({ quote: ini
 
   const styles = React.useMemo(() => makeStyles(colors), [colors]);
   const insets = useAppSafeArea();
+  const curSymbol = quote.currencySymbol || profile?.currencySymbol || '$';
 
   const [showChangeOrder, setShowChangeOrder] = useState(false);
   const [showPayment, setShowPayment] = useState(false);
@@ -416,10 +417,11 @@ export const QuoteDetailScreen: React.FC<QuoteDetailScreenProps> = ({ quote: ini
   };
 
   const handleDelete = () => {
-    Alert.alert(
-      'Delete Agreement?',
-      `Are you sure you want to permanently delete Agreement #${quote.quoteNumber} for ${quote.clientName}? This action cannot be undone.`,
-      [
+    AlertService.alert({
+      title: 'Delete Agreement?',
+      message: `Are you sure you want to permanently delete Agreement #${quote.quoteNumber} for ${quote.clientName}? This action cannot be undone.`,
+      type: 'DANGER',
+      buttons: [
         { text: 'Cancel', style: 'cancel' },
         {
           text: 'Delete',
@@ -430,8 +432,8 @@ export const QuoteDetailScreen: React.FC<QuoteDetailScreenProps> = ({ quote: ini
             onBack();
           },
         },
-      ]
-    );
+      ],
+    });
   };
 
   return (
@@ -545,7 +547,7 @@ export const QuoteDetailScreen: React.FC<QuoteDetailScreenProps> = ({ quote: ini
                 <Text style={styles.itemTitle}>{item.description}</Text>
                 <Text style={styles.itemSub}>Qty: {item.quantity}</Text>
               </View>
-              <Text style={styles.itemAmount}>${(item.totalCents / 100).toFixed(2)}</Text>
+              <Text style={styles.itemAmount}>{curSymbol}{(item.totalCents / 100).toFixed(2)}</Text>
             </View>
           ))}
         </View>
@@ -562,7 +564,7 @@ export const QuoteDetailScreen: React.FC<QuoteDetailScreenProps> = ({ quote: ini
                   <Text style={styles.coTitle}>Add-On #{co.orderNumber}: {co.reason}</Text>
                   <Text style={styles.coDate}>{new Date(co.signatureTimestamp).toLocaleTimeString()}</Text>
                 </View>
-                <Text style={styles.coAmount}>+${(co.addedTotalCents / 100).toFixed(2)}</Text>
+                <Text style={styles.coAmount}>+{curSymbol}{(co.addedTotalCents / 100).toFixed(2)}</Text>
               </View>
             ))}
           </View>
@@ -572,17 +574,17 @@ export const QuoteDetailScreen: React.FC<QuoteDetailScreenProps> = ({ quote: ini
         <View style={styles.card}>
           <View style={styles.summaryRow}>
             <Text style={styles.sumLabel}>Original Scope</Text>
-            <Text style={styles.sumVal}>${(quote.subtotalCents / 100).toFixed(2)}</Text>
+            <Text style={styles.sumVal}>{curSymbol}{(quote.subtotalCents / 100).toFixed(2)}</Text>
           </View>
           <View style={styles.summaryRow}>
             <Text style={styles.sumLabel}>
               Sales Tax ({((quote.taxRateBasisPoints ?? 825) / 100).toFixed(2)}%)
             </Text>
-            <Text style={styles.sumVal}>${(quote.taxAmountCents / 100).toFixed(2)}</Text>
+            <Text style={styles.sumVal}>{curSymbol}{(quote.taxAmountCents / 100).toFixed(2)}</Text>
           </View>
           <View style={[styles.summaryRow, styles.totalRow]}>
             <Text style={styles.totalLabel}>TOTAL AMOUNT DUE</Text>
-            <Text style={styles.totalVal}>${(quote.totalAmountCents / 100).toFixed(2)}</Text>
+            <Text style={styles.totalVal}>{curSymbol}{(quote.totalAmountCents / 100).toFixed(2)}</Text>
           </View>
         </View>
 

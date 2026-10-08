@@ -5,6 +5,9 @@ import * as Crypto from 'expo-crypto';
 import { Quote, ItemPreset, ContractorProfile } from '../types';
 import { DatabaseService } from '../services/DatabaseService';
 import { FEATURE_FLAGS } from '../config/featureFlags';
+import { CurrencyService } from '../services/CurrencyService';
+
+const detectedCurrency = CurrencyService.detectDeviceCurrency();
 
 export const DEFAULT_PRESETS: ItemPreset[] = [
   { id: 'p1', title: 'Diagnostic & Service Call', priceCents: 9500, category: 'Diagnostic' },
@@ -37,6 +40,8 @@ export const DEFAULT_PROFILE: ContractorProfile = {
     sealConfirmations: true,
     paymentReminders: true,
   },
+  currencySymbol: detectedCurrency.symbol,
+  currencyCode: detectedCurrency.code,
 };
 
 interface QuoteStore {
@@ -162,6 +167,15 @@ export const useQuoteStore = create<QuoteStore>()(
         isSunlightMode: state.isSunlightMode,
         isPro: state.isPro,
       }),
+      onRehydrateStorage: () => (state) => {
+        if (state && state.profile) {
+          if (!state.profile.currencySymbol) {
+            const detected = CurrencyService.detectDeviceCurrency();
+            state.profile.currencySymbol = detected.symbol;
+            state.profile.currencyCode = detected.code;
+          }
+        }
+      },
     }
   )
 );

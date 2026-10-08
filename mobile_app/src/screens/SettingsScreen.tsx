@@ -6,7 +6,6 @@ import {
   ScrollView,
   TextInput,
   TouchableOpacity,
-  Alert,
   Image,
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
@@ -14,6 +13,8 @@ import * as ImagePicker from 'expo-image-picker';
 import { getThemeColors, ThemeColors, Theme } from '../theme';
 import { useQuoteStore } from '../store/useQuoteStore';
 import { PDFService } from '../services/PDFService';
+import { AlertService } from '../services/AlertService';
+import { CurrencyService, POPULAR_CURRENCIES } from '../services/CurrencyService';
 import { PaywallModal } from '../components/PaywallModal';
 import { BehaviorLogsModal } from '../components/BehaviorLogsModal';
 import { BillingService } from '../services/BillingService';
@@ -39,6 +40,8 @@ import {
   FileText,
   Activity,
   Bell,
+  Globe,
+  MapPin,
 } from 'lucide-react-native';
 
 // Sample quote used for live instant preview of invoice templates
@@ -577,6 +580,9 @@ export const SettingsScreen: React.FC<{ onBack: () => void }> = ({ onBack }) => 
   const [zelle, setZelle] = useState(profile.zelleAccount || '');
   const [venmo, setVenmo] = useState(profile.venmoAccount || '');
   const [cashApp, setCashApp] = useState(profile.cashAppAccount || '');
+  const [currencySymbol, setCurrencySymbol] = useState(profile.currencySymbol || '$');
+  const [currencyCode, setCurrencyCode] = useState(profile.currencyCode || 'USD');
+  const [isDetectingCurrency, setIsDetectingCurrency] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState<InvoiceTemplateId>(
     profile.invoiceTemplate || 'modern'
   );
@@ -591,6 +597,29 @@ export const SettingsScreen: React.FC<{ onBack: () => void }> = ({ onBack }) => 
   const [paymentReminders, setPaymentReminders] = useState(
     profile.notificationPreferences?.paymentReminders ?? true
   );
+
+  const handleDetectCurrency = async () => {
+    setIsDetectingCurrency(true);
+    try {
+      const detected = await CurrencyService.detectFromLocationOrDevice();
+      setCurrencySymbol(detected.symbol);
+      setCurrencyCode(detected.code);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      AlertService.alert({
+        title: 'Currency Detected',
+        message: `Set currency to ${detected.name} (${detected.symbol}) based on your device location and regional locale.`,
+        type: 'SUCCESS',
+      });
+    } catch (err: any) {
+      AlertService.alert({
+        title: 'Detection Notice',
+        message: 'Could not detect location. Defaulting to device timezone.',
+        type: 'INFO',
+      });
+    } finally {
+      setIsDetectingCurrency(false);
+    }
+  };
 
   const devTapCount = React.useRef(0);
   const devTapTimer = React.useRef<any>(null);
@@ -626,7 +655,11 @@ export const SettingsScreen: React.FC<{ onBack: () => void }> = ({ onBack }) => 
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
     if (status !== 'granted') {
-      Alert.alert('Camera Access', 'Please allow camera access to take a shop logo photo.');
+      AlertService.alert({
+        title: 'Camera Access',
+        message: 'Please allow camera access to take a shop logo photo.',
+        type: 'WARNING',
+      });
       return;
     }
     const result = await ImagePicker.launchCameraAsync({
@@ -664,7 +697,11 @@ export const SettingsScreen: React.FC<{ onBack: () => void }> = ({ onBack }) => 
       };
       await PDFService.generateAndSharePDF(SAMPLE_PREVIEW_QUOTE, previewProfile);
     } catch (err: any) {
-      Alert.alert('Preview Error', err?.message || 'Could not generate preview.');
+      AlertService.alert({
+        title: 'Preview Error',
+        message: err?.message || 'Could not generate preview.',
+        type: 'DANGER',
+      });
     }
   };
 
@@ -683,6 +720,8 @@ export const SettingsScreen: React.FC<{ onBack: () => void }> = ({ onBack }) => 
       address: address.trim(),
       logoUri: logoUri || undefined,
       licenseNumber: license.trim() || undefined,
+      currencySymbol: currencySymbol.trim() || '$',
+      currencyCode: currencyCode.trim() || 'USD',
       defaultTaxBasisPoints: taxBasisPoints,
       taxEnabledByDefault,
       taxLabel: taxLabel.trim() || 'Sales Tax',
@@ -703,13 +742,21 @@ export const SettingsScreen: React.FC<{ onBack: () => void }> = ({ onBack }) => 
       paymentReminders,
     });
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    Alert.alert('Settings saved', 'Your business profile, shop logo, template style, tax, and notification preferences have been saved.');
+    AlertService.alert({
+      title: 'Settings Saved',
+      message: 'Your business profile, shop logo, template style, regional currency, tax, and notification preferences have been saved.',
+      type: 'SUCCESS',
+    });
   };
 
   const handleCreatePreset = () => {
     const priceCents = Math.round((parseFloat(newPresetPrice) || 0) * 100);
     if (!newPresetTitle.trim() || priceCents <= 0) {
-      Alert.alert('Invalid Preset', 'Please enter a valid title and dollar price.');
+      AlertService.alert({
+        title: 'Invalid Preset',
+        message: `Please enter a valid title and price (${currencySymbol}).`,
+        type: 'WARNING',
+      });
       return;
     }
     addPreset({
@@ -726,7 +773,11 @@ export const SettingsScreen: React.FC<{ onBack: () => void }> = ({ onBack }) => 
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     const path = await PDFService.exportFullDatabaseBackup();
     if (!path) {
-      Alert.alert('Database Backup', 'All local estimates and signatures are securely preserved in offline SQLite.');
+      AlertService.alert({
+        title: 'Database Backup',
+        message: 'All local estimates and signatures are securely preserved in offline SQLite.',
+        type: 'SUCCESS',
+      });
     }
   };
 
@@ -734,9 +785,17 @@ export const SettingsScreen: React.FC<{ onBack: () => void }> = ({ onBack }) => 
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     const diag = await runSelfDiagnostics();
     if (diag.passed) {
-      Alert.alert('System Integrity OK', diag.results.join('\n'));
+      AlertService.alert({
+        title: 'System Integrity OK',
+        message: diag.results.join('\n'),
+        type: 'SUCCESS',
+      });
     } else {
-      Alert.alert('Diagnostic Alert', diag.results.join('\n'));
+      AlertService.alert({
+        title: 'Diagnostic Alert',
+        message: diag.results.join('\n'),
+        type: 'WARNING',
+      });
     }
   };
 
@@ -775,7 +834,7 @@ export const SettingsScreen: React.FC<{ onBack: () => void }> = ({ onBack }) => 
           </View>
           <View style={{ alignSelf: 'flex-end', flexDirection: 'row', gap: 6, alignItems: 'center', marginTop: 4, paddingTop: 4, borderTopWidth: 1.5, borderColor: '#0F172A' }}>
             <Text style={{ fontSize: 8, fontWeight: '800', color: '#475569' }}>TOTAL:</Text>
-            <Text style={{ fontSize: 9, fontWeight: '900', color: '#0F172A' }}>$2,949.81</Text>
+            <Text style={{ fontSize: 9, fontWeight: '900', color: '#0F172A' }}>{currencySymbol}2,949.81</Text>
           </View>
         </View>
       );
@@ -818,7 +877,7 @@ export const SettingsScreen: React.FC<{ onBack: () => void }> = ({ onBack }) => 
           </View>
           <View style={{ alignSelf: 'flex-end', flexDirection: 'row', gap: 6, alignItems: 'center', marginTop: 4, paddingTop: 4, borderTopWidth: 1, borderColor: '#1C1917', borderBottomWidth: 2, borderBottomColor: '#1C1917' }}>
             <Text style={{ fontSize: 8, fontWeight: '800', color: '#57534E', fontStyle: 'italic' }}>TOTAL:</Text>
-            <Text style={{ fontSize: 9, fontWeight: '900', color: '#831843' }}>$2,949.81</Text>
+            <Text style={{ fontSize: 9, fontWeight: '900', color: '#831843' }}>{currencySymbol}2,949.81</Text>
           </View>
         </View>
       );
@@ -857,7 +916,7 @@ export const SettingsScreen: React.FC<{ onBack: () => void }> = ({ onBack }) => 
             </View>
           </View>
           <View style={{ alignSelf: 'flex-end', backgroundColor: '#000000', paddingHorizontal: 6, paddingVertical: 3, marginTop: 4 }}>
-            <Text style={{ fontSize: 8, fontWeight: '900', color: '#FFFFFF' }}>$2,949.81</Text>
+            <Text style={{ fontSize: 8, fontWeight: '900', color: '#FFFFFF' }}>{currencySymbol}2,949.81</Text>
           </View>
         </View>
       );
@@ -898,7 +957,7 @@ export const SettingsScreen: React.FC<{ onBack: () => void }> = ({ onBack }) => 
           </View>
         </View>
         <View style={{ alignSelf: 'flex-end', backgroundColor: '#18181B', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 3, marginTop: 4 }}>
-          <Text style={{ fontSize: 8, fontWeight: '900', color: '#FBBF24' }}>TOTAL: $2,949.81</Text>
+          <Text style={{ fontSize: 8, fontWeight: '900', color: '#FBBF24' }}>TOTAL: {currencySymbol}2,949.81</Text>
         </View>
       </View>
     );
@@ -1090,6 +1149,97 @@ export const SettingsScreen: React.FC<{ onBack: () => void }> = ({ onBack }) => 
               </Text>
             </TouchableOpacity>
           </View>
+        </View>
+
+        {/* ── Currency & Regional Format ───────────────────────────────────── */}
+        <View style={styles.card}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+            <Globe size={16} color={colors.primary} />
+            <Text style={styles.cardLabel}>Currency & Regional Format</Text>
+          </View>
+          <Text style={styles.cardHint}>
+            Sets the currency symbol across all estimates, line items, PDF contracts, signatures, and payments.
+          </Text>
+
+          {/* 1-Tap Auto Detect button */}
+          <TouchableOpacity
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 8,
+              backgroundColor: isDarkMode ? 'rgba(59, 130, 246, 0.12)' : '#EFF6FF',
+              borderColor: colors.primary,
+              borderWidth: 1,
+              borderRadius: Theme.borderRadius.md,
+              paddingVertical: 10,
+              paddingHorizontal: 14,
+              marginTop: 6,
+              marginBottom: 12,
+            }}
+            onPress={handleDetectCurrency}
+            disabled={isDetectingCurrency}
+            activeOpacity={0.8}
+          >
+            <MapPin size={16} color={colors.primary} />
+            <Text style={{ fontSize: 13, fontWeight: '700', color: colors.primary }}>
+              {isDetectingCurrency ? 'Detecting Location...' : 'Auto-Detect Currency from Device / GPS'}
+            </Text>
+          </TouchableOpacity>
+
+          {/* Quick Select Chips */}
+          <Text style={[styles.cardLabel, { fontSize: 11, marginBottom: 6, color: colors.textSecondary }]}>
+            POPULAR CURRENCIES
+          </Text>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>
+            {POPULAR_CURRENCIES.map((c) => {
+              const isSelected = currencyCode === c.code || currencySymbol === c.symbol;
+              return (
+                <TouchableOpacity
+                  key={c.code}
+                  style={{
+                    paddingHorizontal: 11,
+                    paddingVertical: 6,
+                    borderRadius: Theme.borderRadius.full,
+                    backgroundColor: isSelected ? colors.primary : colors.backgroundSecondary,
+                    borderWidth: 1,
+                    borderColor: isSelected ? colors.primary : colors.border,
+                  }}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    setCurrencySymbol(c.symbol);
+                    setCurrencyCode(c.code);
+                  }}
+                >
+                  <Text
+                    style={{
+                      fontSize: 12,
+                      fontWeight: '700',
+                      color: isSelected ? '#FFFFFF' : colors.textPrimary,
+                    }}
+                  >
+                    {c.symbol} {c.code}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+
+          {/* Custom Symbol Input */}
+          <Text style={[styles.cardLabel, { fontSize: 11, marginTop: 4, marginBottom: 6, color: colors.textSecondary }]}>
+            ACTIVE CURRENCY SYMBOL
+          </Text>
+          <TextInput
+            style={styles.input}
+            placeholder="e.g. ₹, $, £, €, CA$, A$, ¥, AED"
+            placeholderTextColor={colors.textMuted}
+            value={currencySymbol}
+            onChangeText={(val) => {
+              setCurrencySymbol(val);
+              const match = POPULAR_CURRENCIES.find((c) => c.symbol.trim() === val.trim());
+              if (match) setCurrencyCode(match.code);
+            }}
+          />
         </View>
 
         {/* ── Business Profile ──────────────────────────────────────────────── */}
@@ -1475,7 +1625,7 @@ export const SettingsScreen: React.FC<{ onBack: () => void }> = ({ onBack }) => 
             />
             <TextInput
               style={[styles.input, { flex: 1 }]}
-              placeholder="$ Price"
+              placeholder={`${currencySymbol} Price`}
               placeholderTextColor={colors.textMuted}
               keyboardType="decimal-pad"
               value={newPresetPrice}
@@ -1490,7 +1640,7 @@ export const SettingsScreen: React.FC<{ onBack: () => void }> = ({ onBack }) => 
             <View key={p.id} style={styles.presetItemRow}>
               <View style={{ flex: 1 }}>
                 <Text style={styles.presetTitleText}>{p.title}</Text>
-                <Text style={styles.presetPriceText}>${(p.priceCents / 100).toFixed(0)}</Text>
+                <Text style={styles.presetPriceText}>{currencySymbol}{(p.priceCents / 100).toFixed(0)}</Text>
               </View>
               <TouchableOpacity
                 onPress={() => removePreset(p.id)}

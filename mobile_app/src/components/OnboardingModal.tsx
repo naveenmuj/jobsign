@@ -8,7 +8,6 @@ import {
   StyleSheet,
   ScrollView,
   Image,
-  Alert,
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
@@ -17,6 +16,7 @@ import * as Haptics from 'expo-haptics';
 import { Building2, Camera, Image as ImageIcon, CheckCircle, Sparkles, X } from 'lucide-react-native';
 import { Theme, getThemeColors } from '../theme';
 import { useQuoteStore } from '../store/useQuoteStore';
+import { AlertService } from '../services/AlertService';
 import { useAppSafeArea } from '../utils/safeArea';
 import { useKeyboard } from '../utils/useKeyboard';
 
@@ -55,7 +55,11 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({ visible, onFin
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
     if (status !== 'granted') {
-      Alert.alert('Camera Access', 'Please allow camera access to take a shop logo photo.');
+      AlertService.alert({
+        title: 'Camera Access',
+        message: 'Please allow camera access to take a shop logo photo.',
+        type: 'WARNING',
+      });
       return;
     }
     const result = await ImagePicker.launchCameraAsync({

@@ -5,6 +5,7 @@ import { FileText, CreditCard, ChevronRight } from 'lucide-react-native';
 import { Theme, getThemeColors } from '../theme';
 import { Quote } from '../types';
 import { useQuoteStore } from '../store/useQuoteStore';
+import { CurrencyService } from '../services/CurrencyService';
 
 interface JobCardProps {
   quote: Quote;
@@ -40,6 +41,9 @@ export const JobCard: React.FC<JobCardProps> = ({
 
   const badgeLabel = isPaid ? 'Paid' : isSigned ? 'Signed & Locked' : 'Draft';
 
+  const profile = useQuoteStore((state) => state.profile);
+  const curSymbol = quote.currencySymbol || profile?.currencySymbol || '$';
+
   return (
     <TouchableOpacity
       activeOpacity={0.88}
@@ -68,7 +72,7 @@ export const JobCard: React.FC<JobCardProps> = ({
 
         <View style={styles.amountContainer}>
           <Text style={[styles.amountText, { color: colors.textPrimary }]}>
-            ${(quote.totalAmountCents / 100).toFixed(2)}
+            {CurrencyService.format(quote.totalAmountCents, curSymbol)}
           </Text>
           <Text style={[styles.dateText, { color: colors.textMuted }]}>
             {new Date(quote.createdAt).toLocaleDateString()}

@@ -29,6 +29,7 @@ import { NotificationService } from '../services/NotificationService';
 import { FEATURE_FLAGS } from '../config/featureFlags';
 import { useAppSafeArea } from '../utils/safeArea';
 import { useKeyboard } from '../utils/useKeyboard';
+import { AlertService } from '../services/AlertService';
 import { ChevronLeft, Camera, Image as ImageIcon, Plus, X, PenLine } from 'lucide-react-native';
 
 const makeStyles = (colors: ThemeColors) =>
@@ -482,11 +483,13 @@ export const QuoteBuilderScreen: React.FC<{ onBack: () => void }> = ({ onBack })
       defaultTaxBasisPoints: isTaxEnabled ? savedBasisPoints : profile.defaultTaxBasisPoints,
       taxLabel: taxLabelInput.trim() || profile.taxLabel || 'Sales Tax',
     });
-    Alert.alert(
+    AlertService.alert(
       'Default Preference Saved',
       isTaxEnabled
         ? `Tax is now enabled by default at ${taxRateInput}% (${taxLabelInput}) for all future estimates.`
-        : 'All future estimates will now start tax-free / exempt by default.'
+        : 'All future estimates will now start tax-free / exempt by default.',
+      undefined,
+      'SUCCESS'
     );
   };
 
@@ -495,7 +498,7 @@ export const QuoteBuilderScreen: React.FC<{ onBack: () => void }> = ({ onBack })
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
     if (status !== 'granted') {
-      Alert.alert('Camera Permission', 'Please allow camera access to take worksite damage photos.');
+      AlertService.alert('Camera Permission', 'Please allow camera access to take worksite damage photos.', undefined, 'WARNING');
       return;
     }
 
@@ -540,12 +543,12 @@ export const QuoteBuilderScreen: React.FC<{ onBack: () => void }> = ({ onBack })
 
   const handleAddCustomItem = () => {
     if (!customDesc.trim()) {
-      Alert.alert('Description Required', 'Please enter a description for the item.');
+      AlertService.alert('Description Required', 'Please enter a description for the item.', undefined, 'WARNING');
       return;
     }
     const cents = Math.round((parseFloat(customPrice) || 0) * 100);
     if (cents <= 0) {
-      Alert.alert('Valid Price Required', 'Please enter a valid dollar amount.');
+      AlertService.alert('Valid Price Required', 'Please enter a valid price amount.', undefined, 'WARNING');
       return;
     }
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -577,7 +580,8 @@ export const QuoteBuilderScreen: React.FC<{ onBack: () => void }> = ({ onBack })
     : 0;
   const totalAmountCents = subtotalCents + taxAmountCents;
 
-  const totalFormatted = `$${(totalAmountCents / 100).toFixed(2)}`;
+  const currencySymbol = profile.currencySymbol || '$';
+  const totalFormatted = `${currencySymbol}${(totalAmountCents / 100).toFixed(2)}`;
 
   const handleStartSignature = () => {
     // Check free tier limits (3 quotes/mo) if payment enabled and not in free mode
@@ -597,11 +601,11 @@ export const QuoteBuilderScreen: React.FC<{ onBack: () => void }> = ({ onBack })
     }
 
     if (!clientName.trim()) {
-      Alert.alert('Missing Client Name', 'Please enter client name before signing.');
+      AlertService.alert('Missing Client Name', 'Please enter client name before signing.', undefined, 'WARNING');
       return;
     }
     if (items.length === 0) {
-      Alert.alert('No Line Items', 'Please add at least one line item to the estimate.');
+      AlertService.alert('No Line Items', 'Please add at least one line item to the estimate.', undefined, 'WARNING');
       return;
     }
     TelemetryService.logAction('START_SIGNATURE', 'QUOTE_BUILDER', {
@@ -643,6 +647,7 @@ export const QuoteBuilderScreen: React.FC<{ onBack: () => void }> = ({ onBack })
       taxAmountCents,
       taxLabel: isTaxEnabled ? (taxLabelInput.trim() || 'Sales Tax') : undefined,
       totalAmountCents,
+      currencySymbol,
       signatureSvg: svgPath,
       signatureTimestamp: Date.now(),
       signatureGpsLat: gpsLat,
@@ -668,17 +673,18 @@ export const QuoteBuilderScreen: React.FC<{ onBack: () => void }> = ({ onBack })
     const isOnline = await OutboxService.isOnline();
     if (!isOnline && clientPhone.trim()) {
       await OutboxService.enqueue(newQuote, clientPhone.trim(), 'SMS');
-      Alert.alert(
+      AlertService.alert(
         'Offline — Saved to Outbox',
         `Quote #${newQuote.quoteNumber} for ${newQuote.clientName} is legally sealed on glass with SHA-256.\n\nBecause cell reception is unavailable in the field, this agreement has been queued in your Offline Outbox. It will auto-dispatch via SMS the moment your phone reconnects to 4G/Wi-Fi.`,
-        [{ text: 'Got it', onPress: onBack }]
+        [{ text: 'Got it', onPress: onBack }],
+        'SUCCESS'
       );
       return;
     }
 
-    Alert.alert(
-      'Estimate sealed',
-      `Quote #${newQuote.quoteNumber} for ${newQuote.clientName} is legally sealed. Would you like to text or email the PDF to the client now?`,
+    AlertService.alert(
+      'Estimate Sealed',
+      `Quote #${newQuote.quoteNumber} for ${newQuote.clientName} is legally sealed with SHA-256. Would you like to share the PDF with the client now?`,
       [
         { text: 'Later', style: 'cancel', onPress: onBack },
         {
@@ -687,19 +693,21 @@ export const QuoteBuilderScreen: React.FC<{ onBack: () => void }> = ({ onBack })
             handleInitiateSendPDF(newQuote);
           },
         },
-      ]
+      ],
+      'SUCCESS'
     );
   };
 
   const handleBack = useCallback(() => {
     if (clientName.trim().length > 0 || items.length > 0) {
-      Alert.alert(
+      AlertService.alert(
         'Discard In-Progress Estimate?',
         'You have unsaved changes. Exiting will lose this estimate.',
         [
           { text: 'Keep Editing', style: 'cancel' },
           { text: 'Discard', style: 'destructive', onPress: onBack },
-        ]
+        ],
+        'DANGER'
       );
     } else {
       onBack();
@@ -815,7 +823,7 @@ export const QuoteBuilderScreen: React.FC<{ onBack: () => void }> = ({ onBack })
               onPress={() => handleAddPreset(preset)}
             >
               <Text style={styles.presetTitle}>+ {preset.title}</Text>
-              <Text style={styles.presetPrice}>${(preset.priceCents / 100).toFixed(0)}</Text>
+              <Text style={styles.presetPrice}>{currencySymbol}{(preset.priceCents / 100).toFixed(0)}</Text>
             </TouchableOpacity>
           ))}
         </ScrollView>
@@ -830,9 +838,9 @@ export const QuoteBuilderScreen: React.FC<{ onBack: () => void }> = ({ onBack })
               <View key={item.id} style={styles.itemRow}>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.itemTitle}>{item.description}</Text>
-                  <Text style={styles.itemSub}>Qty: {item.quantity} × ${(item.unitPriceCents / 100).toFixed(2)}</Text>
+                  <Text style={styles.itemSub}>Qty: {item.quantity} × {currencySymbol}{(item.unitPriceCents / 100).toFixed(2)}</Text>
                 </View>
-                <Text style={styles.itemTotal}>${(item.totalCents / 100).toFixed(2)}</Text>
+                <Text style={styles.itemTotal}>{currencySymbol}{(item.totalCents / 100).toFixed(2)}</Text>
                 <TouchableOpacity
                   onPress={() => handleRemoveItem(item.id)}
                   style={styles.removeBtn}
@@ -855,7 +863,7 @@ export const QuoteBuilderScreen: React.FC<{ onBack: () => void }> = ({ onBack })
             />
             <TextInput
               style={[styles.input, styles.customPriceInput]}
-              placeholder="0.00"
+              placeholder={`${currencySymbol}0.00`}
               placeholderTextColor={colors.textMuted}
               keyboardType="decimal-pad"
               value={customPrice}
@@ -872,7 +880,7 @@ export const QuoteBuilderScreen: React.FC<{ onBack: () => void }> = ({ onBack })
         <View style={styles.summaryCard}>
           <View style={styles.summaryRow}>
             <Text style={styles.summaryLabel}>Subtotal</Text>
-            <Text style={styles.summaryVal}>${(subtotalCents / 100).toFixed(2)}</Text>
+            <Text style={styles.summaryVal}>{currencySymbol}{(subtotalCents / 100).toFixed(2)}</Text>
           </View>
 
           {/* Tax Section */}
@@ -902,7 +910,7 @@ export const QuoteBuilderScreen: React.FC<{ onBack: () => void }> = ({ onBack })
                 </Text>
               </TouchableOpacity>
               <Text style={styles.summaryVal}>
-                {isTaxEnabled ? `$${(taxAmountCents / 100).toFixed(2)}` : '$0.00'}
+                {isTaxEnabled ? `${currencySymbol}${(taxAmountCents / 100).toFixed(2)}` : `${currencySymbol}0.00`}
               </Text>
             </View>
 

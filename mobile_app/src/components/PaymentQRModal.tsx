@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { View, Text, StyleSheet, Modal, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, Modal, TouchableOpacity, ActivityIndicator } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
 import * as Haptics from 'expo-haptics';
 import { X } from 'lucide-react-native';
@@ -7,6 +7,7 @@ import { Theme, getThemeColors, ThemeColors } from '../theme';
 import { Quote } from '../types';
 import { useQuoteStore } from '../store/useQuoteStore';
 import { NotificationService } from '../services/NotificationService';
+import { AlertService } from '../services/AlertService';
 import { useAppSafeArea } from '../utils/safeArea';
 
 export const PaymentQRModal: React.FC<{ quote: Quote; onClose: () => void }> = ({
@@ -18,10 +19,12 @@ export const PaymentQRModal: React.FC<{ quote: Quote; onClose: () => void }> = (
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const insets = useAppSafeArea();
 
+  const curSymbol = quote.currencySymbol || profile?.currencySymbol || '$';
+
   const [activeRail, setActiveRail] = useState<'ZELLE' | 'VENMO' | 'CASHAPP' | 'BANK'>('ZELLE');
   const [isProcessing, setIsProcessing] = useState(false);
 
-  const amountFormatted = `$${(quote.totalAmountCents / 100).toFixed(2)}`;
+  const amountFormatted = `${curSymbol}${(quote.totalAmountCents / 100).toFixed(2)}`;
 
   const getPayload = (): string => {
     const amtStr = (quote.totalAmountCents / 100).toFixed(2);
@@ -39,15 +42,16 @@ export const PaymentQRModal: React.FC<{ quote: Quote; onClose: () => void }> = (
           ? `https://cash.app/${profile.cashAppAccount.replace('$', '')}/${amtStr}`
           : 'https://cash.app';
       case 'BANK':
-        return `Direct Bank Settlement for ${profile.businessName}\nAmount Due: $${amtStr}\nRef: Agreement #${quote.quoteNumber}`;
+        return `Direct Bank Settlement for ${profile.businessName}\nAmount Due: ${curSymbol}${amtStr}\nRef: Agreement #${quote.quoteNumber}`;
     }
   };
 
   const handleMarkAsPaid = () => {
-    Alert.alert(
-      'Confirm Payment Received',
-      `Mark Agreement #${quote.quoteNumber} (${amountFormatted}) as paid in full?\n\nThis certifies receipt of funds and automatically releases the mechanic's lien on the digital receipt.`,
-      [
+    AlertService.alert({
+      title: 'Confirm Payment Received',
+      message: `Mark Agreement #${quote.quoteNumber} (${amountFormatted}) as paid in full?\n\nThis certifies receipt of funds and automatically releases the mechanic's lien on the digital receipt.`,
+      type: 'INFO',
+      buttons: [
         { text: 'Cancel', style: 'cancel' },
         {
           text: 'Confirm & Release Lien',
@@ -69,17 +73,25 @@ export const PaymentQRModal: React.FC<{ quote: Quote; onClose: () => void }> = (
                 quote.totalAmountCents
               );
               await NotificationService.cancelReminder(quote.id);
-              Alert.alert('Payment Recorded', `Agreement #${quote.quoteNumber} has been marked as paid.`);
+              AlertService.alert({
+                title: 'Payment Recorded',
+                message: `Agreement #${quote.quoteNumber} has been marked as paid.`,
+                type: 'SUCCESS',
+              });
               onClose();
             } catch (err: any) {
-              Alert.alert('Error', err?.message || 'Could not update payment status.');
+              AlertService.alert({
+                title: 'Error',
+                message: err?.message || 'Could not update payment status.',
+                type: 'DANGER',
+              });
             } finally {
               setIsProcessing(false);
             }
           },
         },
-      ]
-    );
+      ],
+    });
   };
 
   const currentPayload = getPayload();

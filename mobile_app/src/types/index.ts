@@ -55,6 +55,8 @@ export interface ContractorProfile {
   hasCustomBusinessName?: boolean; // whether user explicitly set or confirmed their business name
   invoiceTemplate?: InvoiceTemplateId; // preferred PDF template format ('modern', 'classic', 'minimal', 'contractor')
   notificationPreferences?: NotificationPreferences; // user notification preferences
+  currencySymbol?: string;      // e.g. "₹", "$", "£", "€", "CA$", "A$"
+  currencyCode?: string;        // e.g. "INR", "USD", "GBP", "EUR"
 }
 
 export interface Quote {
@@ -71,6 +73,7 @@ export interface Quote {
   taxAmountCents: number;
   totalAmountCents: number;
   taxLabel?: string;          // e.g. "Sales Tax", "VAT", "GST"
+  currencySymbol?: string;    // Currency symbol used when created (e.g. "₹", "$")
   notes?: string;
   photoUri?: string;          // On-site damage proof photo
   signatureSvg?: string;

@@ -14,6 +14,7 @@ import { QuoteBuilderScreen } from './src/screens/QuoteBuilderScreen';
 import { QuoteDetailScreen } from './src/screens/QuoteDetailScreen';
 import { SettingsScreen } from './src/screens/SettingsScreen';
 import { OnboardingModal } from './src/components/OnboardingModal';
+import { AppAlertModal } from './src/components/AppAlertModal';
 import { Quote } from './src/types';
 import { useQuoteStore } from './src/store/useQuoteStore';
 import { BillingService } from './src/services/BillingService';
@@ -114,6 +115,7 @@ export default function App() {
         visible={showOnboarding}
         onFinish={() => setShowOnboarding(false)}
       />
+      <AppAlertModal />
     </View>
   );
 }

@@ -6,7 +6,6 @@ import {
   Modal,
   TouchableOpacity,
   FlatList,
-  Alert,
   ActivityIndicator,
 } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
@@ -15,6 +14,7 @@ import { X } from 'lucide-react-native';
 import { Theme, getThemeColors, ThemeColors } from '../theme';
 import { OutboxItem } from '../types';
 import { OutboxService } from '../services/OutboxService';
+import { AlertService } from '../services/AlertService';
 import { useQuoteStore } from '../store/useQuoteStore';
 import { useAppSafeArea } from '../utils/safeArea';
 
@@ -61,9 +61,17 @@ export const OfflineOutboxModal: React.FC<OfflineOutboxModalProps> = ({
     if (onQueueUpdated) onQueueUpdated();
 
     if (result.sent > 0) {
-      Alert.alert('Sync Complete', `Successfully dispatched ${result.sent} pending agreement(s).`);
+      AlertService.alert({
+        title: 'Sync Complete',
+        message: `Successfully dispatched ${result.sent} pending agreement(s).`,
+        type: 'SUCCESS',
+      });
     } else {
-      Alert.alert('Queue Up to Date', 'No pending items to dispatch or device is currently offline.');
+      AlertService.alert({
+        title: 'Queue Up to Date',
+        message: 'No pending items to dispatch or device is currently offline.',
+        type: 'INFO',
+      });
     }
   };
 

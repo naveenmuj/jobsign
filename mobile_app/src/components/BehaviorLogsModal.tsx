@@ -7,7 +7,6 @@ import {
   TouchableOpacity,
   FlatList,
   TextInput,
-  Alert,
   ActivityIndicator,
   Share,
 } from 'react-native';
@@ -16,6 +15,7 @@ import { X, Share2, RefreshCw, Trash2, Globe, Shield, Terminal, ArrowUpRight } f
 import { Theme, getThemeColors, ThemeColors } from '../theme';
 import { useQuoteStore } from '../store/useQuoteStore';
 import { TelemetryService } from '../services/TelemetryService';
+import { AlertService } from '../services/AlertService';
 import { BehaviorLogEntry } from '../types';
 import { useAppSafeArea } from '../utils/safeArea';
 import { useKeyboard } from '../utils/useKeyboard';
@@ -64,7 +64,11 @@ export const BehaviorLogsModal: React.FC<BehaviorLogsModalProps> = ({ visible, o
   const handleSaveEndpoint = async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     await TelemetryService.setCustomEndpoint(endpointInput);
-    Alert.alert('Saved', 'Remote telemetry webhook endpoint updated.');
+    AlertService.alert({
+      title: 'Saved',
+      message: 'Remote telemetry webhook endpoint updated.',
+      type: 'SUCCESS',
+    });
   };
 
   const handleFlush = async () => {
@@ -73,14 +77,20 @@ export const BehaviorLogsModal: React.FC<BehaviorLogsModalProps> = ({ visible, o
     try {
       const result = await TelemetryService.flush();
       await loadData();
-      Alert.alert(
-        'Telemetry Flush',
-        result.sent > 0
-          ? `Successfully transmitted ${result.sent} events to remote endpoint.`
-          : 'No unsynced events or remote endpoint is not configured/reachable.'
-      );
+      AlertService.alert({
+        title: 'Telemetry Flush',
+        message:
+          result.sent > 0
+            ? `Successfully transmitted ${result.sent} events to remote endpoint.`
+            : 'No unsynced events or remote endpoint is not configured/reachable.',
+        type: result.sent > 0 ? 'SUCCESS' : 'INFO',
+      });
     } catch (e: any) {
-      Alert.alert('Flush Error', e?.message || 'Failed to dispatch logs');
+      AlertService.alert({
+        title: 'Flush Error',
+        message: e?.message || 'Failed to dispatch logs',
+        type: 'DANGER',
+      });
     } finally {
       setIsFlushing(false);
     }
@@ -91,22 +101,31 @@ export const BehaviorLogsModal: React.FC<BehaviorLogsModalProps> = ({ visible, o
     try {
       await TelemetryService.shareLogs();
     } catch (e: any) {
-      Alert.alert('Export Error', e?.message || 'Could not export logs.');
+      AlertService.alert({
+        title: 'Export Error',
+        message: e?.message || 'Could not export logs.',
+        type: 'DANGER',
+      });
     }
   };
 
   const handleClear = () => {
-    Alert.alert('Clear Log History', 'Are you sure you want to delete all local behavior logs?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Clear All',
-        style: 'destructive',
-        onPress: async () => {
-          await TelemetryService.clearLogs();
-          await loadData();
+    AlertService.alert({
+      title: 'Clear Log History',
+      message: 'Are you sure you want to delete all local behavior logs?',
+      type: 'DANGER',
+      buttons: [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Clear All',
+          style: 'destructive',
+          onPress: async () => {
+            await TelemetryService.clearLogs();
+            await loadData();
+          },
         },
-      },
-    ]);
+      ],
+    });
   };
 
   const getCategoryColor = (category: string) => {

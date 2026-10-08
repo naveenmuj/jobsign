@@ -219,6 +219,41 @@ assert(settingsScreenRaw.includes('Invoice Design & Templates'), 'SettingsScreen
 assert(settingsScreenRaw.includes('renderMiniMockup'), 'SettingsScreen provides mini mockup wireframes for templates');
 assert(settingsScreenRaw.includes('handlePreviewTemplate'), 'SettingsScreen supports live PDF preview generation for templates');
 
+// 7. DYNAMIC CURRENCY & REGIONAL ENGINE
+// -----------------------------------------------------------------
+console.log('\n7. [CURRENCY & LOCALIZATION] Dynamic Currency & Regional Engine');
+
+const currencyServiceRaw = fs.readFileSync(path.resolve('./src/services/CurrencyService.ts'), 'utf8');
+assert(currencyServiceRaw.includes('detectDeviceCurrency'), 'CurrencyService provides synchronous device currency detection');
+assert(currencyServiceRaw.includes('detectFromLocationOrDevice'), 'CurrencyService provides GPS & locale fallback detection');
+assert(currencyServiceRaw.includes('POPULAR_CURRENCIES'), 'POPULAR_CURRENCIES presets defined');
+assert(currencyServiceRaw.includes('₹') && currencyServiceRaw.includes('INR'), 'Supports Indian Rupee (INR ₹)');
+assert(currencyServiceRaw.includes('£') && currencyServiceRaw.includes('GBP'), 'Supports British Pound (GBP £)');
+assert(currencyServiceRaw.includes('€') && currencyServiceRaw.includes('EUR'), 'Supports Euro (EUR €)');
+
+const pdfCurRaw = fs.readFileSync(path.resolve('./src/services/PDFService.ts'), 'utf8');
+assert(pdfCurRaw.includes('curSymbol'), 'PDFService formats all prices and totals with dynamic curSymbol');
+
+const settingsCurRaw = fs.readFileSync(path.resolve('./src/screens/SettingsScreen.tsx'), 'utf8');
+assert(settingsCurRaw.includes('Currency & Regional Format'), 'SettingsScreen includes Currency & Regional Format configuration');
+assert(settingsCurRaw.includes('handleDetectCurrency'), 'SettingsScreen includes Auto-Detect Currency button');
+
+// -----------------------------------------------------------------
+// 8. UNIFIED MODAL POPUPS & ZERO RAW SYSTEM ALERTS
+// -----------------------------------------------------------------
+console.log('\n8. [MODAL DIALOGS] Modern AppAlertModal & Unified AlertService');
+
+const alertServiceRaw = fs.readFileSync(path.resolve('./src/services/AlertService.ts'), 'utf8');
+assert(alertServiceRaw.includes('AlertServiceClass'), 'AlertService singleton class registered');
+assert(alertServiceRaw.includes('inferredType'), 'AlertService intelligently infers alert themes (SUCCESS, WARNING, DANGER, INFO)');
+
+const appTsxRaw = fs.readFileSync(path.resolve('./App.tsx'), 'utf8');
+assert(appTsxRaw.includes('<AppAlertModal />'), 'AppAlertModal is mounted at top-level App root');
+
+const sigPadRaw = fs.readFileSync(path.resolve('./src/components/SignaturePad.tsx'), 'utf8');
+assert(sigPadRaw.includes('strokesRef'), 'SignaturePad uses synchronous strokesRef preventing stroke erasure');
+assert(sigPadRaw.includes('pointerEvents="none"'), 'SignaturePad SVG canvas prevents touch interception');
+
 console.log('\n======================================================');
 console.log(`TOTAL TESTS: ${passedCount + failedCount} | PASSED: ${passedCount} | FAILED: ${failedCount}`);
 console.log('======================================================');
@@ -226,4 +261,5 @@ console.log('======================================================');
 if (failedCount > 0) {
   process.exit(1);
 }
+
 
