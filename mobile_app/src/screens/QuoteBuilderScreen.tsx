@@ -252,6 +252,71 @@ const makeStyles = (colors: ThemeColors) =>
       fontWeight: '900',
       color: colors.emerald,
     },
+    taxToggleRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingVertical: 6,
+    },
+    taxToggleBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      paddingVertical: 5,
+      paddingHorizontal: 10,
+      borderRadius: Theme.borderRadius.sm,
+      borderWidth: 1,
+    },
+    taxInputsRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+      marginTop: 8,
+      marginBottom: 6,
+    },
+    taxLabelInput: {
+      flex: 1,
+      backgroundColor: colors.backgroundSecondary,
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: Theme.borderRadius.sm,
+      paddingHorizontal: 10,
+      paddingVertical: 6,
+      fontSize: 12,
+      fontWeight: '600',
+      color: colors.textPrimary,
+    },
+    taxRateBox: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+      backgroundColor: colors.backgroundSecondary,
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: Theme.borderRadius.sm,
+      paddingHorizontal: 10,
+      paddingVertical: 4,
+    },
+    taxRateInput: {
+      fontSize: 13,
+      fontWeight: '700',
+      color: colors.textPrimary,
+      minWidth: 46,
+      textAlign: 'right',
+      padding: 0,
+    },
+    setDefaultTaxBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+      marginTop: 6,
+      paddingVertical: 4,
+    },
+    setDefaultTaxText: {
+      fontSize: 11,
+      fontWeight: '700',
+      color: colors.primary,
+    },
     bottomBar: {
       position: 'absolute',
       bottom: 0,
@@ -340,7 +405,7 @@ const makeStyles = (colors: ThemeColors) =>
   });
 
 export const QuoteBuilderScreen: React.FC<{ onBack: () => void }> = ({ onBack }) => {
-  const { presets, addQuote, profile, quotes, isPro } = useQuoteStore();
+  const { presets, addQuote, updateProfile, profile, quotes, isPro } = useQuoteStore();
   const isDarkMode = useQuoteStore((state) => state.isDarkMode);
   const colors = getThemeColors(isDarkMode);
   const styles = React.useMemo(() => makeStyles(colors), [colors]);
@@ -353,11 +418,34 @@ export const QuoteBuilderScreen: React.FC<{ onBack: () => void }> = ({ onBack })
   const [customPrice, setCustomPrice] = useState('');
   const [photoUri, setPhotoUri] = useState<string | null>(null);
   const [items, setItems] = useState<LineItem[]>([]);
+  const [isTaxEnabled, setIsTaxEnabled] = useState<boolean>(
+    profile.taxEnabledByDefault ?? true
+  );
   const [taxRateInput, setTaxRateInput] = useState<string>(
     ((profile.defaultTaxBasisPoints ?? 825) / 100).toFixed(2)
   );
+  const [taxLabelInput, setTaxLabelInput] = useState<string>(
+    profile.taxLabel || 'Sales Tax'
+  );
   const [isSigning, setIsSigning] = useState(false);
   const [showPaywall, setShowPaywall] = useState(false);
+
+  const handleSetAsDefault = () => {
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    const parsedRate = parseFloat(taxRateInput);
+    const savedBasisPoints = Math.round((isNaN(parsedRate) ? 8.25 : parsedRate) * 100);
+    updateProfile({
+      taxEnabledByDefault: isTaxEnabled,
+      defaultTaxBasisPoints: isTaxEnabled ? savedBasisPoints : profile.defaultTaxBasisPoints,
+      taxLabel: taxLabelInput.trim() || profile.taxLabel || 'Sales Tax',
+    });
+    Alert.alert(
+      'Default Preference Saved',
+      isTaxEnabled
+        ? `Tax is now enabled by default at ${taxRateInput}% (${taxLabelInput}) for all future estimates.`
+        : 'All future estimates will now start tax-free / exempt by default.'
+    );
+  };
 
   // Take damage proof photo
   const handleCapturePhoto = async () => {
@@ -438,10 +526,12 @@ export const QuoteBuilderScreen: React.FC<{ onBack: () => void }> = ({ onBack })
   // Calculations
   const subtotalCents = items.reduce((sum, item) => sum + item.totalCents, 0);
   const parsedTax = parseFloat(taxRateInput);
-  const taxBasisPoints = Math.round(
-    (isNaN(parsedTax) ? ((profile.defaultTaxBasisPoints ?? 825) / 100) : parsedTax) * 100
-  );
-  const taxAmountCents = Math.round((subtotalCents * taxBasisPoints) / 10000);
+  const taxBasisPoints = isTaxEnabled
+    ? Math.max(0, Math.round((isNaN(parsedTax) ? ((profile.defaultTaxBasisPoints ?? 825) / 100) : parsedTax) * 100))
+    : 0;
+  const taxAmountCents = isTaxEnabled
+    ? Math.round((subtotalCents * taxBasisPoints) / 10000)
+    : 0;
   const totalAmountCents = subtotalCents + taxAmountCents;
 
   const totalFormatted = `$${(totalAmountCents / 100).toFixed(2)}`;
@@ -501,6 +591,7 @@ export const QuoteBuilderScreen: React.FC<{ onBack: () => void }> = ({ onBack })
       subtotalCents,
       taxRateBasisPoints: taxBasisPoints,
       taxAmountCents,
+      taxLabel: isTaxEnabled ? (taxLabelInput.trim() || 'Sales Tax') : undefined,
       totalAmountCents,
       signatureSvg: svgPath,
       signatureTimestamp: Date.now(),
@@ -719,31 +810,73 @@ export const QuoteBuilderScreen: React.FC<{ onBack: () => void }> = ({ onBack })
             <Text style={styles.summaryLabel}>Subtotal</Text>
             <Text style={styles.summaryVal}>${(subtotalCents / 100).toFixed(2)}</Text>
           </View>
-          <View style={styles.summaryRow}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-              <Text style={styles.summaryLabel}>Tax Rate:</Text>
-              <TextInput
-                style={{
-                  backgroundColor: colors.backgroundSecondary,
-                  borderWidth: 1,
-                  borderColor: colors.border,
-                  borderRadius: 6,
-                  paddingHorizontal: 8,
-                  paddingVertical: 3,
-                  fontSize: 13,
-                  fontWeight: '700',
-                  color: colors.textPrimary,
-                  minWidth: 54,
-                  textAlign: 'right',
+
+          {/* Tax Section */}
+          <View style={{ marginVertical: 6, paddingTop: 6, borderTopWidth: 1, borderColor: colors.border }}>
+            <View style={styles.taxToggleRow}>
+              <TouchableOpacity
+                style={[
+                  styles.taxToggleBtn,
+                  {
+                    backgroundColor: isTaxEnabled ? colors.primaryLight : colors.backgroundSecondary,
+                    borderColor: isTaxEnabled ? colors.primary : colors.border,
+                  },
+                ]}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  setIsTaxEnabled(!isTaxEnabled);
                 }}
-                value={taxRateInput}
-                onChangeText={setTaxRateInput}
-                keyboardType="decimal-pad"
-              />
-              <Text style={[styles.summaryLabel, { fontWeight: '700' }]}>%</Text>
+              >
+                <Text
+                  style={{
+                    fontSize: 12,
+                    fontWeight: '800',
+                    color: isTaxEnabled ? colors.primary : colors.textMuted,
+                  }}
+                >
+                  {isTaxEnabled ? '✓ Tax Added' : '+ Add Tax (Optional)'}
+                </Text>
+              </TouchableOpacity>
+              <Text style={styles.summaryVal}>
+                {isTaxEnabled ? `$${(taxAmountCents / 100).toFixed(2)}` : '$0.00'}
+              </Text>
             </View>
-            <Text style={styles.summaryVal}>${(taxAmountCents / 100).toFixed(2)}</Text>
+
+            {isTaxEnabled ? (
+              <View>
+                <View style={styles.taxInputsRow}>
+                  <TextInput
+                    style={styles.taxLabelInput}
+                    placeholder="Tax Label (e.g. Sales Tax, VAT, GST)"
+                    placeholderTextColor={colors.textMuted}
+                    value={taxLabelInput}
+                    onChangeText={setTaxLabelInput}
+                  />
+                  <View style={styles.taxRateBox}>
+                    <TextInput
+                      style={styles.taxRateInput}
+                      value={taxRateInput}
+                      onChangeText={setTaxRateInput}
+                      keyboardType="decimal-pad"
+                      placeholder="0.00"
+                      placeholderTextColor={colors.textMuted}
+                    />
+                    <Text style={{ fontSize: 13, fontWeight: '700', color: colors.textSecondary }}>%</Text>
+                  </View>
+                </View>
+                <TouchableOpacity style={styles.setDefaultTaxBtn} onPress={handleSetAsDefault}>
+                  <Text style={styles.setDefaultTaxText}>★ Keep {taxRateInput}% ({taxLabelInput || 'Tax'}) enabled by default</Text>
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <TouchableOpacity style={styles.setDefaultTaxBtn} onPress={handleSetAsDefault}>
+                <Text style={[styles.setDefaultTaxText, { color: colors.textMuted }]}>
+                  ★ Keep tax-exempt (0%) as default for future quotes
+                </Text>
+              </TouchableOpacity>
+            )}
           </View>
+
           <View style={[styles.summaryRow, styles.totalRow]}>
             <Text style={styles.totalLabel}>TOTAL</Text>
             <Text style={styles.totalVal}>{totalFormatted}</Text>

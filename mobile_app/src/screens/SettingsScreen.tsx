@@ -337,6 +337,10 @@ export const SettingsScreen: React.FC<{ onBack: () => void }> = ({ onBack }) => 
   const [defaultTaxRate, setDefaultTaxRate] = useState(
     ((profile.defaultTaxBasisPoints ?? 825) / 100).toFixed(2)
   );
+  const [taxEnabledByDefault, setTaxEnabledByDefault] = useState(
+    profile.taxEnabledByDefault ?? true
+  );
+  const [taxLabel, setTaxLabel] = useState(profile.taxLabel || 'Sales Tax');
   const [zelle, setZelle] = useState(profile.zelleAccount || '');
   const [venmo, setVenmo] = useState(profile.venmoAccount || '');
   const [cashApp, setCashApp] = useState(profile.cashAppAccount || '');
@@ -362,6 +366,8 @@ export const SettingsScreen: React.FC<{ onBack: () => void }> = ({ onBack }) => 
       phone: phone.trim(),
       licenseNumber: license.trim() || undefined,
       defaultTaxBasisPoints: taxBasisPoints,
+      taxEnabledByDefault,
+      taxLabel: taxLabel.trim() || 'Sales Tax',
       zelleAccount: zelle.trim() || undefined,
       venmoAccount: venmo.trim() || undefined,
       cashAppAccount: cashApp.trim() || undefined,
@@ -538,9 +544,127 @@ export const SettingsScreen: React.FC<{ onBack: () => void }> = ({ onBack }) => 
             value={license}
             onChangeText={setLicense}
           />
+        </View>
+
+        {/* ── Tax & Localization Preferences ─────────────────────────────────── */}
+        <View style={styles.card}>
+          <Text style={styles.cardLabel}>Tax & Localization Preferences</Text>
+          <Text style={styles.cardHint}>
+            Configure whether sales tax, VAT, or GST is applied by default across your estimates.
+          </Text>
+
+          {/* Default Tax Enable/Disable Toggle */}
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 12, marginBottom: 14 }}>
+            <View style={{ flex: 1, paddingRight: 12 }}>
+              <Text style={{ fontSize: 14, fontWeight: '700', color: colors.textPrimary }}>
+                Apply Tax by Default
+              </Text>
+              <Text style={{ fontSize: 11, color: colors.textSecondary, marginTop: 2 }}>
+                {taxEnabledByDefault
+                  ? 'All new estimates will start with tax calculated'
+                  : 'New estimates start tax-free / exempt (can enable per quote)'}
+              </Text>
+            </View>
+            <TouchableOpacity
+              style={{
+                backgroundColor: taxEnabledByDefault ? colors.primary : colors.backgroundSecondary,
+                borderColor: taxEnabledByDefault ? colors.primary : colors.border,
+                borderWidth: 1.5,
+                borderRadius: Theme.borderRadius.full,
+                paddingHorizontal: 14,
+                paddingVertical: 7,
+              }}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                setTaxEnabledByDefault(!taxEnabledByDefault);
+              }}
+            >
+              <Text
+                style={{
+                  color: taxEnabledByDefault ? '#FFFFFF' : colors.textSecondary,
+                  fontWeight: '800',
+                  fontSize: 12,
+                }}
+              >
+                {taxEnabledByDefault ? 'ENABLED' : 'DISABLED'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Tax Name / Label */}
+          <Text style={[styles.cardLabel, { marginTop: 4, marginBottom: 6 }]}>Tax Name / Label</Text>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
+            {['Sales Tax', 'VAT', 'GST', 'HST'].map((t) => (
+              <TouchableOpacity
+                key={t}
+                style={{
+                  paddingHorizontal: 10,
+                  paddingVertical: 5,
+                  borderRadius: Theme.borderRadius.full,
+                  backgroundColor: taxLabel === t ? colors.primary : colors.backgroundSecondary,
+                  borderWidth: 1,
+                  borderColor: taxLabel === t ? colors.primary : colors.border,
+                }}
+                onPress={() => setTaxLabel(t)}
+              >
+                <Text
+                  style={{
+                    fontSize: 11,
+                    fontWeight: '700',
+                    color: taxLabel === t ? '#FFFFFF' : colors.textSecondary,
+                  }}
+                >
+                  {t}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
           <TextInput
-            style={[styles.input, { marginTop: 10 }]}
-            placeholder="Default Sales Tax Rate (%) (e.g. 8.25)"
+            style={styles.input}
+            placeholder="Custom Tax Label (e.g. Sales Tax, VAT, GST)"
+            placeholderTextColor={colors.textMuted}
+            value={taxLabel}
+            onChangeText={setTaxLabel}
+          />
+
+          {/* Default Rate (%) */}
+          <Text style={[styles.cardLabel, { marginTop: 12, marginBottom: 6 }]}>Default Rate (%)</Text>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
+            {[
+              { label: '0% (Exempt)', val: '0.00' },
+              { label: '5% (GST)', val: '5.00' },
+              { label: '8.25% (US TX)', val: '8.25' },
+              { label: '10% (AU GST)', val: '10.00' },
+              { label: '13% (CA HST)', val: '13.00' },
+              { label: '20% (UK VAT)', val: '20.00' },
+            ].map((r) => (
+              <TouchableOpacity
+                key={r.val}
+                style={{
+                  paddingHorizontal: 10,
+                  paddingVertical: 5,
+                  borderRadius: Theme.borderRadius.full,
+                  backgroundColor: defaultTaxRate === r.val ? colors.primary : colors.backgroundSecondary,
+                  borderWidth: 1,
+                  borderColor: defaultTaxRate === r.val ? colors.primary : colors.border,
+                }}
+                onPress={() => setDefaultTaxRate(r.val)}
+              >
+                <Text
+                  style={{
+                    fontSize: 11,
+                    fontWeight: '700',
+                    color: defaultTaxRate === r.val ? '#FFFFFF' : colors.textSecondary,
+                  }}
+                >
+                  {r.label}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+          <TextInput
+            style={styles.input}
+            placeholder="Default Rate (%) (e.g. 8.25 or 20.00)"
             placeholderTextColor={colors.textMuted}
             keyboardType="decimal-pad"
             value={defaultTaxRate}

@@ -24,6 +24,8 @@ export const DEFAULT_PROFILE: ContractorProfile = {
   venmoAccount: '@ApexServices',
   cashAppAccount: '$ApexMike',
   defaultTaxBasisPoints: 825, // 8.25%
+  taxEnabledByDefault: true,  // Tax enabled by default on new quotes
+  taxLabel: 'Sales Tax',      // Default tax naming
 };
 
 interface QuoteStore {

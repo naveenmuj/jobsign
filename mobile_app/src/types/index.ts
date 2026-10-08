@@ -38,6 +38,8 @@ export interface ContractorProfile {
   venmoAccount?: string;
   cashAppAccount?: string;
   defaultTaxBasisPoints: number; // e.g. 825 for 8.25%
+  taxEnabledByDefault?: boolean; // whether tax is enabled by default on new quotes
+  taxLabel?: string;             // e.g. "Sales Tax", "VAT", "GST", "HST"
 }
 
 export interface Quote {
@@ -50,9 +52,10 @@ export interface Quote {
   jobDescription?: string;
   status: QuoteStatus;
   subtotalCents: number;
-  taxRateBasisPoints: number; // e.g. 825 for 8.25%
+  taxRateBasisPoints: number; // e.g. 825 for 8.25%, 0 if disabled
   taxAmountCents: number;
   totalAmountCents: number;
+  taxLabel?: string;          // e.g. "Sales Tax", "VAT", "GST"
   notes?: string;
   photoUri?: string;          // On-site damage proof photo
   signatureSvg?: string;

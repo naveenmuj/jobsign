@@ -186,7 +186,11 @@ export class PDFService {
 
             <div class="summary-box">
               <div class="summary-row"><span>Subtotal:</span><span>$${(quote.subtotalCents / 100).toFixed(2)}</span></div>
-              <div class="summary-row"><span>Sales Tax (${(quote.taxRateBasisPoints / 100).toFixed(2)}%):</span><span>$${(quote.taxAmountCents / 100).toFixed(2)}</span></div>
+              ${
+                quote.taxAmountCents > 0
+                  ? `<div class="summary-row"><span>${escapeHtml(quote.taxLabel || 'Sales Tax')} (${(quote.taxRateBasisPoints / 100).toFixed(2)}%):</span><span>$${(quote.taxAmountCents / 100).toFixed(2)}</span></div>`
+                  : `<div class="summary-row" style="color: #64748B;"><span>${escapeHtml(quote.taxLabel || 'Tax')}:</span><span>No Tax (Exempt / 0%)</span></div>`
+              }
               <div class="summary-row total-row">
                 <span>${isPaid ? 'PAID IN FULL:' : 'TOTAL APPROVED:'}</span>
                 <span style="color: ${isPaid ? '#16A34A' : '#0F172A'};">$${(quote.totalAmountCents / 100).toFixed(2)}</span>

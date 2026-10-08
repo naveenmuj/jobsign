@@ -40,6 +40,7 @@ export class DatabaseService {
         signature_gps_lat REAL,
         signature_gps_lng REAL,
         pdf_sha256_hash TEXT,
+        tax_label TEXT,
         created_at INTEGER NOT NULL,
         updated_at INTEGER NOT NULL
       );
@@ -82,6 +83,12 @@ export class DatabaseService {
       CREATE INDEX IF NOT EXISTS idx_change_orders_quote_id ON change_orders(quote_id);
       CREATE INDEX IF NOT EXISTS idx_outbox_status ON offline_outbox(status);
     `);
+
+    try {
+      await db.execAsync('ALTER TABLE quotes ADD COLUMN tax_label TEXT;');
+    } catch {
+      // Column already exists or freshly created
+    }
   }
 
   public static async getNextQuoteNumber(): Promise<number> {
@@ -127,6 +134,7 @@ export class DatabaseService {
         signatureGpsLat: r.signature_gps_lat,
         signatureGpsLng: r.signature_gps_lng,
         pdfSha256Hash: r.pdf_sha256_hash,
+        taxLabel: r.tax_label || undefined,
         createdAt: r.created_at,
         updatedAt: r.updated_at,
         lineItems: items.map((i) => ({
@@ -160,8 +168,9 @@ export class DatabaseService {
           id, quote_number, client_name, client_phone, client_email, client_address,
           job_description, status, subtotal_cents, tax_rate_basis_points, tax_amount_cents,
           total_amount_cents, notes, photo_uri, signature_svg, signature_timestamp,
-          signature_gps_lat, signature_gps_lng, pdf_sha256_hash, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          signature_gps_lat, signature_gps_lng, pdf_sha256_hash, created_at, updated_at,
+          tax_label
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           quote.id,
           quote.quoteNumber,
@@ -184,6 +193,7 @@ export class DatabaseService {
           quote.pdfSha256Hash || null,
           quote.createdAt,
           quote.updatedAt,
+          quote.taxLabel || null,
         ]
       );
 
