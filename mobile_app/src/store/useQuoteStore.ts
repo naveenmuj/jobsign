@@ -30,6 +30,7 @@ export const DEFAULT_PROFILE: ContractorProfile = {
   taxLabel: 'Sales Tax',      // Default tax naming
   isOnboardingCompleted: false,
   hasCustomBusinessName: false,
+  invoiceTemplate: 'modern',
 };
 
 interface QuoteStore {

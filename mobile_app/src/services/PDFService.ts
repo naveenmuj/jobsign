@@ -3,6 +3,7 @@ import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import * as FileSystem from 'expo-file-system';
 import { Quote, ContractorProfile } from '../types';
+import { InvoiceTemplateId } from '../constants/invoiceTemplates';
 
 function escapeHtml(s: string = ''): string {
   return String(s)
@@ -112,6 +113,7 @@ export class PDFService {
     }
 
     const contactParts = [phone, email, license].filter(Boolean);
+    const templateId: InvoiceTemplateId = (profile?.invoiceTemplate as InvoiceTemplateId) || 'modern';
 
     return `
       <!DOCTYPE html>
@@ -123,324 +125,238 @@ export class PDFService {
           <style>
             * { box-sizing: border-box; }
             body {
-              font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
               margin: 0;
               padding: 32px 36px;
-              color: #0F172A;
-              background-color: #FFFFFF;
               font-size: 13px;
               line-height: 1.5;
             }
-            .header-table {
-              width: 100%;
-              border-bottom: 2px solid #E2E8F0;
-              padding-bottom: 18px;
+            @media print {
+              body { padding: 18px 24px; }
+            }
+            .header-table { width: 100%; border-collapse: collapse; }
+            .shop-logo-img { max-height: 54px; max-width: 170px; object-fit: contain; margin-bottom: 6px; display: block; }
+            .doc-meta { text-align: right; vertical-align: top; }
+            .doc-badge { display: inline-block; font-size: 10.5px; font-weight: 800; padding: 4px 10px; letter-spacing: 0.6px; text-transform: uppercase; margin-bottom: 8px; }
+            .cards-grid { width: 100%; margin-bottom: 24px; border-collapse: separate; border-spacing: 12px 0; }
+            .items-table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+            .financial-block { width: 100%; margin-bottom: 24px; }
+            .summary-table { float: right; width: 310px; border-collapse: collapse; }
+            .summary-table td { padding: 6px 12px; font-size: 13px; }
+            .summary-table td.label-col { text-align: left; }
+            .summary-table td.val-col { text-align: right; font-weight: 700; }
+            .payment-box { clear: both; margin-bottom: 20px; display: flex; align-items: center; gap: 12px; }
+            .photo-box { margin-bottom: 20px; page-break-inside: avoid; }
+            .photo-img { max-width: 100%; max-height: 240px; border-radius: 6px; display: block; margin-bottom: 6px; }
+            .terms-box { margin-bottom: 20px; }
+            .signature-card { margin-bottom: 18px; page-break-inside: avoid; }
+            .seal-ribbon { display: flex; justify-content: space-between; align-items: center; margin-top: 12px; }
+            .seal-hash { font-family: monospace; font-weight: bold; padding: 2px 6px; border-radius: 4px; }
+            .audit-page { page-break-before: always; margin-top: 36px; padding: 24px 28px; }
+
+            /* ── THEME 1: MODERN NAVY (DEFAULT) ── */
+            body.theme-modern {
+              font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+              color: #0F172A;
+              background-color: #FFFFFF;
+            }
+            body.theme-modern .header-table { border-bottom: 2px solid #E2E8F0; padding-bottom: 18px; margin-bottom: 22px; }
+            body.theme-modern .shop-monogram {
+              display: inline-block; width: 44px; height: 44px; line-height: 44px; text-align: center;
+              background-color: #0F172A; color: #FFFFFF; font-size: 17px; font-weight: 900; border-radius: 8px; margin-bottom: 6px; letter-spacing: 0.5px;
+            }
+            body.theme-modern .shop-name { font-size: 22px; font-weight: 900; color: #0F172A; letter-spacing: -0.4px; margin: 0 0 3px 0; }
+            body.theme-modern .shop-address { font-size: 12px; color: #475569; margin-bottom: 3px; }
+            body.theme-modern .shop-contacts { font-size: 11.5px; color: #64748B; }
+            body.theme-modern .doc-badge { border-radius: 9999px; }
+            body.theme-modern .doc-badge-paid { background-color: #ECFDF5; color: #065F46; border: 1px solid #A7F3D0; }
+            body.theme-modern .doc-badge-estimate { background-color: #EFF6FF; color: #1E40AF; border: 1px solid #BFDBFE; }
+            body.theme-modern .doc-title { font-size: 20px; font-weight: 900; color: #0F172A; margin: 0 0 6px 0; }
+            body.theme-modern .meta-line { font-size: 12px; color: #64748B; margin-bottom: 2px; }
+            body.theme-modern .meta-line strong { color: #1E293B; }
+            body.theme-modern .info-card { background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px; padding: 14px 16px; vertical-align: top; }
+            body.theme-modern .card-title { font-size: 10.5px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.8px; color: #64748B; margin-bottom: 6px; }
+            body.theme-modern .card-name { font-size: 14px; font-weight: 800; color: #0F172A; margin-bottom: 3px; }
+            body.theme-modern .card-text { font-size: 12px; color: #475569; line-height: 1.4; }
+            body.theme-modern .items-table th { background-color: #F1F5F9; color: #475569; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.6px; padding: 10px 14px; border-top: 1px solid #CBD5E1; border-bottom: 1.5px solid #CBD5E1; }
+            body.theme-modern .items-table td { padding: 11px 14px; border-bottom: 1px solid #E2E8F0; font-size: 12.5px; color: #1E293B; }
+            body.theme-modern .items-table tbody tr:nth-child(even) td { background-color: #FAFCFE; }
+            body.theme-modern .co-callout-row td { background-color: #F5F3FF !important; color: #5B21B6 !important; font-weight: 800; padding: 8px 14px; font-size: 11.5px; border-top: 1px solid #DDD6FE; border-bottom: 1px solid #DDD6FE; }
+            body.theme-modern .summary-table td.label-col { color: #475569; }
+            body.theme-modern .summary-table td.val-col { color: #0F172A; }
+            body.theme-modern .total-row td { border-top: 2px solid #0F172A; padding-top: 10px; font-size: 16px; font-weight: 900; }
+            body.theme-modern .total-row td.val-col { color: ${isPaid ? '#059669' : '#0F172A'}; font-size: 18px; }
+            body.theme-modern .payment-box { background-color: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px; padding: 12px 16px; }
+            body.theme-modern .payment-title { font-size: 11px; font-weight: 800; color: #334155; text-transform: uppercase; letter-spacing: 0.5px; }
+            body.theme-modern .payment-accounts { font-size: 12px; color: #0F172A; font-weight: 600; margin-top: 2px; }
+            body.theme-modern .photo-box { border: 1.5px solid #CBD5E1; border-radius: 8px; padding: 14px; background: #FFFFFF; }
+            body.theme-modern .photo-header { font-size: 11px; font-weight: 800; color: #0F172A; text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 8px; }
+            body.theme-modern .terms-box { background-color: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px; padding: 12px 14px; }
+            body.theme-modern .terms-header { font-size: 11px; font-weight: 800; color: #475569; text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 4px; }
+            body.theme-modern .terms-body { font-size: 11.5px; color: #334155; line-height: 1.45; white-space: pre-wrap; }
+            body.theme-modern .signature-card { border: 1.5px solid #CBD5E1; border-radius: 8px; padding: 16px; background-color: #FFFFFF; }
+            body.theme-modern .signature-header { font-size: 12px; font-weight: 800; color: #0F172A; text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 8px; }
+            body.theme-modern .legal-consent { font-size: 10.5px; color: #64748B; line-height: 1.45; margin-top: 10px; }
+            body.theme-modern .waiver-callout { background-color: #ECFDF5; border: 1px solid #A7F3D0; border-radius: 6px; padding: 10px 12px; margin-top: 12px; font-size: 11px; color: #065F46; line-height: 1.4; }
+            body.theme-modern .seal-ribbon { background-color: #F1F5F9; border: 1px solid #CBD5E1; border-radius: 6px; padding: 8px 12px; font-size: 10.5px; color: #475569; }
+            body.theme-modern .seal-hash { color: #0F172A; background: #E2E8F0; }
+            body.theme-modern .audit-page { background-color: #F8FAFC; border: 1px solid #CBD5E1; border-radius: 8px; }
+
+            /* ── THEME 2: CLASSIC EXECUTIVE (FORMAL SERIF & LEGAL) ── */
+            body.theme-classic {
+              font-family: "Georgia", "Cambria", "Times New Roman", Times, serif;
+              color: #1C1917;
+              background-color: #FFFFFF;
+            }
+            body.theme-classic .header-table { border-bottom: 3px double #44403C; padding-bottom: 22px; margin-bottom: 24px; }
+            body.theme-classic .shop-monogram {
+              display: inline-block; width: 44px; height: 44px; line-height: 42px; text-align: center;
+              background-color: #292524; color: #FAF8F5; font-size: 18px; font-weight: 900; border: 1.5px solid #78716C; border-radius: 2px; margin-bottom: 6px; font-family: "Georgia", serif;
+            }
+            body.theme-classic .shop-name { font-size: 24px; font-weight: 900; color: #1C1917; letter-spacing: 0.5px; margin: 0 0 4px 0; font-family: "Georgia", serif; }
+            body.theme-classic .shop-address, body.theme-classic .shop-contacts { font-size: 12px; color: #57534E; font-style: italic; }
+            body.theme-classic .doc-badge { border-radius: 2px; font-family: "Georgia", serif; font-weight: 800; }
+            body.theme-classic .doc-badge-paid { background-color: #F0FDF4; color: #166534; border: 1.5px solid #86EFAC; }
+            body.theme-classic .doc-badge-estimate { background-color: #FAF5FF; color: #6B21A8; border: 1.5px solid #D8B4FE; }
+            body.theme-classic .doc-title { font-size: 22px; font-weight: 900; color: #1C1917; letter-spacing: 1.2px; text-transform: uppercase; font-family: "Georgia", serif; margin: 0 0 6px 0; }
+            body.theme-classic .meta-line { font-size: 12px; color: #57534E; margin-bottom: 2px; font-family: "Georgia", serif; }
+            body.theme-classic .meta-line strong { color: #1C1917; }
+            body.theme-classic .info-card { background: #FAF8F5; border: 1px solid #D6D3D1; border-radius: 2px; padding: 14px 16px; vertical-align: top; }
+            body.theme-classic .card-title { font-family: "Georgia", serif; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; color: #831843; margin-bottom: 6px; font-style: italic; }
+            body.theme-classic .card-name { font-family: "Georgia", serif; font-size: 15px; font-weight: 800; color: #1C1917; margin-bottom: 3px; }
+            body.theme-classic .card-text { font-family: "Georgia", serif; font-size: 12.5px; color: #44403C; line-height: 1.4; }
+            body.theme-classic .items-table th { background-color: #F5F3EF; color: #292524; font-size: 11.5px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.8px; padding: 10px 14px; border-top: 1.5px solid #44403C; border-bottom: 1.5px solid #44403C; font-family: "Georgia", serif; }
+            body.theme-classic .items-table td { padding: 11px 14px; border-bottom: 1px solid #E7E5E4; font-size: 13px; color: #292524; font-family: "Georgia", serif; }
+            body.theme-classic .items-table tbody tr:nth-child(even) td { background-color: #FAF8F5; }
+            body.theme-classic .co-callout-row td { background-color: #FFF1F2 !important; color: #9F1239 !important; font-weight: 800; padding: 8px 14px; font-size: 12px; border-top: 1px solid #FECDD3; border-bottom: 1px solid #FECDD3; font-family: "Georgia", serif; }
+            body.theme-classic .summary-table td.label-col { color: #57534E; font-family: "Georgia", serif; }
+            body.theme-classic .summary-table td.val-col { color: #1C1917; font-family: "Georgia", serif; }
+            body.theme-classic .total-row td { border-top: 1.5px solid #1C1917; border-bottom: 3px double #1C1917; padding-top: 10px; padding-bottom: 10px; font-size: 16px; font-weight: 900; font-family: "Georgia", serif; }
+            body.theme-classic .total-row td.val-col { color: ${isPaid ? '#15803D' : '#831843'}; font-size: 19px; }
+            body.theme-classic .payment-box { background-color: #FAF8F5; border: 1px solid #D6D3D1; border-radius: 2px; padding: 12px 16px; }
+            body.theme-classic .payment-title { font-size: 11px; font-weight: 800; color: #831843; text-transform: uppercase; letter-spacing: 0.8px; font-family: "Georgia", serif; }
+            body.theme-classic .payment-accounts { font-size: 12.5px; color: #1C1917; font-weight: 700; margin-top: 2px; font-family: "Georgia", serif; }
+            body.theme-classic .photo-box { border: 1px solid #D6D3D1; border-radius: 2px; padding: 14px; background: #FAF8F5; }
+            body.theme-classic .photo-header { font-size: 11px; font-weight: 800; color: #1C1917; text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 8px; font-family: "Georgia", serif; }
+            body.theme-classic .terms-box { background-color: #FAF8F5; border: 1px solid #D6D3D1; border-radius: 2px; padding: 12px 14px; }
+            body.theme-classic .terms-header { font-size: 11px; font-weight: 800; color: #831843; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 4px; font-family: "Georgia", serif; }
+            body.theme-classic .terms-body { font-size: 12px; color: #292524; line-height: 1.5; white-space: pre-wrap; font-family: "Georgia", serif; }
+            body.theme-classic .signature-card { background-color: #FAF8F5; border: 1.5px solid #A8A29E; border-radius: 2px; padding: 16px 20px; }
+            body.theme-classic .signature-header { font-size: 12px; font-weight: 800; color: #1C1917; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 8px; font-family: "Georgia", serif; }
+            body.theme-classic .legal-consent { font-size: 11px; color: #57534E; line-height: 1.5; margin-top: 10px; font-family: "Georgia", serif; }
+            body.theme-classic .waiver-callout { background-color: #F0FDF4; border: 1px solid #BBF7D0; border-radius: 2px; padding: 10px 12px; margin-top: 12px; font-size: 11.5px; color: #166534; line-height: 1.45; font-family: "Georgia", serif; }
+            body.theme-classic .seal-ribbon { background-color: #F5F3EF; border: 1px solid #D6D3D1; border-radius: 2px; padding: 8px 12px; font-size: 11px; color: #57534E; font-family: "Georgia", serif; }
+            body.theme-classic .seal-hash { color: #1C1917; background: #E7E5E4; font-family: monospace; }
+            body.theme-classic .audit-page { background-color: #FAF8F5; border: 1.5px solid #A8A29E; border-radius: 2px; font-family: "Georgia", serif; }
+
+            /* ── THEME 3: MINIMAL CLEAN (MONOCHROME SWISS) ── */
+            body.theme-minimal {
+              font-family: "Helvetica Neue", Helvetica, Arial, -apple-system, sans-serif;
+              color: #000000;
+              background-color: #FFFFFF;
+              padding: 36px 40px;
+            }
+            body.theme-minimal .header-table { border-bottom: 2px solid #000000; padding-bottom: 22px; margin-bottom: 26px; }
+            body.theme-minimal .shop-monogram {
+              display: inline-block; width: 40px; height: 40px; line-height: 40px; text-align: center;
+              background-color: #000000; color: #FFFFFF; font-size: 16px; font-weight: 900; border-radius: 0; margin-bottom: 6px;
+            }
+            body.theme-minimal .shop-name { font-size: 21px; font-weight: 900; color: #000000; letter-spacing: -0.5px; margin: 0 0 3px 0; }
+            body.theme-minimal .shop-address { font-size: 11.5px; color: #4B5563; margin-bottom: 2px; }
+            body.theme-minimal .shop-contacts { font-size: 11px; color: #6B7280; }
+            body.theme-minimal .doc-badge { border-radius: 0; font-size: 10px; font-weight: 900; letter-spacing: 1px; }
+            body.theme-minimal .doc-badge-paid { background-color: #000000; color: #FFFFFF; border: none; }
+            body.theme-minimal .doc-badge-estimate { background-color: #F3F4F6; color: #000000; border: 1px solid #000000; }
+            body.theme-minimal .doc-title { font-size: 24px; font-weight: 900; color: #000000; letter-spacing: -0.5px; margin: 0 0 6px 0; }
+            body.theme-minimal .meta-line { font-size: 11.5px; color: #6B7280; margin-bottom: 2px; }
+            body.theme-minimal .meta-line strong { color: #000000; }
+            body.theme-minimal .info-card { background: transparent; border: none; border-left: 2px solid #000000; border-radius: 0; padding: 4px 0 4px 14px; vertical-align: top; }
+            body.theme-minimal .card-title { font-size: 10px; font-weight: 900; color: #000000; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 4px; }
+            body.theme-minimal .card-name { font-size: 14px; font-weight: 900; color: #000000; margin-bottom: 2px; }
+            body.theme-minimal .card-text { font-size: 11.5px; color: #374151; line-height: 1.4; }
+            body.theme-minimal .items-table th { background-color: #FFFFFF; color: #000000; font-size: 11px; font-weight: 900; letter-spacing: 0.8px; padding: 10px 10px; border-top: none; border-bottom: 2px solid #000000; text-transform: uppercase; }
+            body.theme-minimal .items-table td { padding: 12px 10px; border-bottom: 1px solid #E5E7EB; font-size: 12px; color: #111827; }
+            body.theme-minimal .items-table tbody tr:nth-child(even) td { background-color: transparent; }
+            body.theme-minimal .co-callout-row td { background-color: #F3F4F6 !important; color: #000000 !important; font-weight: 900; padding: 8px 10px; font-size: 11px; border-top: 1px solid #000000; border-bottom: 1px solid #000000; }
+            body.theme-minimal .summary-table td.label-col { color: #4B5563; }
+            body.theme-minimal .summary-table td.val-col { color: #000000; }
+            body.theme-minimal .total-row td { background-color: #000000; color: #FFFFFF; padding: 10px 14px; font-size: 15px; font-weight: 900; }
+            body.theme-minimal .total-row td.label-col { color: #FFFFFF; }
+            body.theme-minimal .total-row td.val-col { color: #FFFFFF; font-size: 18px; }
+            body.theme-minimal .payment-box { background-color: #F9FAFB; border: 1px solid #E5E7EB; border-radius: 0; padding: 12px 14px; }
+            body.theme-minimal .payment-title { font-size: 10.5px; font-weight: 900; color: #000000; text-transform: uppercase; letter-spacing: 0.8px; }
+            body.theme-minimal .payment-accounts { font-size: 11.5px; color: #111827; font-weight: 600; margin-top: 2px; }
+            body.theme-minimal .photo-box { border: 1px solid #E5E7EB; border-radius: 0; padding: 14px; background: #FFFFFF; }
+            body.theme-minimal .photo-header { font-size: 10.5px; font-weight: 900; color: #000000; text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 8px; }
+            body.theme-minimal .terms-box { background-color: #F9FAFB; border: 1px solid #E5E7EB; border-radius: 0; padding: 12px 14px; }
+            body.theme-minimal .terms-header { font-size: 10.5px; font-weight: 900; color: #000000; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 4px; }
+            body.theme-minimal .terms-body { font-size: 11px; color: #374151; line-height: 1.45; white-space: pre-wrap; }
+            body.theme-minimal .signature-card { background-color: #FFFFFF; border: 1px solid #000000; border-radius: 0; padding: 16px 20px; }
+            body.theme-minimal .signature-header { font-size: 11.5px; font-weight: 900; color: #000000; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 8px; }
+            body.theme-minimal .legal-consent { font-size: 10px; color: #6B7280; line-height: 1.4; margin-top: 10px; }
+            body.theme-minimal .waiver-callout { background-color: #F9FAFB; border: 1px solid #D1D5DB; border-radius: 0; padding: 10px 12px; margin-top: 12px; font-size: 10.5px; color: #111827; line-height: 1.4; }
+            body.theme-minimal .seal-ribbon { background-color: #F9FAFB; border: 1px solid #E5E7EB; border-radius: 0; padding: 8px 12px; font-size: 10px; color: #4B5563; }
+            body.theme-minimal .seal-hash { color: #000000; background: #E5E7EB; }
+            body.theme-minimal .audit-page { background-color: #FFFFFF; border: 1px solid #000000; border-radius: 0; }
+
+            /* ── THEME 4: INDUSTRIAL CONTRACTOR (HIGH-IMPACT TRADES) ── */
+            body.theme-contractor {
+              font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Impact", sans-serif;
+              color: #18181B;
+              background-color: #FFFFFF;
+              padding: 28px 32px;
+            }
+            body.theme-contractor .header-table {
+              background-color: #18181B;
+              color: #FFFFFF;
+              border-radius: 6px;
+              padding: 18px 22px;
+              border-bottom: 5px solid #F59E0B;
               margin-bottom: 22px;
             }
-            .shop-logo-img {
-              max-height: 52px;
-              max-width: 170px;
-              object-fit: contain;
-              margin-bottom: 6px;
-              display: block;
+            body.theme-contractor .shop-monogram {
+              display: inline-block; width: 44px; height: 44px; line-height: 44px; text-align: center;
+              background-color: #F59E0B; color: #000000; font-size: 18px; font-weight: 900; border-radius: 4px; margin-bottom: 6px; letter-spacing: 0.5px;
             }
-            .shop-monogram {
-              display: inline-block;
-              width: 44px;
-              height: 44px;
-              line-height: 44px;
-              text-align: center;
-              background-color: #0F172A;
-              color: #FFFFFF;
-              font-size: 17px;
-              font-weight: 900;
-              border-radius: 8px;
-              margin-bottom: 6px;
-              letter-spacing: 0.5px;
-            }
-            .shop-name {
-              font-size: 22px;
-              font-weight: 900;
-              color: #0F172A;
-              letter-spacing: -0.4px;
-              margin: 0 0 3px 0;
-            }
-            .shop-address {
-              font-size: 12px;
-              color: #475569;
-              margin-bottom: 3px;
-            }
-            .shop-contacts {
-              font-size: 11.5px;
-              color: #64748B;
-            }
-            .doc-meta {
-              text-align: right;
-              vertical-align: top;
-            }
-            .doc-badge {
-              display: inline-block;
-              font-size: 10.5px;
-              font-weight: 800;
-              padding: 4px 10px;
-              border-radius: 9999px;
-              letter-spacing: 0.6px;
-              text-transform: uppercase;
-              margin-bottom: 8px;
-            }
-            .doc-badge-paid {
-              background-color: #ECFDF5;
-              color: #065F46;
-              border: 1px solid #A7F3D0;
-            }
-            .doc-badge-estimate {
-              background-color: #EFF6FF;
-              color: #1E40AF;
-              border: 1px solid #BFDBFE;
-            }
-            .doc-title {
-              font-size: 20px;
-              font-weight: 900;
-              color: #0F172A;
-              margin: 0 0 6px 0;
-            }
-            .meta-line {
-              font-size: 12px;
-              color: #64748B;
-              margin-bottom: 2px;
-            }
-            .meta-line strong {
-              color: #1E293B;
-            }
-            .cards-grid {
-              width: 100%;
-              margin-bottom: 24px;
-              border-collapse: separate;
-              border-spacing: 12px 0;
-            }
-            .info-card {
-              background: #F8FAFC;
-              border: 1px solid #E2E8F0;
-              border-radius: 8px;
-              padding: 14px 16px;
-              vertical-align: top;
-            }
-            .card-title {
-              font-size: 10.5px;
-              font-weight: 800;
-              text-transform: uppercase;
-              letter-spacing: 0.8px;
-              color: #64748B;
-              margin-bottom: 6px;
-            }
-            .card-name {
-              font-size: 14px;
-              font-weight: 800;
-              color: #0F172A;
-              margin-bottom: 3px;
-            }
-            .card-text {
-              font-size: 12px;
-              color: #475569;
-              line-height: 1.4;
-            }
-            .items-table {
-              width: 100%;
-              border-collapse: collapse;
-              margin-bottom: 20px;
-            }
-            .items-table th {
-              background-color: #F1F5F9;
-              color: #475569;
-              font-size: 11px;
-              font-weight: 800;
-              text-transform: uppercase;
-              letter-spacing: 0.6px;
-              padding: 10px 14px;
-              border-top: 1px solid #CBD5E1;
-              border-bottom: 1.5px solid #CBD5E1;
-            }
-            .items-table td {
-              padding: 11px 14px;
-              border-bottom: 1px solid #E2E8F0;
-              font-size: 12.5px;
-              color: #1E293B;
-            }
-            .items-table tbody tr:nth-child(even) td {
-              background-color: #FAFCFE;
-            }
-            .co-callout-row td {
-              background-color: #F5F3FF !important;
-              color: #5B21B6 !important;
-              font-weight: 800;
-              padding: 8px 14px;
-              font-size: 11.5px;
-              border-top: 1px solid #DDD6FE;
-              border-bottom: 1px solid #DDD6FE;
-            }
-            .financial-block {
-              width: 100%;
-              margin-bottom: 24px;
-            }
-            .summary-table {
-              float: right;
-              width: 310px;
-              border-collapse: collapse;
-            }
-            .summary-table td {
-              padding: 6px 12px;
-              font-size: 13px;
-            }
-            .summary-table td.label-col {
-              color: #475569;
-              text-align: left;
-            }
-            .summary-table td.val-col {
-              text-align: right;
-              font-weight: 700;
-              color: #0F172A;
-            }
-            .total-row td {
-              border-top: 2px solid #0F172A;
-              padding-top: 10px;
-              font-size: 16px;
-              font-weight: 900;
-            }
-            .total-row td.val-col {
-              color: ${isPaid ? '#059669' : '#0F172A'};
-              font-size: 18px;
-            }
-            .payment-box {
-              clear: both;
-              background-color: #F8FAFC;
-              border: 1px solid #E2E8F0;
-              border-radius: 8px;
-              padding: 12px 16px;
-              margin-bottom: 20px;
-              display: flex;
-              align-items: center;
-              gap: 12px;
-            }
-            .payment-title {
-              font-size: 11px;
-              font-weight: 800;
-              color: #334155;
-              text-transform: uppercase;
-              letter-spacing: 0.5px;
-            }
-            .payment-accounts {
-              font-size: 12px;
-              color: #0F172A;
-              font-weight: 600;
-              margin-top: 2px;
-            }
-            .photo-box {
-              margin-bottom: 20px;
-              border: 1.5px solid #CBD5E1;
-              border-radius: 8px;
-              padding: 14px;
-              background: #FFFFFF;
-              page-break-inside: avoid;
-            }
-            .photo-header {
-              font-size: 11px;
-              font-weight: 800;
-              color: #0F172A;
-              text-transform: uppercase;
-              letter-spacing: 0.6px;
-              margin-bottom: 8px;
-            }
-            .photo-img {
-              max-width: 100%;
-              max-height: 240px;
-              border-radius: 6px;
-              display: block;
-              margin-bottom: 6px;
-            }
-            .terms-box {
-              background-color: #F8FAFC;
-              border: 1px solid #E2E8F0;
-              border-radius: 8px;
-              padding: 12px 14px;
-              margin-bottom: 20px;
-            }
-            .terms-header {
-              font-size: 11px;
-              font-weight: 800;
-              color: #475569;
-              text-transform: uppercase;
-              letter-spacing: 0.6px;
-              margin-bottom: 4px;
-            }
-            .terms-body {
-              font-size: 11.5px;
-              color: #334155;
-              line-height: 1.45;
-              white-space: pre-wrap;
-            }
-            .signature-card {
-              border: 1.5px solid #CBD5E1;
-              border-radius: 8px;
-              padding: 16px;
-              background-color: #FFFFFF;
-              margin-bottom: 18px;
-              page-break-inside: avoid;
-            }
-            .signature-header {
-              font-size: 12px;
-              font-weight: 800;
-              color: #0F172A;
-              text-transform: uppercase;
-              letter-spacing: 0.6px;
-              margin-bottom: 8px;
-            }
-            .legal-consent {
-              font-size: 10.5px;
-              color: #64748B;
-              line-height: 1.45;
-              margin-top: 10px;
-            }
-            .waiver-callout {
-              background-color: #ECFDF5;
-              border: 1px solid #A7F3D0;
-              border-radius: 6px;
-              padding: 10px 12px;
-              margin-top: 12px;
-              font-size: 11px;
-              color: #065F46;
-              line-height: 1.4;
-            }
-            .seal-ribbon {
-              background-color: #F1F5F9;
-              border: 1px solid #CBD5E1;
-              border-radius: 6px;
-              padding: 8px 12px;
-              font-size: 10.5px;
-              color: #475569;
-              display: flex;
-              justify-content: space-between;
-              align-items: center;
-              margin-top: 12px;
-            }
-            .seal-hash {
-              font-family: monospace;
-              color: #0F172A;
-              font-weight: bold;
-              background: #E2E8F0;
-              padding: 2px 6px;
-              border-radius: 4px;
-            }
-            .audit-page {
-              page-break-before: always;
-              margin-top: 36px;
-              padding: 24px 28px;
-              background-color: #F8FAFC;
-              border: 1px solid #CBD5E1;
-              border-radius: 8px;
-            }
+            body.theme-contractor .shop-name { font-size: 23px; font-weight: 900; color: #FFFFFF !important; text-transform: uppercase; letter-spacing: 0.4px; margin: 0 0 3px 0; }
+            body.theme-contractor .shop-address { font-size: 12px; color: #D4D4D8 !important; }
+            body.theme-contractor .shop-contacts { font-size: 11.5px; color: #A1A1AA !important; }
+            body.theme-contractor .doc-title { font-size: 22px; font-weight: 900; color: #FBBF24 !important; letter-spacing: 0.5px; text-transform: uppercase; margin: 0 0 6px 0; }
+            body.theme-contractor .doc-badge { background-color: #F59E0B; color: #000000; border-radius: 4px; font-weight: 900; border: none; }
+            body.theme-contractor .doc-badge-paid { background-color: #10B981; color: #FFFFFF; }
+            body.theme-contractor .doc-badge-estimate { background-color: #F59E0B; color: #000000; }
+            body.theme-contractor .meta-line { color: #D4D4D8 !important; }
+            body.theme-contractor .meta-line strong { color: #FFFFFF !important; }
+            body.theme-contractor .info-card { background: #F4F4F5; border: 1px solid #D4D4D8; border-top: 3.5px solid #D97706; border-radius: 4px; padding: 14px 16px; vertical-align: top; }
+            body.theme-contractor .card-title { color: #B45309; font-weight: 900; letter-spacing: 1px; font-size: 11px; text-transform: uppercase; margin-bottom: 6px; }
+            body.theme-contractor .card-name { font-size: 15px; font-weight: 900; color: #18181B; margin-bottom: 3px; }
+            body.theme-contractor .card-text { font-size: 12.5px; color: #3F3F46; line-height: 1.4; }
+            body.theme-contractor .items-table th { background-color: #18181B; color: #FFFFFF; font-size: 11.5px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.8px; padding: 11px 14px; border-top: none; border-bottom: 2px solid #D97706; }
+            body.theme-contractor .items-table td { padding: 11px 14px; border-bottom: 1.5px solid #E4E4E7; font-size: 13px; color: #18181B; }
+            body.theme-contractor .items-table tbody tr:nth-child(even) td { background-color: #FAFAFA; }
+            body.theme-contractor .co-callout-row td { background-color: #FFFBEB !important; color: #B45309 !important; font-weight: 900; padding: 8px 14px; font-size: 12px; border-top: 1.5px solid #FCD34D; border-bottom: 1.5px solid #FCD34D; }
+            body.theme-contractor .summary-table td.label-col { color: #52525B; }
+            body.theme-contractor .summary-table td.val-col { color: #18181B; }
+            body.theme-contractor .total-row td { background-color: #18181B; color: #FFFFFF; padding: 12px 16px; font-size: 16px; font-weight: 900; border-radius: 4px 0 0 4px; }
+            body.theme-contractor .total-row td.label-col { color: #FFFFFF; }
+            body.theme-contractor .total-row td.val-col { color: #FBBF24; font-size: 20px; border-radius: 0 4px 4px 0; }
+            body.theme-contractor .payment-box { background-color: #FFFBEB; border: 1.5px solid #FCD34D; border-radius: 4px; padding: 12px 16px; }
+            body.theme-contractor .payment-title { font-size: 11px; font-weight: 900; color: #B45309; text-transform: uppercase; letter-spacing: 0.6px; }
+            body.theme-contractor .payment-accounts { font-size: 12.5px; color: #18181B; font-weight: 700; margin-top: 2px; }
+            body.theme-contractor .photo-box { border: 1.5px solid #D4D4D8; border-top: 3px solid #D97706; border-radius: 4px; padding: 14px; background: #FFFFFF; }
+            body.theme-contractor .photo-header { font-size: 11.5px; font-weight: 900; color: #18181B; text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 8px; }
+            body.theme-contractor .terms-box { background-color: #F4F4F5; border: 1px solid #D4D4D8; border-left: 4px solid #D97706; border-radius: 4px; padding: 12px 14px; }
+            body.theme-contractor .terms-header { font-size: 11px; font-weight: 900; color: #B45309; text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 4px; }
+            body.theme-contractor .terms-body { font-size: 12px; color: #27272A; line-height: 1.45; white-space: pre-wrap; }
+            body.theme-contractor .signature-card { background-color: #FFFFFF; border: 2px solid #18181B; border-top: 4px solid #D97706; border-radius: 4px; padding: 16px 20px; }
+            body.theme-contractor .signature-header { font-size: 12.5px; font-weight: 900; color: #18181B; text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 8px; }
+            body.theme-contractor .legal-consent { font-size: 10.5px; color: #71717A; line-height: 1.45; margin-top: 10px; }
+            body.theme-contractor .waiver-callout { background-color: #ECFDF5; border: 1px solid #A7F3D0; border-radius: 4px; padding: 10px 12px; margin-top: 12px; font-size: 11.5px; color: #065F46; line-height: 1.4; }
+            body.theme-contractor .seal-ribbon { background-color: #F4F4F5; border: 1px solid #D4D4D8; border-radius: 4px; padding: 8px 12px; font-size: 11px; color: #52525B; }
+            body.theme-contractor .seal-hash { color: #18181B; background: #E4E4E7; }
+            body.theme-contractor .audit-page { background-color: #F4F4F5; border: 2px solid #18181B; border-radius: 4px; }
           </style>
         </head>
-        <body>
+        <body class="theme-${templateId}">
           <!-- ── BRAND HEADER & METADATA ── -->
           <table class="header-table">
             <tr>

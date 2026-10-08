@@ -17,6 +17,8 @@ import { PDFService } from '../services/PDFService';
 import { PaywallModal } from '../components/PaywallModal';
 import { BillingService } from '../services/BillingService';
 import { runSelfDiagnostics } from '../services/DiagnosticService';
+import { Quote } from '../types';
+import { INVOICE_TEMPLATES, InvoiceTemplateId } from '../constants/invoiceTemplates';
 import {
   ChevronLeft,
   Star,
@@ -27,7 +29,72 @@ import {
   Camera,
   Image as ImageIcon,
   Building2,
+  Palette,
+  CheckCircle2,
+  Eye,
+  FileText,
 } from 'lucide-react-native';
+
+// Sample quote used for live instant preview of invoice templates
+const SAMPLE_PREVIEW_QUOTE: Quote = {
+  id: 'preview-sample-quote',
+  quoteNumber: 1042,
+  clientName: 'Sarah Jenkins',
+  clientPhone: '(512) 555-0199',
+  clientEmail: 'sarah.jenkins@example.com',
+  clientAddress: '4218 Crestview Dr, Austin, TX 78756',
+  jobDescription: 'Main Electrical Panel Upgrade (200A) & Surge Protection',
+  status: 'SIGNED_LOCKED',
+  subtotalCents: 272500,
+  taxRateBasisPoints: 825,
+  taxAmountCents: 22481,
+  totalAmountCents: 294981,
+  taxLabel: 'Sales Tax',
+  notes: '• 1-Year Workmanship Warranty on all labor and breaker connections\n• Homeowner supplies unobstructed access to meter and panel',
+  createdAt: Date.now() - 86400000,
+  updatedAt: Date.now(),
+  signatureSvg: '<path d="M 10 90 Q 60 20 110 85 T 210 70 Q 260 130 330 40 T 450 95" fill="none" stroke="#0F172A" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>',
+  signatureTimestamp: Date.now(),
+  signatureGpsLat: 30.2672,
+  signatureGpsLng: -97.7431,
+  pdfSha256Hash: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
+  lineItems: [
+    {
+      id: 'li-1',
+      description: '200-Amp Main Service Panel Replacement (Square D QO)',
+      quantity: 1,
+      unitPriceCents: 185000,
+      totalCents: 185000,
+    },
+    {
+      id: 'li-2',
+      description: 'Whole-Home Surge Protective Device (Type 2 SPD)',
+      quantity: 1,
+      unitPriceCents: 35000,
+      totalCents: 35000,
+    },
+    {
+      id: 'li-3',
+      description: 'Dual Copper Ground Rod System & Cold Water Bond',
+      quantity: 1,
+      unitPriceCents: 25000,
+      totalCents: 25000,
+    },
+  ],
+  changeOrders: [
+    {
+      id: 'co-1',
+      quoteId: 'preview-sample-quote',
+      orderNumber: 1,
+      reason: 'Replaced Corroded Weatherhead Cable & Conduit',
+      addedItems: [],
+      addedTotalCents: 27500,
+      signatureSvg: '<path d="M 10 90 Q 60 20 110 85 T 210 70 Q 260 130 330 40 T 450 95" fill="none" stroke="#0F172A" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>',
+      signatureTimestamp: Date.now(),
+      pdfSha256Hash: 'a1b2c3d4e5f67890123456789abcdef0123456789abcdef0123456789abcdef0',
+    },
+  ],
+};
 
 // ---------------------------------------------------------------------------
 // Style factory — called with current theme colors so every token is dynamic
@@ -361,6 +428,110 @@ const makeStyles = (colors: ThemeColors) =>
       color: '#FFFFFF',
       fontWeight: '900',
     },
+
+    // ── Template Picker ──────────────────────────────────────────────────────
+    templateCard: {
+      backgroundColor: colors.surface,
+      borderRadius: Theme.borderRadius.md,
+      borderWidth: 1.5,
+      borderColor: colors.border,
+      padding: 14,
+      marginBottom: 12,
+    },
+    templateCardActive: {
+      borderColor: colors.primary,
+      backgroundColor: colors.primaryLight,
+    },
+    templateHeaderRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: 6,
+    },
+    templateName: {
+      fontSize: 15,
+      fontWeight: '800',
+      color: colors.textPrimary,
+    },
+    templateBadge: {
+      paddingHorizontal: 8,
+      paddingVertical: 3,
+      borderRadius: Theme.borderRadius.full,
+    },
+    templateBadgeText: {
+      fontSize: 10,
+      fontWeight: '800',
+      letterSpacing: 0.5,
+      textTransform: 'uppercase',
+    },
+    templateSubtitle: {
+      fontSize: 12,
+      fontWeight: '600',
+      color: colors.textSecondary,
+      marginBottom: 4,
+    },
+    templateDesc: {
+      fontSize: 11.5,
+      color: colors.textSecondary,
+      lineHeight: 16,
+      marginBottom: 8,
+    },
+    mockupContainer: {
+      borderRadius: 6,
+      borderWidth: 1,
+      borderColor: colors.border,
+      padding: 8,
+      marginVertical: 6,
+      backgroundColor: '#FFFFFF',
+    },
+    templateActionRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginTop: 8,
+      paddingTop: 8,
+      borderTopWidth: 1,
+      borderColor: colors.border,
+    },
+    previewBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 5,
+      paddingVertical: 6,
+      paddingHorizontal: 10,
+      borderRadius: Theme.borderRadius.sm,
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    previewBtnText: {
+      fontSize: 11.5,
+      fontWeight: '700',
+      color: colors.textPrimary,
+    },
+    selectRadioBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 5,
+      paddingVertical: 6,
+      paddingHorizontal: 12,
+      borderRadius: Theme.borderRadius.full,
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    selectRadioBtnActive: {
+      backgroundColor: colors.primary,
+      borderColor: colors.primary,
+    },
+    selectRadioText: {
+      fontSize: 11,
+      fontWeight: '800',
+      color: colors.textSecondary,
+    },
+    selectRadioTextActive: {
+      color: '#FFFFFF',
+    },
   });
 
 // ---------------------------------------------------------------------------
@@ -399,6 +570,9 @@ export const SettingsScreen: React.FC<{ onBack: () => void }> = ({ onBack }) => 
   const [zelle, setZelle] = useState(profile.zelleAccount || '');
   const [venmo, setVenmo] = useState(profile.venmoAccount || '');
   const [cashApp, setCashApp] = useState(profile.cashAppAccount || '');
+  const [selectedTemplate, setSelectedTemplate] = useState<InvoiceTemplateId>(
+    profile.invoiceTemplate || 'modern'
+  );
   const [showPaywall, setShowPaywall] = useState(false);
 
   const handlePickLogo = async () => {
@@ -439,6 +613,26 @@ export const SettingsScreen: React.FC<{ onBack: () => void }> = ({ onBack }) => 
     }
   };
 
+  const handlePreviewTemplate = async (templateId: InvoiceTemplateId) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    try {
+      const previewProfile = {
+        ...profile,
+        businessName: businessName.trim() || profile.businessName,
+        address: address.trim() || profile.address,
+        ownerName: ownerName.trim() || profile.ownerName,
+        phone: phone.trim() || profile.phone,
+        email: email.trim() || profile.email,
+        logoUri: logoUri || profile.logoUri,
+        licenseNumber: license.trim() || profile.licenseNumber,
+        invoiceTemplate: templateId,
+      };
+      await PDFService.generateAndSharePDF(SAMPLE_PREVIEW_QUOTE, previewProfile);
+    } catch (err: any) {
+      Alert.alert('Preview Error', err?.message || 'Could not generate preview.');
+    }
+  };
+
   // Custom preset modal state
   const [newPresetTitle, setNewPresetTitle] = useState('');
   const [newPresetPrice, setNewPresetPrice] = useState('');
@@ -461,9 +655,10 @@ export const SettingsScreen: React.FC<{ onBack: () => void }> = ({ onBack }) => 
       venmoAccount: venmo.trim() || undefined,
       cashAppAccount: cashApp.trim() || undefined,
       hasCustomBusinessName: true,
+      invoiceTemplate: selectedTemplate,
     });
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    Alert.alert('Settings saved', 'Your business profile, shop logo, and invoice settings have been updated.');
+    Alert.alert('Settings saved', 'Your business profile, shop logo, template style, and tax settings have been updated.');
   };
 
   const handleCreatePreset = () => {
@@ -498,6 +693,170 @@ export const SettingsScreen: React.FC<{ onBack: () => void }> = ({ onBack }) => 
     } else {
       Alert.alert('Diagnostic Alert', diag.results.join('\n'));
     }
+  };
+
+  const renderMiniMockup = (templateId: InvoiceTemplateId) => {
+    if (templateId === 'modern') {
+      return (
+        <View style={styles.mockupContainer}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingBottom: 6, borderBottomWidth: 1.5, borderColor: '#CBD5E1' }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+              <View style={{ width: 18, height: 18, borderRadius: 4, backgroundColor: '#0F172A', alignItems: 'center', justifyContent: 'center' }}>
+                <Text style={{ color: '#FFF', fontSize: 9, fontWeight: '900' }}>JS</Text>
+              </View>
+              <View style={{ width: 65, height: 6, backgroundColor: '#0F172A', borderRadius: 2 }} />
+            </View>
+            <View style={{ paddingHorizontal: 6, paddingVertical: 2, borderRadius: 10, backgroundColor: '#EFF6FF', borderWidth: 0.5, borderColor: '#BFDBFE' }}>
+              <Text style={{ fontSize: 7, fontWeight: '800', color: '#1E40AF' }}>ESTIMATE</Text>
+            </View>
+          </View>
+          <View style={{ flexDirection: 'row', gap: 6, marginVertical: 6 }}>
+            <View style={{ flex: 1, height: 16, backgroundColor: '#F8FAFC', borderRadius: 3, borderWidth: 0.5, borderColor: '#E2E8F0', padding: 3, justifyContent: 'center' }}>
+              <View style={{ width: '65%', height: 3.5, backgroundColor: '#64748B', borderRadius: 1 }} />
+            </View>
+            <View style={{ flex: 1, height: 16, backgroundColor: '#F8FAFC', borderRadius: 3, borderWidth: 0.5, borderColor: '#E2E8F0', padding: 3, justifyContent: 'center' }}>
+              <View style={{ width: '55%', height: 3.5, backgroundColor: '#64748B', borderRadius: 1 }} />
+            </View>
+          </View>
+          <View style={{ gap: 3, marginVertical: 3 }}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 2, borderBottomWidth: 0.5, borderColor: '#E2E8F0' }}>
+              <View style={{ width: 85, height: 4, backgroundColor: '#334155', borderRadius: 1 }} />
+              <View style={{ width: 30, height: 4, backgroundColor: '#0F172A', borderRadius: 1 }} />
+            </View>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 2, borderBottomWidth: 0.5, borderColor: '#E2E8F0' }}>
+              <View style={{ width: 70, height: 4, backgroundColor: '#334155', borderRadius: 1 }} />
+              <View style={{ width: 25, height: 4, backgroundColor: '#0F172A', borderRadius: 1 }} />
+            </View>
+          </View>
+          <View style={{ alignSelf: 'flex-end', flexDirection: 'row', gap: 6, alignItems: 'center', marginTop: 4, paddingTop: 4, borderTopWidth: 1.5, borderColor: '#0F172A' }}>
+            <Text style={{ fontSize: 8, fontWeight: '800', color: '#475569' }}>TOTAL:</Text>
+            <Text style={{ fontSize: 9, fontWeight: '900', color: '#0F172A' }}>$2,949.81</Text>
+          </View>
+        </View>
+      );
+    }
+
+    if (templateId === 'classic') {
+      return (
+        <View style={[styles.mockupContainer, { backgroundColor: '#FAF8F5', borderColor: '#D6D3D1' }]}>
+          <View style={{ paddingBottom: 6, borderBottomWidth: 2, borderColor: '#44403C' }}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+                <View style={{ width: 18, height: 18, borderRadius: 2, backgroundColor: '#292524', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#78716C' }}>
+                  <Text style={{ color: '#FAF8F5', fontSize: 9, fontWeight: '900', fontStyle: 'italic' }}>JS</Text>
+                </View>
+                <View style={{ width: 70, height: 6, backgroundColor: '#1C1917', borderRadius: 1 }} />
+              </View>
+              <View style={{ paddingHorizontal: 5, paddingVertical: 2, borderRadius: 2, backgroundColor: '#FDF2F8', borderWidth: 0.5, borderColor: '#F472B6' }}>
+                <Text style={{ fontSize: 7, fontWeight: '800', color: '#831843' }}>AGREEMENT</Text>
+              </View>
+            </View>
+            <View style={{ height: 1, backgroundColor: '#44403C', marginTop: 2 }} />
+          </View>
+          <View style={{ flexDirection: 'row', gap: 6, marginVertical: 6 }}>
+            <View style={{ flex: 1, height: 16, backgroundColor: '#FFFFFF', borderRadius: 2, borderWidth: 0.5, borderColor: '#D6D3D1', padding: 3, justifyContent: 'center' }}>
+              <View style={{ width: '60%', height: 3.5, backgroundColor: '#831843', borderRadius: 1 }} />
+            </View>
+            <View style={{ flex: 1, height: 16, backgroundColor: '#FFFFFF', borderRadius: 2, borderWidth: 0.5, borderColor: '#D6D3D1', padding: 3, justifyContent: 'center' }}>
+              <View style={{ width: '50%', height: 3.5, backgroundColor: '#831843', borderRadius: 1 }} />
+            </View>
+          </View>
+          <View style={{ gap: 3, marginVertical: 3 }}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 2, borderBottomWidth: 0.5, borderColor: '#E7E5E4' }}>
+              <View style={{ width: 85, height: 4, backgroundColor: '#292524', borderRadius: 1 }} />
+              <View style={{ width: 30, height: 4, backgroundColor: '#1C1917', borderRadius: 1 }} />
+            </View>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 2, borderBottomWidth: 0.5, borderColor: '#E7E5E4' }}>
+              <View style={{ width: 65, height: 4, backgroundColor: '#292524', borderRadius: 1 }} />
+              <View style={{ width: 25, height: 4, backgroundColor: '#1C1917', borderRadius: 1 }} />
+            </View>
+          </View>
+          <View style={{ alignSelf: 'flex-end', flexDirection: 'row', gap: 6, alignItems: 'center', marginTop: 4, paddingTop: 4, borderTopWidth: 1, borderColor: '#1C1917', borderBottomWidth: 2, borderBottomColor: '#1C1917' }}>
+            <Text style={{ fontSize: 8, fontWeight: '800', color: '#57534E', fontStyle: 'italic' }}>TOTAL:</Text>
+            <Text style={{ fontSize: 9, fontWeight: '900', color: '#831843' }}>$2,949.81</Text>
+          </View>
+        </View>
+      );
+    }
+
+    if (templateId === 'minimal') {
+      return (
+        <View style={[styles.mockupContainer, { backgroundColor: '#FFFFFF', borderColor: '#E5E7EB' }]}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingBottom: 6, borderBottomWidth: 1.5, borderColor: '#000000' }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+              <View style={{ width: 16, height: 16, backgroundColor: '#000000', alignItems: 'center', justifyContent: 'center' }}>
+                <Text style={{ color: '#FFF', fontSize: 8, fontWeight: '900' }}>JS</Text>
+              </View>
+              <View style={{ width: 60, height: 5, backgroundColor: '#000000' }} />
+            </View>
+            <View style={{ paddingHorizontal: 4, paddingVertical: 1, backgroundColor: '#000000' }}>
+              <Text style={{ fontSize: 7, fontWeight: '900', color: '#FFFFFF' }}>#1042</Text>
+            </View>
+          </View>
+          <View style={{ flexDirection: 'row', gap: 6, marginVertical: 6 }}>
+            <View style={{ flex: 1, height: 16, borderLeftWidth: 2, borderColor: '#000000', paddingLeft: 4, justifyContent: 'center' }}>
+              <View style={{ width: '60%', height: 3, backgroundColor: '#000000' }} />
+            </View>
+            <View style={{ flex: 1, height: 16, borderLeftWidth: 2, borderColor: '#000000', paddingLeft: 4, justifyContent: 'center' }}>
+              <View style={{ width: '50%', height: 3, backgroundColor: '#000000' }} />
+            </View>
+          </View>
+          <View style={{ gap: 3, marginVertical: 3 }}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 2, borderBottomWidth: 0.5, borderColor: '#E5E7EB' }}>
+              <View style={{ width: 80, height: 3.5, backgroundColor: '#111827' }} />
+              <View style={{ width: 25, height: 3.5, backgroundColor: '#000000' }} />
+            </View>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 2, borderBottomWidth: 0.5, borderColor: '#E5E7EB' }}>
+              <View style={{ width: 65, height: 3.5, backgroundColor: '#111827' }} />
+              <View style={{ width: 20, height: 3.5, backgroundColor: '#000000' }} />
+            </View>
+          </View>
+          <View style={{ alignSelf: 'flex-end', backgroundColor: '#000000', paddingHorizontal: 6, paddingVertical: 3, marginTop: 4 }}>
+            <Text style={{ fontSize: 8, fontWeight: '900', color: '#FFFFFF' }}>$2,949.81</Text>
+          </View>
+        </View>
+      );
+    }
+
+    // contractor / industrial
+    return (
+      <View style={[styles.mockupContainer, { backgroundColor: '#FFFFFF', borderColor: '#D4D4D8' }]}>
+        <View style={{ backgroundColor: '#18181B', padding: 5, borderRadius: 3, borderBottomWidth: 2, borderColor: '#F59E0B' }}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+              <View style={{ width: 16, height: 16, borderRadius: 2, backgroundColor: '#F59E0B', alignItems: 'center', justifyContent: 'center' }}>
+                <Text style={{ color: '#000', fontSize: 8, fontWeight: '900' }}>JS</Text>
+              </View>
+              <View style={{ width: 60, height: 5, backgroundColor: '#FFFFFF', borderRadius: 1 }} />
+            </View>
+            <View style={{ paddingHorizontal: 4, paddingVertical: 1, backgroundColor: '#F59E0B', borderRadius: 2 }}>
+              <Text style={{ fontSize: 7, fontWeight: '900', color: '#000000' }}>ESTIMATE</Text>
+            </View>
+          </View>
+        </View>
+        <View style={{ flexDirection: 'row', gap: 6, marginVertical: 6 }}>
+          <View style={{ flex: 1, height: 16, backgroundColor: '#F4F4F5', borderRadius: 2, borderTopWidth: 2, borderColor: '#D97706', padding: 3, justifyContent: 'center' }}>
+            <View style={{ width: '60%', height: 3.5, backgroundColor: '#B45309', borderRadius: 1 }} />
+          </View>
+          <View style={{ flex: 1, height: 16, backgroundColor: '#F4F4F5', borderRadius: 2, borderTopWidth: 2, borderColor: '#D97706', padding: 3, justifyContent: 'center' }}>
+            <View style={{ width: '50%', height: 3.5, backgroundColor: '#B45309', borderRadius: 1 }} />
+          </View>
+        </View>
+        <View style={{ gap: 3, marginVertical: 3 }}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 2, borderBottomWidth: 0.5, borderColor: '#E4E4E7' }}>
+            <View style={{ width: 85, height: 4, backgroundColor: '#18181B', borderRadius: 1 }} />
+            <View style={{ width: 30, height: 4, backgroundColor: '#18181B', borderRadius: 1 }} />
+          </View>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 2, borderBottomWidth: 0.5, borderColor: '#E4E4E7' }}>
+            <View style={{ width: 70, height: 4, backgroundColor: '#18181B', borderRadius: 1 }} />
+            <View style={{ width: 25, height: 4, backgroundColor: '#18181B', borderRadius: 1 }} />
+          </View>
+        </View>
+        <View style={{ alignSelf: 'flex-end', backgroundColor: '#18181B', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 3, marginTop: 4 }}>
+          <Text style={{ fontSize: 8, fontWeight: '900', color: '#FBBF24' }}>TOTAL: $2,949.81</Text>
+        </View>
+      </View>
+    );
   };
 
   return (
@@ -714,6 +1073,107 @@ export const SettingsScreen: React.FC<{ onBack: () => void }> = ({ onBack }) => 
             value={license}
             onChangeText={setLicense}
           />
+        </View>
+
+        {/* ── Invoice Design & Templates ─────────────────────────────────────── */}
+        <View style={styles.card}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+            <Palette size={16} color={colors.primary} />
+            <Text style={styles.cardLabel}>Invoice Design & Templates</Text>
+          </View>
+          <Text style={styles.cardHint}>
+            Choose from 4 executive styles tailored for trades, high-end residential, and modern contractors. Tap any design to select or preview the PDF.
+          </Text>
+
+          <View style={{ marginTop: 12 }}>
+            {INVOICE_TEMPLATES.map((tmpl) => {
+              const isSelected = selectedTemplate === tmpl.id;
+              return (
+                <TouchableOpacity
+                  key={tmpl.id}
+                  activeOpacity={0.88}
+                  style={[styles.templateCard, isSelected && styles.templateCardActive]}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    setSelectedTemplate(tmpl.id);
+                  }}
+                >
+                  <View style={styles.templateHeaderRow}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                      <Text style={styles.templateName}>{tmpl.name}</Text>
+                      {isSelected && (
+                        <CheckCircle2 size={16} color={colors.primary} />
+                      )}
+                    </View>
+                    <View
+                      style={[
+                        styles.templateBadge,
+                        {
+                          backgroundColor:
+                            tmpl.id === 'modern'
+                              ? '#EFF6FF'
+                              : tmpl.id === 'classic'
+                              ? '#FDF2F8'
+                              : tmpl.id === 'minimal'
+                              ? '#F3F4F6'
+                              : '#FFFBEB',
+                        },
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.templateBadgeText,
+                          {
+                            color:
+                              tmpl.id === 'modern'
+                                ? '#1E40AF'
+                                : tmpl.id === 'classic'
+                                ? '#9D174D'
+                                : tmpl.id === 'minimal'
+                                ? '#1F2937'
+                                : '#B45309',
+                          },
+                        ]}
+                      >
+                        {tmpl.badge}
+                      </Text>
+                    </View>
+                  </View>
+
+                  <Text style={styles.templateSubtitle}>
+                    {tmpl.subtitle} • {tmpl.fontFamilyName}
+                  </Text>
+                  <Text style={styles.templateDesc}>{tmpl.description}</Text>
+
+                  {/* Visual Mockup Wireframe */}
+                  {renderMiniMockup(tmpl.id)}
+
+                  {/* Actions Row */}
+                  <View style={styles.templateActionRow}>
+                    <TouchableOpacity
+                      style={styles.previewBtn}
+                      onPress={() => handlePreviewTemplate(tmpl.id)}
+                    >
+                      <Eye size={13} color={colors.primary} />
+                      <Text style={styles.previewBtnText}>Preview PDF</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={[styles.selectRadioBtn, isSelected && styles.selectRadioBtnActive]}
+                      onPress={() => {
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                        setSelectedTemplate(tmpl.id);
+                      }}
+                    >
+                      <Text style={[styles.selectRadioText, isSelected && styles.selectRadioTextActive]}>
+                        {isSelected ? '✓ ACTIVE STYLE' : 'USE THIS STYLE'}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
         </View>
 
         {/* ── Tax & Localization Preferences ─────────────────────────────────── */}

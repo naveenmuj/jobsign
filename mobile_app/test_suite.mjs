@@ -196,6 +196,29 @@ const privacyPolicy = fs.readFileSync('../docs/PRIVACY_POLICY.md', 'utf8');
 assert(privacyPolicy.includes('Camera') || privacyPolicy.includes('camera'), 'Privacy policy declares camera usage');
 assert(privacyPolicy.includes('Location') || privacyPolicy.includes('GPS'), 'Privacy policy declares GPS / location usage');
 
+// -----------------------------------------------------------------
+// 6. INVOICE DESIGN & BRANDING TEMPLATES ENGINE
+// -----------------------------------------------------------------
+console.log('\n6. [INVOICE DESIGN & BRANDING] Multi-Template Format Engine');
+
+const templateConstantsRaw = fs.readFileSync(path.resolve('./src/constants/invoiceTemplates.ts'), 'utf8');
+assert(templateConstantsRaw.includes('\'modern\''), 'Modern Navy template registered');
+assert(templateConstantsRaw.includes('\'classic\''), 'Classic Executive template registered');
+assert(templateConstantsRaw.includes('\'minimal\''), 'Minimal Clean template registered');
+assert(templateConstantsRaw.includes('\'contractor\''), 'Industrial Trade template registered');
+
+const pdfServiceRaw = fs.readFileSync(path.resolve('./src/services/PDFService.ts'), 'utf8');
+assert(pdfServiceRaw.includes('body.theme-modern'), 'PDFService contains Modern Navy CSS rules');
+assert(pdfServiceRaw.includes('body.theme-classic'), 'PDFService contains Classic Executive serif CSS rules');
+assert(pdfServiceRaw.includes('body.theme-minimal'), 'PDFService contains Minimal Clean monochrome CSS rules');
+assert(pdfServiceRaw.includes('body.theme-contractor'), 'PDFService contains Industrial Trade safety amber CSS rules');
+assert(pdfServiceRaw.includes('class="theme-${templateId}"'), 'PDFService dynamically binds selected template class to body');
+
+const settingsScreenRaw = fs.readFileSync(path.resolve('./src/screens/SettingsScreen.tsx'), 'utf8');
+assert(settingsScreenRaw.includes('Invoice Design & Templates'), 'SettingsScreen has Invoice Design & Templates section');
+assert(settingsScreenRaw.includes('renderMiniMockup'), 'SettingsScreen provides mini mockup wireframes for templates');
+assert(settingsScreenRaw.includes('handlePreviewTemplate'), 'SettingsScreen supports live PDF preview generation for templates');
+
 console.log('\n======================================================');
 console.log(`TOTAL TESTS: ${passedCount + failedCount} | PASSED: ${passedCount} | FAILED: ${failedCount}`);
 console.log('======================================================');
@@ -203,3 +226,4 @@ console.log('======================================================');
 if (failedCount > 0) {
   process.exit(1);
 }
+

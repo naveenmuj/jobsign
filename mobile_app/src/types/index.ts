@@ -28,6 +28,9 @@ export interface ItemPreset {
   iconName?: string;
 }
 
+import { InvoiceTemplateId } from '../constants/invoiceTemplates';
+export { InvoiceTemplateId, InvoiceTemplateOption } from '../constants/invoiceTemplates';
+
 export interface ContractorProfile {
   businessName: string;
   ownerName: string;
@@ -44,6 +47,7 @@ export interface ContractorProfile {
   taxLabel?: string;             // e.g. "Sales Tax", "VAT", "GST", "HST"
   isOnboardingCompleted?: boolean; // whether onboarding was completed or dismissed
   hasCustomBusinessName?: boolean; // whether user explicitly set or confirmed their business name
+  invoiceTemplate?: InvoiceTemplateId; // preferred PDF template format ('modern', 'classic', 'minimal', 'contractor')
 }
 
 export interface Quote {
