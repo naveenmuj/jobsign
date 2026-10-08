@@ -23,6 +23,7 @@ import { PaywallModal } from '../components/PaywallModal';
 import { BillingService } from '../services/BillingService';
 import { OutboxService } from '../services/OutboxService';
 import { DatabaseService } from '../services/DatabaseService';
+import { CompanyNamePromptModal } from '../components/CompanyNamePromptModal';
 import { ChevronLeft, Camera, Image as ImageIcon, Plus, X, PenLine } from 'lucide-react-native';
 
 const makeStyles = (colors: ThemeColors) =>
@@ -429,6 +430,41 @@ export const QuoteBuilderScreen: React.FC<{ onBack: () => void }> = ({ onBack })
   );
   const [isSigning, setIsSigning] = useState(false);
   const [showPaywall, setShowPaywall] = useState(false);
+  const [pendingPdfQuote, setPendingPdfQuote] = useState<Quote | null>(null);
+  const [showCompanyModal, setShowCompanyModal] = useState(false);
+
+  const handleInitiateSendPDF = (targetQuote: Quote) => {
+    const needsCompanyName =
+      !profile.hasCustomBusinessName &&
+      (!profile.businessName || profile.businessName.trim() === '' || profile.businessName === 'Apex Field Services LLC');
+    if (needsCompanyName) {
+      setPendingPdfQuote(targetQuote);
+      setShowCompanyModal(true);
+    } else {
+      PDFService.generateAndSharePDF(targetQuote, profile).finally(() => onBack());
+    }
+  };
+
+  const handleCompanySave = (enteredName: string, enteredAddress: string) => {
+    setShowCompanyModal(false);
+    const updated = {
+      ...profile,
+      businessName: enteredName || profile.businessName,
+      address: enteredAddress || profile.address,
+      hasCustomBusinessName: true,
+    };
+    updateProfile(updated);
+    if (pendingPdfQuote) {
+      PDFService.generateAndSharePDF(pendingPdfQuote, updated).finally(() => onBack());
+    }
+  };
+
+  const handleCompanySkip = () => {
+    setShowCompanyModal(false);
+    if (pendingPdfQuote) {
+      PDFService.generateAndSharePDF(pendingPdfQuote, profile).finally(() => onBack());
+    }
+  };
 
   const handleSetAsDefault = () => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -625,9 +661,8 @@ export const QuoteBuilderScreen: React.FC<{ onBack: () => void }> = ({ onBack })
         { text: 'Later', style: 'cancel', onPress: onBack },
         {
           text: 'Send PDF Now',
-          onPress: async () => {
-            await PDFService.generateAndSharePDF(newQuote, profile);
-            onBack();
+          onPress: () => {
+            handleInitiateSendPDF(newQuote);
           },
         },
       ]
@@ -927,6 +962,19 @@ export const QuoteBuilderScreen: React.FC<{ onBack: () => void }> = ({ onBack })
 
       {/* Paywall Modal */}
       <PaywallModal visible={showPaywall} onClose={() => setShowPaywall(false)} />
+
+      {/* Company Name Prompt Modal before PDF Generation */}
+      <CompanyNamePromptModal
+        visible={showCompanyModal}
+        initialName={profile.hasCustomBusinessName ? profile.businessName : ''}
+        initialAddress={profile.address || ''}
+        onSave={handleCompanySave}
+        onSkip={handleCompanySkip}
+        onClose={() => {
+          setShowCompanyModal(false);
+          onBack();
+        }}
+      />
     </View>
   );
 };

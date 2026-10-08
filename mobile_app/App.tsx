@@ -13,6 +13,7 @@ import { HomeScreen } from './src/screens/HomeScreen';
 import { QuoteBuilderScreen } from './src/screens/QuoteBuilderScreen';
 import { QuoteDetailScreen } from './src/screens/QuoteDetailScreen';
 import { SettingsScreen } from './src/screens/SettingsScreen';
+import { OnboardingModal } from './src/components/OnboardingModal';
 import { Quote } from './src/types';
 import { useQuoteStore } from './src/store/useQuoteStore';
 import { BillingService } from './src/services/BillingService';
@@ -23,10 +24,18 @@ export default function App() {
   console.log('[JobSign] App() component rendering...');
   const [currentScreen, setCurrentScreen] = useState<'HOME' | 'BUILDER' | 'DETAIL' | 'SETTINGS'>('HOME');
   const [activeQuoteId, setActiveQuoteId] = useState<string | null>(null);
+  const profile = useQuoteStore((state) => state.profile);
+  const [showOnboarding, setShowOnboarding] = useState(!profile.isOnboardingCompleted);
   const quotes = useQuoteStore((state) => state.quotes);
   const isDarkMode = useQuoteStore((state) => state.isDarkMode);
   const setProStatus = useQuoteStore((state) => state.setProStatus);
   const activeQuote = quotes.find((q) => q.id === activeQuoteId) || null;
+
+  useEffect(() => {
+    if (!profile.isOnboardingCompleted) {
+      setShowOnboarding(true);
+    }
+  }, [profile.isOnboardingCompleted]);
 
   // Initialize BillingService on startup
   useEffect(() => {
@@ -81,6 +90,10 @@ export default function App() {
       {currentScreen === 'SETTINGS' && (
         <SettingsScreen onBack={() => setCurrentScreen('HOME')} />
       )}
+      <OnboardingModal
+        visible={showOnboarding}
+        onFinish={() => setShowOnboarding(false)}
+      />
     </View>
   );
 }

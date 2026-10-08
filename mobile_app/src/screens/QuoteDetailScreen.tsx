@@ -15,6 +15,7 @@ import { Quote } from '../types';
 import { PDFService } from '../services/PDFService';
 import { ChangeOrderModal } from '../components/ChangeOrderModal';
 import { PaymentQRModal } from '../components/PaymentQRModal';
+import { CompanyNamePromptModal } from '../components/CompanyNamePromptModal';
 import { useQuoteStore } from '../store/useQuoteStore';
 import { ChevronLeft, Trash2, FileText, Phone, MessageSquare, Plus, Check } from 'lucide-react-native';
 
@@ -377,12 +378,38 @@ export const QuoteDetailScreen: React.FC<QuoteDetailScreenProps> = ({ quote: ini
 
   const [showChangeOrder, setShowChangeOrder] = useState(false);
   const [showPayment, setShowPayment] = useState(false);
+  const [showCompanyModal, setShowCompanyModal] = useState(false);
+  const updateProfile = useQuoteStore((state) => state.updateProfile);
 
   const isPaid = quote.status === 'PAID';
   const isLocked = quote.status === 'SIGNED_LOCKED';
 
   const handleSharePDF = async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    const needsCompanyName =
+      !profile.hasCustomBusinessName &&
+      (!profile.businessName || profile.businessName.trim() === '' || profile.businessName === 'Apex Field Services LLC');
+    if (needsCompanyName) {
+      setShowCompanyModal(true);
+    } else {
+      await PDFService.generateAndSharePDF(quote, profile);
+    }
+  };
+
+  const handleCompanySave = async (enteredName: string, enteredAddress: string) => {
+    setShowCompanyModal(false);
+    const updated = {
+      ...profile,
+      businessName: enteredName || profile.businessName,
+      address: enteredAddress || profile.address,
+      hasCustomBusinessName: true,
+    };
+    updateProfile(updated);
+    await PDFService.generateAndSharePDF(quote, updated);
+  };
+
+  const handleCompanySkip = async () => {
+    setShowCompanyModal(false);
     await PDFService.generateAndSharePDF(quote, profile);
   };
 
@@ -639,6 +666,16 @@ export const QuoteDetailScreen: React.FC<QuoteDetailScreenProps> = ({ quote: ini
           onClose={() => setShowPayment(false)}
         />
       )}
+
+      {/* Company Name Prompt Modal before PDF Generation */}
+      <CompanyNamePromptModal
+        visible={showCompanyModal}
+        initialName={profile.hasCustomBusinessName ? profile.businessName : ''}
+        initialAddress={profile.address || ''}
+        onSave={handleCompanySave}
+        onSkip={handleCompanySkip}
+        onClose={() => setShowCompanyModal(false)}
+      />
     </View>
   );
 };

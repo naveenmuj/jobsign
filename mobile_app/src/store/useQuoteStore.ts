@@ -19,6 +19,8 @@ export const DEFAULT_PROFILE: ContractorProfile = {
   ownerName: 'Mike Sullivan',
   phone: '(512) 843-9201',
   email: 'mike@apexfieldservice.com',
+  address: '1204 Industrial Blvd, Suite B, Austin, TX 78701',
+  logoUri: undefined,
   licenseNumber: 'TX-EL-92841',
   zelleAccount: 'mike@apexfieldservice.com',
   venmoAccount: '@ApexServices',
@@ -26,6 +28,8 @@ export const DEFAULT_PROFILE: ContractorProfile = {
   defaultTaxBasisPoints: 825, // 8.25%
   taxEnabledByDefault: true,  // Tax enabled by default on new quotes
   taxLabel: 'Sales Tax',      // Default tax naming
+  isOnboardingCompleted: false,
+  hasCustomBusinessName: false,
 };
 
 interface QuoteStore {

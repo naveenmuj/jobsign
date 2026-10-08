@@ -19,6 +19,7 @@ import { JobCard } from '../components/JobCard';
 import { PaymentQRModal } from '../components/PaymentQRModal';
 import { OfflineOutboxModal } from '../components/OfflineOutboxModal';
 import { PaywallModal } from '../components/PaywallModal';
+import { CompanyNamePromptModal } from '../components/CompanyNamePromptModal';
 import { OutboxService } from '../services/OutboxService';
 import { BillingService } from '../services/BillingService';
 
@@ -293,6 +294,9 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   const [pendingOutboxCount, setPendingOutboxCount] = useState(0);
   const [showOutboxModal, setShowOutboxModal] = useState(false);
   const [showPaywall, setShowPaywall] = useState(false);
+  const [showCompanyModal, setShowCompanyModal] = useState(false);
+  const [pendingPdfQuote, setPendingPdfQuote] = useState<Quote | null>(null);
+  const updateProfile = useQuoteStore((state) => state.updateProfile);
 
   const usage = getMonthlyQuoteUsage();
 
@@ -342,7 +346,36 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
 
   const handleSharePDF = async (quote: Quote) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    await PDFService.generateAndSharePDF(quote, profile);
+    const needsCompanyName =
+      !profile.hasCustomBusinessName &&
+      (!profile.businessName || profile.businessName.trim() === '' || profile.businessName === 'Apex Field Services LLC');
+    if (needsCompanyName) {
+      setPendingPdfQuote(quote);
+      setShowCompanyModal(true);
+    } else {
+      await PDFService.generateAndSharePDF(quote, profile);
+    }
+  };
+
+  const handleCompanySave = async (enteredName: string, enteredAddress: string) => {
+    setShowCompanyModal(false);
+    const updated = {
+      ...profile,
+      businessName: enteredName || profile.businessName,
+      address: enteredAddress || profile.address,
+      hasCustomBusinessName: true,
+    };
+    updateProfile(updated);
+    if (pendingPdfQuote) {
+      await PDFService.generateAndSharePDF(pendingPdfQuote, updated);
+    }
+  };
+
+  const handleCompanySkip = async () => {
+    setShowCompanyModal(false);
+    if (pendingPdfQuote) {
+      await PDFService.generateAndSharePDF(pendingPdfQuote, profile);
+    }
   };
 
   return (
@@ -568,6 +601,16 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
       <PaywallModal
         visible={showPaywall}
         onClose={() => setShowPaywall(false)}
+      />
+
+      {/* Company Name Prompt Modal before PDF Generation */}
+      <CompanyNamePromptModal
+        visible={showCompanyModal}
+        initialName={profile.hasCustomBusinessName ? profile.businessName : ''}
+        initialAddress={profile.address || ''}
+        onSave={handleCompanySave}
+        onSkip={handleCompanySkip}
+        onClose={() => setShowCompanyModal(false)}
       />
     </View>
   );

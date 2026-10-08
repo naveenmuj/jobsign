@@ -7,8 +7,10 @@ import {
   TextInput,
   TouchableOpacity,
   Alert,
+  Image,
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
+import * as ImagePicker from 'expo-image-picker';
 import { getThemeColors, ThemeColors, Theme } from '../theme';
 import { useQuoteStore } from '../store/useQuoteStore';
 import { PDFService } from '../services/PDFService';
@@ -22,6 +24,9 @@ import {
   Shield,
   Download,
   Trash2,
+  Camera,
+  Image as ImageIcon,
+  Building2,
 } from 'lucide-react-native';
 
 // ---------------------------------------------------------------------------
@@ -251,6 +256,53 @@ const makeStyles = (colors: ThemeColors) =>
       fontSize: 13,
     },
 
+    // ── Logo picker ──────────────────────────────────────────────────────────
+    logoBox: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 14,
+      backgroundColor: colors.backgroundSecondary,
+      borderWidth: 1,
+      borderColor: colors.cardBorder,
+      borderRadius: Theme.borderRadius.sm,
+      padding: 12,
+      marginBottom: 12,
+    },
+    logoImage: {
+      width: 56,
+      height: 56,
+      borderRadius: 8,
+      borderWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: '#FFFFFF',
+    },
+    logoActionsCol: {
+      flex: 1,
+      gap: 6,
+    },
+    logoPickerBtnRow: {
+      flexDirection: 'row',
+      gap: 8,
+      marginTop: 6,
+    },
+    logoBtn: {
+      flex: 1,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 6,
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: colors.border,
+      paddingVertical: 8,
+      borderRadius: Theme.borderRadius.sm,
+    },
+    logoBtnText: {
+      fontSize: 12,
+      fontWeight: '700',
+      color: colors.textPrimary,
+    },
+
     // ── Save button ──────────────────────────────────────────────────────────
     saveBtn: {
       backgroundColor: colors.primary,
@@ -331,8 +383,11 @@ export const SettingsScreen: React.FC<{ onBack: () => void }> = ({ onBack }) => 
   const styles = React.useMemo(() => makeStyles(colors), [colors]);
 
   const [businessName, setBusinessName] = useState(profile.businessName);
+  const [address, setAddress] = useState(profile.address || '');
   const [ownerName, setOwnerName] = useState(profile.ownerName);
   const [phone, setPhone] = useState(profile.phone);
+  const [email, setEmail] = useState(profile.email || '');
+  const [logoUri, setLogoUri] = useState<string | null>(profile.logoUri || null);
   const [license, setLicense] = useState(profile.licenseNumber || '');
   const [defaultTaxRate, setDefaultTaxRate] = useState(
     ((profile.defaultTaxBasisPoints ?? 825) / 100).toFixed(2)
@@ -345,6 +400,37 @@ export const SettingsScreen: React.FC<{ onBack: () => void }> = ({ onBack }) => 
   const [venmo, setVenmo] = useState(profile.venmoAccount || '');
   const [cashApp, setCashApp] = useState(profile.cashAppAccount || '');
   const [showPaywall, setShowPaywall] = useState(false);
+
+  const handlePickLogo = async () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.8,
+    });
+    if (!result.canceled && result.assets[0]) {
+      setLogoUri(result.assets[0].uri);
+    }
+  };
+
+  const handleCaptureLogo = async () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Camera Access', 'Please allow camera access to take a shop logo photo.');
+      return;
+    }
+    const result = await ImagePicker.launchCameraAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.8,
+    });
+    if (!result.canceled && result.assets[0]) {
+      setLogoUri(result.assets[0].uri);
+    }
+  };
 
   const handleOpenPaywall = async () => {
     const presented = await BillingService.presentRevenueCatPaywall();
@@ -361,9 +447,12 @@ export const SettingsScreen: React.FC<{ onBack: () => void }> = ({ onBack }) => 
     const parsedTax = parseFloat(defaultTaxRate);
     const taxBasisPoints = Math.round((isNaN(parsedTax) ? 8.25 : parsedTax) * 100);
     updateProfile({
-      businessName: businessName.trim(),
+      businessName: businessName.trim() || 'My Contracting Co.',
       ownerName: ownerName.trim(),
       phone: phone.trim(),
+      email: email.trim(),
+      address: address.trim(),
+      logoUri: logoUri || undefined,
       licenseNumber: license.trim() || undefined,
       defaultTaxBasisPoints: taxBasisPoints,
       taxEnabledByDefault,
@@ -371,9 +460,10 @@ export const SettingsScreen: React.FC<{ onBack: () => void }> = ({ onBack }) => 
       zelleAccount: zelle.trim() || undefined,
       venmoAccount: venmo.trim() || undefined,
       cashAppAccount: cashApp.trim() || undefined,
+      hasCustomBusinessName: true,
     });
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    Alert.alert('Settings saved', 'Your business profile and payment accounts have been updated.');
+    Alert.alert('Settings saved', 'Your business profile, shop logo, and invoice settings have been updated.');
   };
 
   const handleCreatePreset = () => {
@@ -514,7 +604,56 @@ export const SettingsScreen: React.FC<{ onBack: () => void }> = ({ onBack }) => 
 
         {/* ── Business Profile ──────────────────────────────────────────────── */}
         <View style={styles.card}>
-          <Text style={styles.cardLabel}>Business Profile</Text>
+          <Text style={styles.cardLabel}>Shop & Business Profile</Text>
+          <Text style={styles.cardHint}>
+            Your shop name, logo, and physical address appear at the top of every generated client estimate and invoice PDF.
+          </Text>
+
+          {/* Shop Logo Picker */}
+          <View style={styles.logoBox}>
+            {logoUri ? (
+              <Image source={{ uri: logoUri }} style={styles.logoImage} />
+            ) : (
+              <View
+                style={[
+                  styles.logoImage,
+                  {
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    backgroundColor: colors.surface,
+                  },
+                ]}
+              >
+                <Building2 size={24} color={colors.textMuted} />
+              </View>
+            )}
+            <View style={styles.logoActionsCol}>
+              <Text style={{ fontSize: 13, fontWeight: '800', color: colors.textPrimary }}>
+                {logoUri ? 'Shop Logo Attached' : 'Add Shop Logo'}
+              </Text>
+              <View style={styles.logoPickerBtnRow}>
+                <TouchableOpacity style={styles.logoBtn} onPress={handlePickLogo}>
+                  <ImageIcon size={14} color={colors.primary} />
+                  <Text style={styles.logoBtnText}>{logoUri ? 'Change' : 'Gallery'}</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.logoBtn} onPress={handleCaptureLogo}>
+                  <Camera size={14} color={colors.textSecondary} />
+                  <Text style={styles.logoBtnText}>Camera</Text>
+                </TouchableOpacity>
+                {logoUri && (
+                  <TouchableOpacity
+                    style={[styles.logoBtn, { borderColor: colors.roseLight }]}
+                    onPress={() => setLogoUri(null)}
+                  >
+                    <Trash2 size={14} color={colors.rose} />
+                  </TouchableOpacity>
+                )}
+              </View>
+            </View>
+          </View>
+
+          {/* Shop Name */}
+          <Text style={[styles.cardLabel, { marginTop: 4, marginBottom: 4 }]}>SHOP / COMPANY NAME</Text>
           <TextInput
             style={styles.input}
             placeholder="Business Name (e.g. Apex Electric LLC)"
@@ -522,23 +661,54 @@ export const SettingsScreen: React.FC<{ onBack: () => void }> = ({ onBack }) => 
             value={businessName}
             onChangeText={setBusinessName}
           />
+
+          {/* Shop Physical Address */}
+          <Text style={[styles.cardLabel, { marginTop: 10, marginBottom: 4 }]}>SHOP ADDRESS / LOCATION</Text>
           <TextInput
-            style={[styles.input, { marginTop: 10 }]}
+            style={styles.input}
+            placeholder="Physical Address (e.g. 1204 Industrial Blvd, Austin, TX)"
+            placeholderTextColor={colors.textMuted}
+            value={address}
+            onChangeText={setAddress}
+          />
+
+          {/* Owner / Master Licensee Name */}
+          <Text style={[styles.cardLabel, { marginTop: 10, marginBottom: 4 }]}>OWNER / CONTRACTOR NAME</Text>
+          <TextInput
+            style={styles.input}
             placeholder="Owner / Master Licensee Name"
             placeholderTextColor={colors.textMuted}
             value={ownerName}
             onChangeText={setOwnerName}
           />
+
+          {/* Phone */}
+          <Text style={[styles.cardLabel, { marginTop: 10, marginBottom: 4 }]}>CLIENT CONTACT PHONE</Text>
           <TextInput
-            style={[styles.input, { marginTop: 10 }]}
+            style={styles.input}
             placeholder="Phone Number for Clients"
             placeholderTextColor={colors.textMuted}
             keyboardType="phone-pad"
             value={phone}
             onChangeText={setPhone}
           />
+
+          {/* Email */}
+          <Text style={[styles.cardLabel, { marginTop: 10, marginBottom: 4 }]}>BUSINESS EMAIL</Text>
           <TextInput
-            style={[styles.input, { marginTop: 10 }]}
+            style={styles.input}
+            placeholder="Email Address (e.g. contact@apexservice.com)"
+            placeholderTextColor={colors.textMuted}
+            keyboardType="email-address"
+            autoCapitalize="none"
+            value={email}
+            onChangeText={setEmail}
+          />
+
+          {/* License */}
+          <Text style={[styles.cardLabel, { marginTop: 10, marginBottom: 4 }]}>LICENSE / REGISTRATION # (OPTIONAL)</Text>
+          <TextInput
+            style={styles.input}
             placeholder="License / Registration # (optional)"
             placeholderTextColor={colors.textMuted}
             value={license}

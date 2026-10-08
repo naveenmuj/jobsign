@@ -33,6 +33,8 @@ export interface ContractorProfile {
   ownerName: string;
   phone: string;
   email: string;
+  address?: string;             // Shop/Company physical address or service area
+  logoUri?: string;             // Shop logo image path/URI
   licenseNumber?: string;
   zelleAccount?: string;
   venmoAccount?: string;
@@ -40,6 +42,8 @@ export interface ContractorProfile {
   defaultTaxBasisPoints: number; // e.g. 825 for 8.25%
   taxEnabledByDefault?: boolean; // whether tax is enabled by default on new quotes
   taxLabel?: string;             // e.g. "Sales Tax", "VAT", "GST", "HST"
+  isOnboardingCompleted?: boolean; // whether onboarding was completed or dismissed
+  hasCustomBusinessName?: boolean; // whether user explicitly set or confirmed their business name
 }
 
 export interface Quote {
