@@ -169,8 +169,11 @@ export const useQuoteStore = create<QuoteStore>()(
       }),
       onRehydrateStorage: () => (state) => {
         if (state && state.profile) {
-          if (!state.profile.currencySymbol) {
-            const detected = CurrencyService.detectDeviceCurrency();
+          const detected = CurrencyService.detectDeviceCurrency();
+          if (
+            !state.profile.currencySymbol ||
+            (!state.profile.hasCustomBusinessName && state.profile.currencySymbol === '$' && detected.symbol !== '$')
+          ) {
             state.profile.currencySymbol = detected.symbol;
             state.profile.currencyCode = detected.code;
           }

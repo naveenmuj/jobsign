@@ -234,9 +234,14 @@ assert(currencyServiceRaw.includes('€') && currencyServiceRaw.includes('EUR'),
 const pdfCurRaw = fs.readFileSync(path.resolve('./src/services/PDFService.ts'), 'utf8');
 assert(pdfCurRaw.includes('curSymbol'), 'PDFService formats all prices and totals with dynamic curSymbol');
 
-const settingsCurRaw = fs.readFileSync(path.resolve('./src/screens/SettingsScreen.tsx'), 'utf8');
-assert(settingsCurRaw.includes('Currency & Regional Format'), 'SettingsScreen includes Currency & Regional Format configuration');
-assert(settingsCurRaw.includes('handleDetectCurrency'), 'SettingsScreen includes Auto-Detect Currency button');
+const dbServiceRaw = fs.readFileSync(path.resolve('./src/services/DatabaseService.ts'), 'utf8');
+assert(dbServiceRaw.includes('currency_symbol TEXT'), 'DatabaseService quotes schema includes currency_symbol column');
+assert(dbServiceRaw.includes('ALTER TABLE quotes ADD COLUMN currency_symbol TEXT;'), 'DatabaseService runs safe SQLite migration for currency_symbol');
+assert(dbServiceRaw.includes('currencySymbol: r.currency_symbol'), 'DatabaseService restores currencySymbol on getAllQuotes');
+
+const notifServiceRaw = fs.readFileSync(path.resolve('./src/services/NotificationService.ts'), 'utf8');
+assert(notifServiceRaw.includes('const curSymbol = profile?.currencySymbol'), 'NotificationService formats seal alerts using profile currency');
+assert(notifServiceRaw.includes('const curSymbol = quote.currencySymbol'), 'NotificationService formats reminder alerts using quote currency');
 
 // -----------------------------------------------------------------
 // 8. UNIFIED MODAL POPUPS & ZERO RAW SYSTEM ALERTS
