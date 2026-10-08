@@ -530,7 +530,7 @@ export class PDFService {
             }
             <div class="legal-consent">
               <strong>AFFIRMATIVE CONSENT & NON-REPUDIATION:</strong>
-              By affixing signature above, client acknowledges receipt and approval of the itemized estimate and authorizes contractor to furnish indicated labor and materials. In accordance with 15 U.S. Code § 7001 (ESIGN Act) and Uniform Electronic Transactions Act (UETA), electronic signatures execute a binding legal instrument.
+              By affixing signature above, client acknowledges receipt and approval of the itemized estimate and authorizes contractor to furnish indicated labor and materials. Electronic signatures execute a legally binding instrument under applicable electronic transaction laws (including 15 U.S. Code § 7001 / ESIGN Act, UETA, and international digital commerce standards).
             </div>
 
             ${

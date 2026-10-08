@@ -99,7 +99,9 @@ export class NotificationService {
     const cacheKey = `seal_${quoteNumber}`;
     if (!this.shouldTrigger(cacheKey)) return;
 
-    const amountStr = `$${(totalAmountCents / 100).toFixed(2)}`;
+    const profile = useQuoteStore.getState().profile;
+    const curSymbol = profile?.currencySymbol || '$';
+    const amountStr = `${curSymbol}${(totalAmountCents / 100).toFixed(2)}`;
 
     try {
       await Notifications.scheduleNotificationAsync({
@@ -168,7 +170,9 @@ export class NotificationService {
     const cacheKey = `paid_${quoteNumber}`;
     if (!this.shouldTrigger(cacheKey)) return;
 
-    const amountStr = `$${(totalAmountCents / 100).toFixed(2)}`;
+    const profile = useQuoteStore.getState().profile;
+    const curSymbol = profile?.currencySymbol || '$';
+    const amountStr = `${curSymbol}${(totalAmountCents / 100).toFixed(2)}`;
 
     try {
       await Notifications.scheduleNotificationAsync({
@@ -199,7 +203,8 @@ export class NotificationService {
     const prefs = useQuoteStore.getState().profile.notificationPreferences;
     if (prefs && !prefs.paymentReminders) return;
 
-    const amountStr = `$${(quote.totalAmountCents / 100).toFixed(2)}`;
+    const curSymbol = quote.currencySymbol || useQuoteStore.getState().profile?.currencySymbol || '$';
+    const amountStr = `${curSymbol}${(quote.totalAmountCents / 100).toFixed(2)}`;
     const identifier = `reminder_quote_${quote.id}`;
 
     try {

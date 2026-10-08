@@ -135,7 +135,7 @@ export const SignaturePad: React.FC<SignaturePadProps> = ({
           {hasConsented && <Check size={12} color="#FFFFFF" strokeWidth={3} />}
         </View>
         <Text style={styles.consentText}>
-          I affirmatively consent to execute this agreement electronically under 15 U.S. Code § 7001 (ESIGN Act) & UETA.
+          I affirmatively consent to execute this agreement electronically with a legally binding digital signature.
         </Text>
       </TouchableOpacity>
 
