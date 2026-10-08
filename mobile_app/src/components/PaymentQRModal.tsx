@@ -6,6 +6,8 @@ import { X } from 'lucide-react-native';
 import { Theme, getThemeColors, ThemeColors } from '../theme';
 import { Quote } from '../types';
 import { useQuoteStore } from '../store/useQuoteStore';
+import { NotificationService } from '../services/NotificationService';
+import { useAppSafeArea } from '../utils/safeArea';
 
 export const PaymentQRModal: React.FC<{ quote: Quote; onClose: () => void }> = ({
   quote,
@@ -14,6 +16,7 @@ export const PaymentQRModal: React.FC<{ quote: Quote; onClose: () => void }> = (
   const { addQuote, profile, isDarkMode } = useQuoteStore();
   const colors = getThemeColors(isDarkMode);
   const styles = useMemo(() => makeStyles(colors), [colors]);
+  const insets = useAppSafeArea();
 
   const [activeRail, setActiveRail] = useState<'ZELLE' | 'VENMO' | 'CASHAPP' | 'BANK'>('ZELLE');
   const [isProcessing, setIsProcessing] = useState(false);
@@ -60,6 +63,12 @@ export const PaymentQRModal: React.FC<{ quote: Quote; onClose: () => void }> = (
                 updatedAt: Date.now(),
               };
               await addQuote(updated);
+              await NotificationService.notifyPaymentReceived(
+                quote.quoteNumber,
+                quote.clientName,
+                quote.totalAmountCents
+              );
+              await NotificationService.cancelReminder(quote.id);
               Alert.alert('Payment Recorded', `Agreement #${quote.quoteNumber} has been marked as paid.`);
               onClose();
             } catch (err: any) {
@@ -78,7 +87,7 @@ export const PaymentQRModal: React.FC<{ quote: Quote; onClose: () => void }> = (
   return (
     <Modal visible animationType="slide" transparent onRequestClose={onClose}>
       <View style={styles.overlay}>
-        <View style={styles.sheet}>
+        <View style={[styles.sheet, { paddingBottom: 24 + insets.bottom }]}>
           {/* Header */}
           <View style={styles.header}>
             <View>

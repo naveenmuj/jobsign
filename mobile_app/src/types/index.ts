@@ -31,6 +31,12 @@ export interface ItemPreset {
 import { InvoiceTemplateId } from '../constants/invoiceTemplates';
 export { InvoiceTemplateId, InvoiceTemplateOption } from '../constants/invoiceTemplates';
 
+export interface NotificationPreferences {
+  outboxAlerts: boolean;       // Alerts when offline outbox dispatches upon reconnection
+  sealConfirmations: boolean;  // Alerts when client signs & cryptographic seal locks
+  paymentReminders: boolean;   // Polite reminders for uncollected signed estimates
+}
+
 export interface ContractorProfile {
   businessName: string;
   ownerName: string;
@@ -48,6 +54,7 @@ export interface ContractorProfile {
   isOnboardingCompleted?: boolean; // whether onboarding was completed or dismissed
   hasCustomBusinessName?: boolean; // whether user explicitly set or confirmed their business name
   invoiceTemplate?: InvoiceTemplateId; // preferred PDF template format ('modern', 'classic', 'minimal', 'contractor')
+  notificationPreferences?: NotificationPreferences; // user notification preferences
 }
 
 export interface Quote {
@@ -86,4 +93,25 @@ export interface OutboxItem {
   createdAt: number;
   status: 'PENDING' | 'SENT' | 'FAILED';
   errorMessage?: string;
+}
+
+export type TelemetryCategory =
+  | 'APP_LIFECYCLE'
+  | 'SCREEN_VIEW'
+  | 'USER_ACTION'
+  | 'JOB_EVENT'
+  | 'PDF_EVENT'
+  | 'SETTINGS_CHANGE'
+  | 'NETWORK'
+  | 'ERROR';
+
+export interface BehaviorLogEntry {
+  id: string;
+  sessionId: string;
+  category: TelemetryCategory;
+  action: string;
+  screenName?: string;
+  payloadJson?: string;
+  timestamp: number;
+  synced: boolean;
 }

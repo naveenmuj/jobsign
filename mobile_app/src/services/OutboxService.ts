@@ -3,6 +3,7 @@ import * as Haptics from 'expo-haptics';
 import * as Crypto from 'expo-crypto';
 import * as SMS from 'expo-sms';
 import { DatabaseService } from './DatabaseService';
+import { NotificationService } from './NotificationService';
 import { OutboxItem, Quote } from '../types';
 
 export class OutboxService {
@@ -89,6 +90,7 @@ export class OutboxService {
 
       if (sentCount > 0) {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        NotificationService.notifyOutboxDispatched(sentCount).catch(() => {});
       }
 
       this.isSyncing = false;

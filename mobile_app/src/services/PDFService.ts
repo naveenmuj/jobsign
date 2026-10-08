@@ -4,6 +4,7 @@ import * as Sharing from 'expo-sharing';
 import * as FileSystem from 'expo-file-system';
 import { Quote, ContractorProfile } from '../types';
 import { InvoiceTemplateId } from '../constants/invoiceTemplates';
+import { TelemetryService } from './TelemetryService';
 
 function escapeHtml(s: string = ''): string {
   return String(s)
@@ -606,6 +607,13 @@ export class PDFService {
       const isPaid = quote.status === 'PAID';
 
       const { uri } = await Print.printToFileAsync({ html });
+
+      await TelemetryService.logPDF(
+        'SHARED',
+        profile?.invoiceTemplate || 'modern',
+        quote.id,
+        { isPaid, quoteNumber: quote.quoteNumber, clientName: quote.clientName }
+      );
 
       if (await Sharing.isAvailableAsync()) {
         await Sharing.shareAsync(uri, {

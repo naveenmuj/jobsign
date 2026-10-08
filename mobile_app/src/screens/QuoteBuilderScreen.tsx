@@ -24,6 +24,10 @@ import { BillingService } from '../services/BillingService';
 import { OutboxService } from '../services/OutboxService';
 import { DatabaseService } from '../services/DatabaseService';
 import { CompanyNamePromptModal } from '../components/CompanyNamePromptModal';
+import { TelemetryService } from '../services/TelemetryService';
+import { NotificationService } from '../services/NotificationService';
+import { FEATURE_FLAGS } from '../config/featureFlags';
+import { useAppSafeArea } from '../utils/safeArea';
 import { ChevronLeft, Camera, Image as ImageIcon, Plus, X, PenLine } from 'lucide-react-native';
 
 const makeStyles = (colors: ThemeColors) =>
@@ -410,6 +414,7 @@ export const QuoteBuilderScreen: React.FC<{ onBack: () => void }> = ({ onBack })
   const isDarkMode = useQuoteStore((state) => state.isDarkMode);
   const colors = getThemeColors(isDarkMode);
   const styles = React.useMemo(() => makeStyles(colors), [colors]);
+  const insets = useAppSafeArea();
 
   const [clientName, setClientName] = useState('');
   const [clientPhone, setClientPhone] = useState('');
@@ -573,18 +578,20 @@ export const QuoteBuilderScreen: React.FC<{ onBack: () => void }> = ({ onBack })
   const totalFormatted = `$${(totalAmountCents / 100).toFixed(2)}`;
 
   const handleStartSignature = () => {
-    // Check free tier limits (3 quotes/mo)
-    const currentMonthQuotes = quotes.filter((q) => {
-      const d = new Date(q.createdAt);
-      const now = new Date();
-      return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
-    });
-
-    if (!isPro && currentMonthQuotes.length >= 3) {
-      BillingService.presentRevenueCatPaywall().then((presented) => {
-        if (!presented) setShowPaywall(true);
+    // Check free tier limits (3 quotes/mo) if payment enabled and not in free mode
+    if (FEATURE_FLAGS.PAYMENT_ENABLED && !FEATURE_FLAGS.FREE_ALL_FEATURES && !isPro) {
+      const currentMonthQuotes = quotes.filter((q) => {
+        const d = new Date(q.createdAt);
+        const now = new Date();
+        return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
       });
-      return;
+
+      if (currentMonthQuotes.length >= 3) {
+        BillingService.presentRevenueCatPaywall().then((presented) => {
+          if (!presented) setShowPaywall(true);
+        });
+        return;
+      }
     }
 
     if (!clientName.trim()) {
@@ -595,6 +602,11 @@ export const QuoteBuilderScreen: React.FC<{ onBack: () => void }> = ({ onBack })
       Alert.alert('No Line Items', 'Please add at least one line item to the estimate.');
       return;
     }
+    TelemetryService.logAction('START_SIGNATURE', 'QUOTE_BUILDER', {
+      clientName: clientName.trim(),
+      itemsCount: items.length,
+      totalAmountCents,
+    });
     setIsSigning(true);
   };
 
@@ -642,6 +654,14 @@ export const QuoteBuilderScreen: React.FC<{ onBack: () => void }> = ({ onBack })
     newQuote.pdfSha256Hash = await PDFService.computeHash(newQuote);
     await addQuote(newQuote);
     setIsSigning(false);
+
+    // Send respectful, non-spam confirmation & schedule polite 3-day reminder
+    await NotificationService.notifySealCompleted(
+      newQuote.quoteNumber,
+      newQuote.clientName,
+      newQuote.totalAmountCents
+    );
+    await NotificationService.schedulePaymentReminder(newQuote);
 
     const isOnline = await OutboxService.isOnline();
     if (!isOnline && clientPhone.trim()) {
@@ -722,7 +742,7 @@ export const QuoteBuilderScreen: React.FC<{ onBack: () => void }> = ({ onBack })
         <View style={{ width: 40 }} />
       </View>
 
-      <ScrollView contentContainerStyle={styles.scrollContent}>
+      <ScrollView contentContainerStyle={[styles.scrollContent, { paddingBottom: 100 + insets.bottom }]}>
         {/* Client Input */}
         <View style={styles.card}>
           <Text style={styles.label}>Client Details</Text>
@@ -953,7 +973,7 @@ export const QuoteBuilderScreen: React.FC<{ onBack: () => void }> = ({ onBack })
       </ScrollView>
 
       {/* Sticky Bottom Action */}
-      <View style={styles.bottomBar}>
+      <View style={[styles.bottomBar, { paddingBottom: 16 + insets.bottom }]}>
         <TouchableOpacity style={styles.signButton} onPress={handleStartSignature}>
           <PenLine size={18} color="#FFFFFF" />
           <Text style={styles.signButtonText}>Hand phone to client — Get Signature</Text>

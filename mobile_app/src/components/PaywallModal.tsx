@@ -16,6 +16,8 @@ import { Theme, getThemeColors, ThemeColors } from '../theme';
 import { useQuoteStore } from '../store/useQuoteStore';
 import { BillingService } from '../services/BillingService';
 import { BILLING_CONFIG } from '../config/billing';
+import { FEATURE_FLAGS } from '../config/featureFlags';
+import { useAppSafeArea } from '../utils/safeArea';
 
 interface PaywallModalProps {
   visible: boolean;
@@ -23,9 +25,14 @@ interface PaywallModalProps {
 }
 
 export const PaywallModal: React.FC<PaywallModalProps> = ({ visible, onClose }) => {
+  if (!FEATURE_FLAGS.PAYMENT_ENABLED || !visible) {
+    return null;
+  }
+
   const { setProStatus, isDarkMode } = useQuoteStore();
   const colors = getThemeColors(isDarkMode);
   const styles = useMemo(() => makeStyles(colors), [colors]);
+  const insets = useAppSafeArea();
 
   const [selectedTier, setSelectedTier] = useState<'ANNUAL' | 'MONTHLY' | 'LIFETIME'>('ANNUAL');
   const [isSubscribing, setIsSubscribing] = useState(false);
@@ -117,7 +124,7 @@ export const PaywallModal: React.FC<PaywallModalProps> = ({ visible, onClose }) 
   return (
     <Modal visible transparent animationType="slide" onRequestClose={onClose}>
       <View style={styles.overlay}>
-        <View style={styles.sheet}>
+        <View style={[styles.sheet, { paddingBottom: 20 + insets.bottom }]}>
           {/* Header */}
           <View style={styles.header}>
             <View>

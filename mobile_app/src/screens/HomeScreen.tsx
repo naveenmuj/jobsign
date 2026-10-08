@@ -22,6 +22,9 @@ import { PaywallModal } from '../components/PaywallModal';
 import { CompanyNamePromptModal } from '../components/CompanyNamePromptModal';
 import { OutboxService } from '../services/OutboxService';
 import { BillingService } from '../services/BillingService';
+import { TelemetryService } from '../services/TelemetryService';
+import { FEATURE_FLAGS } from '../config/featureFlags';
+import { useAppSafeArea } from '../utils/safeArea';
 
 interface HomeScreenProps {
   onNewQuote: () => void;
@@ -288,6 +291,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   const isDarkMode = useQuoteStore((state) => state.isDarkMode);
   const colors = getThemeColors(isDarkMode);
   const styles = React.useMemo(() => makeStyles(colors), [colors]);
+  const insets = useAppSafeArea();
 
   const [selectedPaymentQuote, setSelectedPaymentQuote] = useState<Quote | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -301,6 +305,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   const usage = getMonthlyQuoteUsage();
 
   const handleOpenPaywall = async () => {
+    if (!FEATURE_FLAGS.PAYMENT_ENABLED) return;
     const presented = await BillingService.presentRevenueCatPaywall();
     if (!presented) {
       setShowPaywall(true);
@@ -402,25 +407,27 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
               </View>
             )}
           </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.proBadge, isPro && styles.proBadgeActive]}
-            onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              if (isPro) {
-                onOpenSettings();
-              } else {
-                handleOpenPaywall();
-              }
-            }}
-            hitSlop={{ top: 10, bottom: 10, left: 6, right: 6 }}
-          >
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-              {isPro && <Check size={12} color={colors.amber} strokeWidth={2.5} />}
-              <Text style={[styles.proBadgeText, isPro && styles.proBadgeTextActive]}>
-                {isPro ? 'Pro' : 'Upgrade'}
-              </Text>
-            </View>
-          </TouchableOpacity>
+          {FEATURE_FLAGS.PAYMENT_ENABLED && (
+            <TouchableOpacity
+              style={[styles.proBadge, isPro && styles.proBadgeActive]}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                if (isPro) {
+                  onOpenSettings();
+                } else {
+                  handleOpenPaywall();
+                }
+              }}
+              hitSlop={{ top: 10, bottom: 10, left: 6, right: 6 }}
+            >
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                {isPro && <Check size={12} color={colors.amber} strokeWidth={2.5} />}
+                <Text style={[styles.proBadgeText, isPro && styles.proBadgeTextActive]}>
+                  {isPro ? 'Pro' : 'Upgrade'}
+                </Text>
+              </View>
+            </TouchableOpacity>
+          )}
           <TouchableOpacity
             style={styles.settingsIconBtn}
             onPress={onOpenSettings}
@@ -534,7 +541,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
             onCollectPay={() => setSelectedPaymentQuote(item)}
           />
         )}
-        contentContainerStyle={styles.listContent}
+        contentContainerStyle={[styles.listContent, { paddingBottom: 110 + insets.bottom }]}
         refreshControl={
           <RefreshControl
             refreshing={isLoading}
@@ -561,7 +568,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
 
       {/* Floating Action Button */}
       <TouchableOpacity
-        style={styles.fab}
+        style={[styles.fab, { bottom: 18 + insets.bottom }]}
         activeOpacity={0.9}
         onPress={() => {
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);

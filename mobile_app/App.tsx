@@ -7,8 +7,8 @@ LogBox.ignoreLogs([
   'RevenueCat initialization skipped',
   '[RevenueCatUI]',
   'Error presenting paywall',
-  'document is not available',
 ]);
+
 import { HomeScreen } from './src/screens/HomeScreen';
 import { QuoteBuilderScreen } from './src/screens/QuoteBuilderScreen';
 import { QuoteDetailScreen } from './src/screens/QuoteDetailScreen';
@@ -17,6 +17,9 @@ import { OnboardingModal } from './src/components/OnboardingModal';
 import { Quote } from './src/types';
 import { useQuoteStore } from './src/store/useQuoteStore';
 import { BillingService } from './src/services/BillingService';
+import { TelemetryService } from './src/services/TelemetryService';
+import { NotificationService } from './src/services/NotificationService';
+import { FEATURE_FLAGS } from './src/config/featureFlags';
 
 console.log('[JobSign] App.tsx module loaded');
 
@@ -31,20 +34,37 @@ export default function App() {
   const setProStatus = useQuoteStore((state) => state.setProStatus);
   const activeQuote = quotes.find((q) => q.id === activeQuoteId) || null;
 
+  // Initialize Telemetry and Notifications on startup
+  useEffect(() => {
+    TelemetryService.init();
+    NotificationService.init();
+  }, []);
+
+  // Track screen transitions in telemetry
+  useEffect(() => {
+    TelemetryService.logScreenView(currentScreen);
+  }, [currentScreen]);
+
   useEffect(() => {
     if (!profile.isOnboardingCompleted) {
       setShowOnboarding(true);
     }
   }, [profile.isOnboardingCompleted]);
 
-  // Initialize BillingService on startup
+  // Initialize BillingService on startup if payment is enabled, else grant free Pro
   useEffect(() => {
-    BillingService.init()
-      .then(() => BillingService.checkProStatus())
-      .then((active) => {
-        if (active) setProStatus(true);
-      })
-      .catch((e) => console.log('Billing init handled gracefully:', e));
+    if (FEATURE_FLAGS.PAYMENT_ENABLED) {
+      BillingService.init()
+        .then(() => BillingService.checkProStatus())
+        .then((active) => {
+          if (active) setProStatus(true);
+        })
+        .catch((e) => console.log('Billing init handled gracefully:', e));
+    } else {
+      if (FEATURE_FLAGS.FREE_ALL_FEATURES) {
+        setProStatus(true);
+      }
+    }
   }, []);
 
   // Handle Android hardware back button

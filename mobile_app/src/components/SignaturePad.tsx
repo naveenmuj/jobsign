@@ -5,6 +5,7 @@ import * as Haptics from 'expo-haptics';
 import { Check } from 'lucide-react-native';
 import { Theme, getThemeColors, ThemeColors } from '../theme';
 import { useQuoteStore } from '../store/useQuoteStore';
+import { useAppSafeArea } from '../utils/safeArea';
 
 interface SignaturePadProps {
   onSave: (svgPath: string) => Promise<void> | void;
@@ -22,6 +23,7 @@ export const SignaturePad: React.FC<SignaturePadProps> = ({
   const isDarkMode = useQuoteStore((state) => state.isDarkMode);
   const colors = getThemeColors(isDarkMode);
   const styles = useMemo(() => makeStyles(colors), [colors]);
+  const insets = useAppSafeArea();
 
   const [paths, setPaths] = useState<string[]>([]);
   const [hasConsented, setHasConsented] = useState(true);
@@ -68,7 +70,7 @@ export const SignaturePad: React.FC<SignaturePadProps> = ({
   const canSave = paths.length > 0 && hasConsented && !isSaving;
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { paddingBottom: 16 + insets.bottom }]}>
       {/* Top Affirmative Legal Consent Banner */}
       <View style={styles.banner}>
         <Text style={styles.bannerTitle}>Client Approval</Text>

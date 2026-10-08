@@ -17,6 +17,7 @@ import * as Haptics from 'expo-haptics';
 import { Building2, Camera, Image as ImageIcon, CheckCircle, Sparkles, X } from 'lucide-react-native';
 import { Theme, getThemeColors } from '../theme';
 import { useQuoteStore } from '../store/useQuoteStore';
+import { useAppSafeArea } from '../utils/safeArea';
 
 interface OnboardingModalProps {
   visible: boolean;
@@ -26,6 +27,7 @@ interface OnboardingModalProps {
 export const OnboardingModal: React.FC<OnboardingModalProps> = ({ visible, onFinish }) => {
   const { profile, updateProfile, isDarkMode } = useQuoteStore();
   const colors = getThemeColors(isDarkMode);
+  const insets = useAppSafeArea();
 
   const [businessName, setBusinessName] = useState(
     profile.hasCustomBusinessName ? profile.businessName : ''
@@ -212,7 +214,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({ visible, onFin
           </ScrollView>
 
           {/* Bottom Actions */}
-          <View style={[styles.footerBar, { borderTopColor: colors.border }]}>
+          <View style={[styles.footerBar, { borderTopColor: colors.border, paddingBottom: 16 + insets.bottom }]}>
             <TouchableOpacity
               style={[styles.skipBtn, { borderColor: colors.border }]}
               onPress={handleSkip}

@@ -4,6 +4,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Crypto from 'expo-crypto';
 import { Quote, ItemPreset, ContractorProfile } from '../types';
 import { DatabaseService } from '../services/DatabaseService';
+import { FEATURE_FLAGS } from '../config/featureFlags';
 
 export const DEFAULT_PRESETS: ItemPreset[] = [
   { id: 'p1', title: 'Diagnostic & Service Call', priceCents: 9500, category: 'Diagnostic' },
@@ -31,6 +32,11 @@ export const DEFAULT_PROFILE: ContractorProfile = {
   isOnboardingCompleted: false,
   hasCustomBusinessName: false,
   invoiceTemplate: 'modern',
+  notificationPreferences: {
+    outboxAlerts: true,
+    sealConfirmations: true,
+    paymentReminders: true,
+  },
 };
 
 interface QuoteStore {
@@ -66,7 +72,7 @@ export const useQuoteStore = create<QuoteStore>()(
       quotes: [],
       presets: DEFAULT_PRESETS,
       profile: DEFAULT_PROFILE,
-      isPro: false,
+      isPro: FEATURE_FLAGS.FREE_ALL_FEATURES ? true : false,
       isDarkMode: false,
       isSunlightMode: false,
       activeFilter: 'ALL',
@@ -110,7 +116,7 @@ export const useQuoteStore = create<QuoteStore>()(
         set((state) => ({ presets: state.presets.filter((p) => p.id !== id) }));
       },
 
-      setProStatus: (status) => set({ isPro: status }),
+      setProStatus: (status) => set({ isPro: FEATURE_FLAGS.FREE_ALL_FEATURES ? true : status }),
 
       setFilter: (filter) => set({ activeFilter: filter }),
 
@@ -121,6 +127,15 @@ export const useQuoteStore = create<QuoteStore>()(
         set((state) => ({ isDarkMode: !state.isDarkMode, isSunlightMode: !state.isDarkMode })),
 
       getMonthlyQuoteUsage: () => {
+        if (FEATURE_FLAGS.FREE_ALL_FEATURES || !FEATURE_FLAGS.PAYMENT_ENABLED) {
+          const quotes = get().quotes;
+          return {
+            count: quotes.length,
+            limit: 999999,
+            remaining: 999999,
+            isExceeded: false,
+          };
+        }
         const quotes = get().quotes;
         const now = new Date();
         const thisMonthQuotes = quotes.filter((q) => {

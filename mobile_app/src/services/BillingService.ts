@@ -7,6 +7,7 @@ import Purchases, {
 import RevenueCatUI, { PAYWALL_RESULT } from 'react-native-purchases-ui';
 import { BILLING_CONFIG, getRevenueCatApiKey } from '../config/billing';
 import { useQuoteStore } from '../store/useQuoteStore';
+import { FEATURE_FLAGS } from '../config/featureFlags';
 
 export interface PurchaseResult {
   success: boolean;
@@ -22,6 +23,12 @@ export class BillingService {
    * Initializes RevenueCat with platform API keys and attaches customer update listeners.
    */
   public static async init(): Promise<void> {
+    if (!FEATURE_FLAGS.PAYMENT_ENABLED) {
+      if (FEATURE_FLAGS.FREE_ALL_FEATURES) {
+        useQuoteStore.getState().setProStatus(true);
+      }
+      return;
+    }
     if (this.isConfigured) return;
 
     const apiKey = getRevenueCatApiKey();
@@ -85,6 +92,10 @@ export class BillingService {
    * Checks whether the current user has active Pro access.
    */
   public static async checkProStatus(): Promise<boolean> {
+    if (!FEATURE_FLAGS.PAYMENT_ENABLED && FEATURE_FLAGS.FREE_ALL_FEATURES) {
+      useQuoteStore.getState().setProStatus(true);
+      return true;
+    }
     try {
       if (!this.isConfigured) await this.init();
       if (!this.isConfigured) return useQuoteStore.getState().isPro;
@@ -106,6 +117,9 @@ export class BillingService {
    * Returns true if user purchased or restored pro access, false otherwise.
    */
   public static async presentRevenueCatPaywall(): Promise<boolean> {
+    if (!FEATURE_FLAGS.PAYMENT_ENABLED) {
+      return false;
+    }
     try {
       // In Expo Go sandbox, RevenueCatUI defaults to browser DOM mode which lacks document in Hermes.
       // Returning false cleanly falls back to JobSign's native styled PaywallModal.

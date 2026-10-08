@@ -1,5 +1,5 @@
 import * as SQLite from 'expo-sqlite';
-import { Quote, LineItem, ChangeOrder, OutboxItem } from '../types';
+import { Quote, LineItem, ChangeOrder, OutboxItem, BehaviorLogEntry } from '../types';
 
 export class DatabaseService {
   private static dbPromise: Promise<SQLite.SQLiteDatabase> | null = null;
@@ -77,11 +77,24 @@ export class DatabaseService {
         error_message TEXT
       );
 
+      CREATE TABLE IF NOT EXISTS user_behavior_logs (
+        id TEXT PRIMARY KEY NOT NULL,
+        session_id TEXT NOT NULL,
+        category TEXT NOT NULL,
+        action TEXT NOT NULL,
+        screen_name TEXT,
+        payload_json TEXT,
+        timestamp INTEGER NOT NULL,
+        synced INTEGER NOT NULL DEFAULT 0
+      );
+
       CREATE INDEX IF NOT EXISTS idx_quotes_status ON quotes(status);
       CREATE INDEX IF NOT EXISTS idx_quotes_number ON quotes(quote_number);
       CREATE INDEX IF NOT EXISTS idx_line_items_quote_id ON line_items(quote_id);
       CREATE INDEX IF NOT EXISTS idx_change_orders_quote_id ON change_orders(quote_id);
       CREATE INDEX IF NOT EXISTS idx_outbox_status ON offline_outbox(status);
+      CREATE INDEX IF NOT EXISTS idx_behavior_timestamp ON user_behavior_logs(timestamp DESC);
+      CREATE INDEX IF NOT EXISTS idx_behavior_synced ON user_behavior_logs(synced);
     `);
 
     try {
@@ -291,5 +304,82 @@ export class DatabaseService {
       await db.runAsync('DELETE FROM change_orders WHERE quote_id = ?', [id]);
       await db.runAsync('DELETE FROM quotes WHERE id = ?', [id]);
     });
+  }
+
+  // ---- TELEMETRY & BEHAVIOR LOG METHODS ----
+
+  public static async saveBehaviorLog(entry: BehaviorLogEntry): Promise<void> {
+    const db = await this.getDB();
+    await db.runAsync(
+      `INSERT INTO user_behavior_logs (id, session_id, category, action, screen_name, payload_json, timestamp, synced)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        entry.id,
+        entry.sessionId,
+        entry.category,
+        entry.action,
+        entry.screenName || null,
+        entry.payloadJson || null,
+        entry.timestamp,
+        entry.synced ? 1 : 0,
+      ]
+    );
+  }
+
+  public static async getBehaviorLogs(limit: number = 200, offset: number = 0): Promise<BehaviorLogEntry[]> {
+    const db = await this.getDB();
+    const rows = await db.getAllAsync<any>(
+      'SELECT * FROM user_behavior_logs ORDER BY timestamp DESC LIMIT ? OFFSET ?',
+      [limit, offset]
+    );
+    return rows.map((r) => ({
+      id: r.id,
+      sessionId: r.session_id,
+      category: r.category,
+      action: r.action,
+      screenName: r.screen_name || undefined,
+      payloadJson: r.payload_json || undefined,
+      timestamp: r.timestamp,
+      synced: r.synced === 1,
+    }));
+  }
+
+  public static async getUnsyncedBehaviorLogs(limit: number = 100): Promise<BehaviorLogEntry[]> {
+    const db = await this.getDB();
+    const rows = await db.getAllAsync<any>(
+      'SELECT * FROM user_behavior_logs WHERE synced = 0 ORDER BY timestamp ASC LIMIT ?',
+      [limit]
+    );
+    return rows.map((r) => ({
+      id: r.id,
+      sessionId: r.session_id,
+      category: r.category,
+      action: r.action,
+      screenName: r.screen_name || undefined,
+      payloadJson: r.payload_json || undefined,
+      timestamp: r.timestamp,
+      synced: false,
+    }));
+  }
+
+  public static async markBehaviorLogsSynced(ids: string[]): Promise<void> {
+    if (ids.length === 0) return;
+    const db = await this.getDB();
+    const placeholders = ids.map(() => '?').join(',');
+    await db.runAsync(
+      `UPDATE user_behavior_logs SET synced = 1 WHERE id IN (${placeholders})`,
+      ids
+    );
+  }
+
+  public static async clearBehaviorLogs(): Promise<void> {
+    const db = await this.getDB();
+    await db.runAsync('DELETE FROM user_behavior_logs');
+  }
+
+  public static async getBehaviorLogsCount(): Promise<number> {
+    const db = await this.getDB();
+    const row = await db.getFirstAsync<{ count: number }>('SELECT COUNT(*) as count FROM user_behavior_logs');
+    return row?.count || 0;
   }
 }

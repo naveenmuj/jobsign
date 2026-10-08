@@ -17,6 +17,7 @@ import { ChangeOrderModal } from '../components/ChangeOrderModal';
 import { PaymentQRModal } from '../components/PaymentQRModal';
 import { CompanyNamePromptModal } from '../components/CompanyNamePromptModal';
 import { useQuoteStore } from '../store/useQuoteStore';
+import { useAppSafeArea } from '../utils/safeArea';
 import { ChevronLeft, Trash2, FileText, Phone, MessageSquare, Plus, Check } from 'lucide-react-native';
 
 interface QuoteDetailScreenProps {
@@ -375,6 +376,7 @@ export const QuoteDetailScreen: React.FC<QuoteDetailScreenProps> = ({ quote: ini
   const quote = quotes.find((q) => q.id === initialQuote.id) || initialQuote;
 
   const styles = React.useMemo(() => makeStyles(colors), [colors]);
+  const insets = useAppSafeArea();
 
   const [showChangeOrder, setShowChangeOrder] = useState(false);
   const [showPayment, setShowPayment] = useState(false);
@@ -463,7 +465,7 @@ export const QuoteDetailScreen: React.FC<QuoteDetailScreenProps> = ({ quote: ini
         </View>
       </View>
 
-      <ScrollView contentContainerStyle={styles.scrollContent}>
+      <ScrollView contentContainerStyle={[styles.scrollContent, { paddingBottom: 120 + insets.bottom }]}>
         {/* Status Security Banner */}
         <View style={[styles.securityCard, isPaid ? styles.secPaid : styles.secLocked]}>
           <Text style={styles.secShield}>{isPaid ? 'Paid in Full' : 'Digitally Sealed'}</Text>
@@ -619,7 +621,7 @@ export const QuoteDetailScreen: React.FC<QuoteDetailScreenProps> = ({ quote: ini
       </ScrollView>
 
       {/* Bottom Floating Bar */}
-      <View style={styles.bottomBar}>
+      <View style={[styles.bottomBar, { paddingBottom: 16 + insets.bottom }]}>
         {!isPaid && (
           <TouchableOpacity
             style={styles.coBtn}

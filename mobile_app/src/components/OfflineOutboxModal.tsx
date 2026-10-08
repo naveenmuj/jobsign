@@ -16,6 +16,7 @@ import { Theme, getThemeColors, ThemeColors } from '../theme';
 import { OutboxItem } from '../types';
 import { OutboxService } from '../services/OutboxService';
 import { useQuoteStore } from '../store/useQuoteStore';
+import { useAppSafeArea } from '../utils/safeArea';
 
 interface OfflineOutboxModalProps {
   visible: boolean;
@@ -31,6 +32,7 @@ export const OfflineOutboxModal: React.FC<OfflineOutboxModalProps> = ({
   const { isDarkMode } = useQuoteStore();
   const colors = getThemeColors(isDarkMode);
   const styles = useMemo(() => makeStyles(colors), [colors]);
+  const insets = useAppSafeArea();
 
   const [items, setItems] = useState<OutboxItem[]>([]);
   const [isOnline, setIsOnline] = useState(true);
@@ -77,7 +79,7 @@ export const OfflineOutboxModal: React.FC<OfflineOutboxModalProps> = ({
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
       <View style={styles.overlay}>
-        <View style={styles.sheet}>
+        <View style={[styles.sheet, { paddingBottom: 24 + insets.bottom }]}>
           {/* Header */}
           <View style={styles.header}>
             <View>

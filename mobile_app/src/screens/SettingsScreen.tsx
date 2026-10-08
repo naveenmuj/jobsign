@@ -15,7 +15,11 @@ import { getThemeColors, ThemeColors, Theme } from '../theme';
 import { useQuoteStore } from '../store/useQuoteStore';
 import { PDFService } from '../services/PDFService';
 import { PaywallModal } from '../components/PaywallModal';
+import { BehaviorLogsModal } from '../components/BehaviorLogsModal';
 import { BillingService } from '../services/BillingService';
+import { TelemetryService } from '../services/TelemetryService';
+import { FEATURE_FLAGS } from '../config/featureFlags';
+import { useAppSafeArea } from '../utils/safeArea';
 import { runSelfDiagnostics } from '../services/DiagnosticService';
 import { Quote } from '../types';
 import { INVOICE_TEMPLATES, InvoiceTemplateId } from '../constants/invoiceTemplates';
@@ -33,6 +37,8 @@ import {
   CheckCircle2,
   Eye,
   FileText,
+  Activity,
+  Bell,
 } from 'lucide-react-native';
 
 // Sample quote used for live instant preview of invoice templates
@@ -552,6 +558,7 @@ export const SettingsScreen: React.FC<{ onBack: () => void }> = ({ onBack }) => 
 
   const colors = getThemeColors(isDarkMode);
   const styles = React.useMemo(() => makeStyles(colors), [colors]);
+  const insets = useAppSafeArea();
 
   const [businessName, setBusinessName] = useState(profile.businessName);
   const [address, setAddress] = useState(profile.address || '');
@@ -574,6 +581,33 @@ export const SettingsScreen: React.FC<{ onBack: () => void }> = ({ onBack }) => 
     profile.invoiceTemplate || 'modern'
   );
   const [showPaywall, setShowPaywall] = useState(false);
+  const [showBehaviorLogs, setShowBehaviorLogs] = useState(false);
+  const [outboxAlerts, setOutboxAlerts] = useState(
+    profile.notificationPreferences?.outboxAlerts ?? true
+  );
+  const [sealConfirmations, setSealConfirmations] = useState(
+    profile.notificationPreferences?.sealConfirmations ?? true
+  );
+  const [paymentReminders, setPaymentReminders] = useState(
+    profile.notificationPreferences?.paymentReminders ?? true
+  );
+
+  const devTapCount = React.useRef(0);
+  const devTapTimer = React.useRef<any>(null);
+
+  const handleVersionTap = () => {
+    devTapCount.current += 1;
+    if (devTapTimer.current) clearTimeout(devTapTimer.current);
+    devTapTimer.current = setTimeout(() => {
+      devTapCount.current = 0;
+    }, 2000);
+
+    if (devTapCount.current >= 5) {
+      devTapCount.current = 0;
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      setShowBehaviorLogs(true);
+    }
+  };
 
   const handlePickLogo = async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -607,6 +641,7 @@ export const SettingsScreen: React.FC<{ onBack: () => void }> = ({ onBack }) => 
   };
 
   const handleOpenPaywall = async () => {
+    if (!FEATURE_FLAGS.PAYMENT_ENABLED) return;
     const presented = await BillingService.presentRevenueCatPaywall();
     if (!presented) {
       setShowPaywall(true);
@@ -656,9 +691,19 @@ export const SettingsScreen: React.FC<{ onBack: () => void }> = ({ onBack }) => 
       cashAppAccount: cashApp.trim() || undefined,
       hasCustomBusinessName: true,
       invoiceTemplate: selectedTemplate,
+      notificationPreferences: {
+        outboxAlerts,
+        sealConfirmations,
+        paymentReminders,
+      },
+    });
+    TelemetryService.logProfile('NOTIFICATION_PREFERENCES_UPDATED', {
+      outboxAlerts,
+      sealConfirmations,
+      paymentReminders,
     });
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    Alert.alert('Settings saved', 'Your business profile, shop logo, template style, and tax settings have been updated.');
+    Alert.alert('Settings saved', 'Your business profile, shop logo, template style, tax, and notification preferences have been saved.');
   };
 
   const handleCreatePreset = () => {
@@ -875,51 +920,59 @@ export const SettingsScreen: React.FC<{ onBack: () => void }> = ({ onBack }) => 
         <View style={{ width: 60 }} />
       </View>
 
-      <ScrollView contentContainerStyle={styles.scrollContent}>
+      <ScrollView contentContainerStyle={[styles.scrollContent, { paddingBottom: 60 + insets.bottom }]}>
 
-        {/* ── Pro Plan Card ─────────────────────────────────────────────────── */}
+        {/* ── Membership / Free Access Card ───────────────────────────────── */}
         <View style={styles.proCard}>
           <View style={styles.proRow}>
             <View style={{ flex: 1 }}>
               <View style={styles.proTitleRow}>
                 <Star size={16} color={colors.amber} fill={colors.amber} />
                 <Text style={styles.proTitle}>
-                  {isPro ? 'Pro Member — Unlimited Estimates' : 'JobSign Pro — Early-Bird Pricing'}
+                  {FEATURE_FLAGS.PAYMENT_ENABLED
+                    ? isPro
+                      ? 'Pro Member — Unlimited Estimates'
+                      : 'JobSign Pro — Early-Bird Pricing'
+                    : 'JobSign Full Access — 100% Free'}
                 </Text>
               </View>
               <Text style={styles.proSub}>
-                {isPro
-                  ? 'Unlimited signed estimates, custom branding & courtroom audit seals.'
-                  : [
-                      '• Annual: $29.99 / year (save 37% vs monthly)',
-                      '• Monthly: $3.99 / month',
-                      '• Lifetime: $49.99 one-time',
-                    ].join('\n')}
+                {FEATURE_FLAGS.PAYMENT_ENABLED
+                  ? isPro
+                    ? 'Unlimited signed estimates, custom branding & courtroom audit seals.'
+                    : [
+                        '• Annual: $29.99 / year (save 37% vs monthly)',
+                        '• Monthly: $3.99 / month',
+                        '• Lifetime: $49.99 one-time',
+                      ].join('\n')
+                  : 'All Pro features, unlimited estimates, all 4 PDF templates, cryptographic seals, and courtroom audit certificates are completely free.'}
               </Text>
             </View>
           </View>
 
-          {!isPro ? (
-            <TouchableOpacity
-              style={styles.upgradeBtn}
-              onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                handleOpenPaywall();
-              }}
-            >
-              <Zap size={16} color="#0F172A" />
-              <Text style={styles.upgradeBtnText}>Upgrade to Pro</Text>
-            </TouchableOpacity>
-          ) : (
-            <TouchableOpacity
-              style={styles.manageMembershipBtn}
-              onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                handleOpenPaywall();
-              }}
-            >
-              <Text style={styles.manageMembershipText}>Manage Membership / Restore</Text>
-            </TouchableOpacity>
+          {FEATURE_FLAGS.PAYMENT_ENABLED && (
+            !isPro ? (
+              <TouchableOpacity
+                style={styles.upgradeBtn}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                  handleOpenPaywall();
+                }}
+              >
+                <Zap size={16} color="#0F172A" />
+                <Text style={styles.upgradeBtnText}>Upgrade to Pro</Text>
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity
+                style={styles.manageMembershipBtn}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                  handleOpenPaywall();
+                }}
+              >
+                <Text style={styles.manageMembershipText}>Manage Membership / Restore</Text>
+              </TouchableOpacity>
+            )
           )}
 
           {__DEV__ && (
@@ -956,6 +1009,80 @@ export const SettingsScreen: React.FC<{ onBack: () => void }> = ({ onBack }) => 
             >
               <Text style={[styles.darkModeBtnText, isDarkMode && styles.darkModeBtnTextActive]}>
                 {isDarkMode ? 'ON' : 'OFF'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* ── Smart Alerts & Notifications ───────────────────────────────────── */}
+        <View style={styles.card}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+            <Bell size={16} color={colors.amber} />
+            <Text style={styles.cardLabel}>Smart Alerts & Notifications</Text>
+          </View>
+          <Text style={styles.cardHint}>
+            JobSign sends only functional, zero-spam notifications for critical job milestones and outbox deliveries.
+          </Text>
+
+          {/* Outbox delivery toggle */}
+          <View style={[styles.darkModeRow, { paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: colors.borderSubtle }]}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.darkModeTitle}>Offline Outbox Delivery</Text>
+              <Text style={styles.darkModeSub}>
+                Alerts when queued basement agreements are automatically delivered upon reconnection.
+              </Text>
+            </View>
+            <TouchableOpacity
+              style={[styles.darkModeBtn, outboxAlerts && styles.darkModeBtnActive]}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                setOutboxAlerts(!outboxAlerts);
+              }}
+            >
+              <Text style={[styles.darkModeBtnText, outboxAlerts && styles.darkModeBtnTextActive]}>
+                {outboxAlerts ? 'ON' : 'OFF'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Seal confirmation toggle */}
+          <View style={[styles.darkModeRow, { paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: colors.borderSubtle }]}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.darkModeTitle}>Signature & Seal Locks</Text>
+              <Text style={styles.darkModeSub}>
+                Instant confirmation when client signs and cryptographic SHA-256 seal locks.
+              </Text>
+            </View>
+            <TouchableOpacity
+              style={[styles.darkModeBtn, sealConfirmations && styles.darkModeBtnActive]}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                setSealConfirmations(!sealConfirmations);
+              }}
+            >
+              <Text style={[styles.darkModeBtnText, sealConfirmations && styles.darkModeBtnTextActive]}>
+                {sealConfirmations ? 'ON' : 'OFF'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Payment reminder toggle */}
+          <View style={[styles.darkModeRow, { paddingVertical: 8 }]}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.darkModeTitle}>Gentle Follow-Up Reminders</Text>
+              <Text style={styles.darkModeSub}>
+                Polite notice 3 days after job completion if payment has not yet been collected.
+              </Text>
+            </View>
+            <TouchableOpacity
+              style={[styles.darkModeBtn, paymentReminders && styles.darkModeBtnActive]}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                setPaymentReminders(!paymentReminders);
+              }}
+            >
+              <Text style={[styles.darkModeBtnText, paymentReminders && styles.darkModeBtnTextActive]}>
+                {paymentReminders ? 'ON' : 'OFF'}
               </Text>
             </TouchableOpacity>
           </View>
@@ -1396,10 +1523,24 @@ export const SettingsScreen: React.FC<{ onBack: () => void }> = ({ onBack }) => 
         <TouchableOpacity style={styles.saveBtn} onPress={handleSaveProfile}>
           <Text style={styles.saveBtnText}>Save Settings</Text>
         </TouchableOpacity>
+
+        {/* Discreet App Version Footer (Secret 5-Tap Developer Console) */}
+        <TouchableOpacity
+          activeOpacity={0.8}
+          onPress={handleVersionTap}
+          style={{ alignItems: 'center', marginTop: 24, paddingVertical: 12 }}
+        >
+          <Text style={{ fontSize: 12, fontWeight: '600', color: colors.textMuted }}>
+            JobSign v1.0.0 (Build 1)
+          </Text>
+        </TouchableOpacity>
       </ScrollView>
 
       {/* Paywall Modal */}
       <PaywallModal visible={showPaywall} onClose={() => setShowPaywall(false)} />
+
+      {/* Behavior Logs Modal */}
+      <BehaviorLogsModal visible={showBehaviorLogs} onClose={() => setShowBehaviorLogs(false)} />
     </View>
   );
 };

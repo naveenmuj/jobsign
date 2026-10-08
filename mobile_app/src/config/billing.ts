@@ -1,18 +1,16 @@
 import { Platform } from 'react-native';
+import { FEATURE_FLAGS } from './featureFlags';
 
 /**
  * JobSign In-App Purchase & Subscription Configuration
  * 
  * Powered by RevenueCat & Google Play / Apple StoreKit.
- * Configured with live RevenueCat Test Store credentials.
  */
 
 export const BILLING_CONFIG = {
-  // RevenueCat Public SDK API Keys
-  REVENUECAT_GOOGLE_API_KEY:
-    process.env.EXPO_PUBLIC_REVENUECAT_GOOGLE_KEY || 'test_cnqhMmISsRwoEcSwFmvGHJjXHiw',
-  REVENUECAT_APPLE_API_KEY:
-    process.env.EXPO_PUBLIC_REVENUECAT_APPLE_KEY || 'test_cnqhMmISsRwoEcSwFmvGHJjXHiw',
+  // RevenueCat Public SDK API Keys (Production keys only; empty when in Free mode)
+  REVENUECAT_GOOGLE_API_KEY: process.env.EXPO_PUBLIC_REVENUECAT_GOOGLE_KEY || '',
+  REVENUECAT_APPLE_API_KEY: process.env.EXPO_PUBLIC_REVENUECAT_APPLE_KEY || '',
 
   // Entitlement identifier configured in RevenueCat Dashboard
   ENTITLEMENT_ID: 'jobsign_pro',
@@ -60,6 +58,7 @@ export const BILLING_CONFIG = {
 };
 
 export const getRevenueCatApiKey = (): string => {
+  if (!FEATURE_FLAGS.PAYMENT_ENABLED) return '';
   return Platform.OS === 'ios'
     ? BILLING_CONFIG.REVENUECAT_APPLE_API_KEY
     : BILLING_CONFIG.REVENUECAT_GOOGLE_API_KEY;

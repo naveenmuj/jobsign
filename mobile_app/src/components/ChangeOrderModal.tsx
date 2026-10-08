@@ -16,6 +16,7 @@ import { ChangeOrder, Quote } from '../types';
 import { SignaturePad } from './SignaturePad';
 import { PDFService } from '../services/PDFService';
 import { useQuoteStore } from '../store/useQuoteStore';
+import { useAppSafeArea } from '../utils/safeArea';
 
 interface ChangeOrderModalProps {
   quote: Quote;
@@ -31,6 +32,7 @@ export const ChangeOrderModal: React.FC<ChangeOrderModalProps> = ({
   const { addQuote, isDarkMode } = useQuoteStore();
   const colors = getThemeColors(isDarkMode);
   const styles = useMemo(() => makeStyles(colors), [colors]);
+  const insets = useAppSafeArea();
 
   const [reason, setReason] = useState('');
   const [description, setDescription] = useState('');
@@ -125,7 +127,7 @@ export const ChangeOrderModal: React.FC<ChangeOrderModalProps> = ({
   return (
     <Modal visible transparent animationType="slide" onRequestClose={onClose}>
       <View style={styles.overlay}>
-        <View style={styles.sheet}>
+        <View style={[styles.sheet, { paddingBottom: 20 + insets.bottom }]}>
           {/* Header */}
           <View style={styles.header}>
             <View>
