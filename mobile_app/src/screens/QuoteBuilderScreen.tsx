@@ -353,6 +353,9 @@ export const QuoteBuilderScreen: React.FC<{ onBack: () => void }> = ({ onBack })
   const [customPrice, setCustomPrice] = useState('');
   const [photoUri, setPhotoUri] = useState<string | null>(null);
   const [items, setItems] = useState<LineItem[]>([]);
+  const [taxRateInput, setTaxRateInput] = useState<string>(
+    ((profile.defaultTaxBasisPoints ?? 825) / 100).toFixed(2)
+  );
   const [isSigning, setIsSigning] = useState(false);
   const [showPaywall, setShowPaywall] = useState(false);
 
@@ -434,7 +437,10 @@ export const QuoteBuilderScreen: React.FC<{ onBack: () => void }> = ({ onBack })
 
   // Calculations
   const subtotalCents = items.reduce((sum, item) => sum + item.totalCents, 0);
-  const taxBasisPoints = profile.defaultTaxBasisPoints || 825;
+  const parsedTax = parseFloat(taxRateInput);
+  const taxBasisPoints = Math.round(
+    (isNaN(parsedTax) ? ((profile.defaultTaxBasisPoints ?? 825) / 100) : parsedTax) * 100
+  );
   const taxAmountCents = Math.round((subtotalCents * taxBasisPoints) / 10000);
   const totalAmountCents = subtotalCents + taxAmountCents;
 
@@ -714,7 +720,28 @@ export const QuoteBuilderScreen: React.FC<{ onBack: () => void }> = ({ onBack })
             <Text style={styles.summaryVal}>${(subtotalCents / 100).toFixed(2)}</Text>
           </View>
           <View style={styles.summaryRow}>
-            <Text style={styles.summaryLabel}>Sales Tax ({(taxBasisPoints / 100).toFixed(2)}%)</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <Text style={styles.summaryLabel}>Tax Rate:</Text>
+              <TextInput
+                style={{
+                  backgroundColor: colors.backgroundSecondary,
+                  borderWidth: 1,
+                  borderColor: colors.border,
+                  borderRadius: 6,
+                  paddingHorizontal: 8,
+                  paddingVertical: 3,
+                  fontSize: 13,
+                  fontWeight: '700',
+                  color: colors.textPrimary,
+                  minWidth: 54,
+                  textAlign: 'right',
+                }}
+                value={taxRateInput}
+                onChangeText={setTaxRateInput}
+                keyboardType="decimal-pad"
+              />
+              <Text style={[styles.summaryLabel, { fontWeight: '700' }]}>%</Text>
+            </View>
             <Text style={styles.summaryVal}>${(taxAmountCents / 100).toFixed(2)}</Text>
           </View>
           <View style={[styles.summaryRow, styles.totalRow]}>

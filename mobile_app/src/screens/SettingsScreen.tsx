@@ -354,7 +354,8 @@ export const SettingsScreen: React.FC<{ onBack: () => void }> = ({ onBack }) => 
   const [newPresetPrice, setNewPresetPrice] = useState('');
 
   const handleSaveProfile = () => {
-    const taxBasisPoints = Math.round((parseFloat(defaultTaxRate) || 8.25) * 100);
+    const parsedTax = parseFloat(defaultTaxRate);
+    const taxBasisPoints = Math.round((isNaN(parsedTax) ? 8.25 : parsedTax) * 100);
     updateProfile({
       businessName: businessName.trim(),
       ownerName: ownerName.trim(),
