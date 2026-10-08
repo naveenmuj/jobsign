@@ -9,9 +9,9 @@ import { Platform, StatusBar } from 'react-native';
  */
 export function useAppSafeArea() {
   const isAndroid = Platform.OS === 'android';
-  // On Android, navigation bar height is 48-56dp on 3-button mode and 16-24dp on gesture nav.
-  // 36dp provides an ideal ergonomic buffer without pushing content too high.
-  const bottom = isAndroid ? 36 : 0;
+  // On Android, navigation bar height is 48-56dp on 3-button mode (Back/Home/Recents) and 16-24dp on gesture nav.
+  // 48dp provides an ideal ergonomic buffer preventing system buttons from overlapping action bars & modals.
+  const bottom = isAndroid ? 48 : 0;
   const top = isAndroid ? (StatusBar.currentHeight || 24) : 0;
 
   return {

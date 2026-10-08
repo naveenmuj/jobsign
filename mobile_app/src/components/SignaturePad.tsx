@@ -70,7 +70,7 @@ export const SignaturePad: React.FC<SignaturePadProps> = ({
   const canSave = paths.length > 0 && hasConsented && !isSaving;
 
   return (
-    <View style={[styles.container, { paddingBottom: 16 + insets.bottom }]}>
+    <View style={[styles.container, { paddingBottom: 24 + insets.bottom }]}>
       {/* Top Affirmative Legal Consent Banner */}
       <View style={styles.banner}>
         <Text style={styles.bannerTitle}>Client Approval</Text>

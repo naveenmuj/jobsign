@@ -25,6 +25,7 @@ import { BillingService } from '../services/BillingService';
 import { TelemetryService } from '../services/TelemetryService';
 import { FEATURE_FLAGS } from '../config/featureFlags';
 import { useAppSafeArea } from '../utils/safeArea';
+import { useKeyboard } from '../utils/useKeyboard';
 
 interface HomeScreenProps {
   onNewQuote: () => void;
@@ -292,6 +293,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   const colors = getThemeColors(isDarkMode);
   const styles = React.useMemo(() => makeStyles(colors), [colors]);
   const insets = useAppSafeArea();
+  const { isKeyboardVisible } = useKeyboard();
 
   const [selectedPaymentQuote, setSelectedPaymentQuote] = useState<Quote | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -542,6 +544,8 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
           />
         )}
         contentContainerStyle={[styles.listContent, { paddingBottom: 110 + insets.bottom }]}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
         refreshControl={
           <RefreshControl
             refreshing={isLoading}
@@ -567,8 +571,9 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
       />
 
       {/* Floating Action Button */}
-      <TouchableOpacity
-        style={[styles.fab, { bottom: 18 + insets.bottom }]}
+      {!isKeyboardVisible && (
+        <TouchableOpacity
+          style={[styles.fab, { bottom: 18 + insets.bottom }]}
         activeOpacity={0.9}
         onPress={() => {
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
@@ -588,6 +593,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
       >
         <Text style={styles.fabText}>New Estimate</Text>
       </TouchableOpacity>
+      )}
 
       {/* Direct Payment QR Modal */}
       {selectedPaymentQuote && (

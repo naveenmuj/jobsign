@@ -920,7 +920,11 @@ export const SettingsScreen: React.FC<{ onBack: () => void }> = ({ onBack }) => 
         <View style={{ width: 60 }} />
       </View>
 
-      <ScrollView contentContainerStyle={[styles.scrollContent, { paddingBottom: 60 + insets.bottom }]}>
+      <ScrollView
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: 100 + insets.bottom }]}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
+      >
 
         {/* ── Membership / Free Access Card ───────────────────────────────── */}
         <View style={styles.proCard}>

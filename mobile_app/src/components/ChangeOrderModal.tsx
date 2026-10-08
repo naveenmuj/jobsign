@@ -6,6 +6,7 @@ import {
   Modal,
   TextInput,
   TouchableOpacity,
+  ScrollView,
   Alert,
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
@@ -17,6 +18,7 @@ import { SignaturePad } from './SignaturePad';
 import { PDFService } from '../services/PDFService';
 import { useQuoteStore } from '../store/useQuoteStore';
 import { useAppSafeArea } from '../utils/safeArea';
+import { useKeyboard } from '../utils/useKeyboard';
 
 interface ChangeOrderModalProps {
   quote: Quote;
@@ -33,6 +35,7 @@ export const ChangeOrderModal: React.FC<ChangeOrderModalProps> = ({
   const colors = getThemeColors(isDarkMode);
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const insets = useAppSafeArea();
+  const { keyboardHeight, isKeyboardVisible } = useKeyboard();
 
   const [reason, setReason] = useState('');
   const [description, setDescription] = useState('');
@@ -126,8 +129,16 @@ export const ChangeOrderModal: React.FC<ChangeOrderModalProps> = ({
 
   return (
     <Modal visible transparent animationType="slide" onRequestClose={onClose}>
-      <View style={styles.overlay}>
-        <View style={[styles.sheet, { paddingBottom: 20 + insets.bottom }]}>
+      <View style={[styles.overlay, { paddingBottom: isKeyboardVisible ? keyboardHeight : 0 }]}>
+        <View
+          style={[
+            styles.sheet,
+            {
+              paddingBottom: isKeyboardVisible ? 14 : 20 + insets.bottom,
+              maxHeight: isKeyboardVisible ? '100%' : '85%',
+            },
+          ]}
+        >
           {/* Header */}
           <View style={styles.header}>
             <View>
@@ -143,53 +154,61 @@ export const ChangeOrderModal: React.FC<ChangeOrderModalProps> = ({
             </TouchableOpacity>
           </View>
 
-          {/* Explanation Banner */}
-          <View style={styles.infoBanner}>
-            <Text style={styles.infoText}>
-              Protects against unpaid scope adjustments. Appends a signed rider to the original agreement.
-            </Text>
-          </View>
-
-          {/* Form */}
-          <Text style={styles.label}>UNFORESEEN SCOPE / REASON</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="e.g. Subfloor moisture damage under tub"
-            placeholderTextColor={colors.textMuted}
-            value={reason}
-            onChangeText={setReason}
-          />
-
-          <Text style={[styles.label, { marginTop: 14 }]}>ADDITIONAL AMOUNT ($ USD)</Text>
-          <TextInput
-            style={[styles.input, styles.priceInput]}
-            placeholder="0.00"
-            placeholderTextColor={colors.textMuted}
-            keyboardType="decimal-pad"
-            value={amountInput}
-            onChangeText={setAmountInput}
-          />
-
-          {/* Live Total Comparison */}
-          <View style={styles.comparisonBox}>
-            <View style={styles.compareRow}>
-              <Text style={styles.compareLabel}>Original Agreement:</Text>
-              <Text style={styles.compareVal}>${(quote.totalAmountCents / 100).toFixed(2)}</Text>
+          <ScrollView
+            style={{ flexShrink: 1 }}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="on-drag"
+            contentContainerStyle={{ paddingBottom: 16 }}
+          >
+            {/* Explanation Banner */}
+            <View style={styles.infoBanner}>
+              <Text style={styles.infoText}>
+                Protects against unpaid scope adjustments. Appends a signed rider to the original agreement.
+              </Text>
             </View>
-            <View style={styles.compareRow}>
-              <Text style={styles.compareLabel}>This Add-On:</Text>
-              <Text style={[styles.compareVal, { color: colors.amber }]}>+{formattedAddOn}</Text>
-            </View>
-            <View style={[styles.compareRow, styles.totalRow]}>
-              <Text style={styles.newTotalLabel}>NEW AGREEMENT TOTAL:</Text>
-              <Text style={styles.newTotalVal}>{newTotalFormatted}</Text>
-            </View>
-          </View>
 
-          {/* Action */}
-          <TouchableOpacity style={styles.signBtn} onPress={handleProceedToSign}>
-            <Text style={styles.signBtnText}>Proceed to Client Signature</Text>
-          </TouchableOpacity>
+            {/* Form */}
+            <Text style={styles.label}>UNFORESEEN SCOPE / REASON</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="e.g. Subfloor moisture damage under tub"
+              placeholderTextColor={colors.textMuted}
+              value={reason}
+              onChangeText={setReason}
+            />
+
+            <Text style={[styles.label, { marginTop: 14 }]}>ADDITIONAL AMOUNT ($ USD)</Text>
+            <TextInput
+              style={[styles.input, styles.priceInput]}
+              placeholder="0.00"
+              placeholderTextColor={colors.textMuted}
+              keyboardType="decimal-pad"
+              value={amountInput}
+              onChangeText={setAmountInput}
+            />
+
+            {/* Live Total Comparison */}
+            <View style={styles.comparisonBox}>
+              <View style={styles.compareRow}>
+                <Text style={styles.compareLabel}>Original Agreement:</Text>
+                <Text style={styles.compareVal}>${(quote.totalAmountCents / 100).toFixed(2)}</Text>
+              </View>
+              <View style={styles.compareRow}>
+                <Text style={styles.compareLabel}>This Add-On:</Text>
+                <Text style={[styles.compareVal, { color: colors.amber }]}>+{formattedAddOn}</Text>
+              </View>
+              <View style={[styles.compareRow, styles.totalRow]}>
+                <Text style={styles.newTotalLabel}>NEW AGREEMENT TOTAL:</Text>
+                <Text style={styles.newTotalVal}>{newTotalFormatted}</Text>
+              </View>
+            </View>
+
+            {/* Action */}
+            <TouchableOpacity style={styles.signBtn} onPress={handleProceedToSign}>
+              <Text style={styles.signBtnText}>Proceed to Client Signature</Text>
+            </TouchableOpacity>
+          </ScrollView>
         </View>
       </View>
     </Modal>

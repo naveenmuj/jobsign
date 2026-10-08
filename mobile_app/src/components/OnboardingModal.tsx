@@ -18,6 +18,7 @@ import { Building2, Camera, Image as ImageIcon, CheckCircle, Sparkles, X } from 
 import { Theme, getThemeColors } from '../theme';
 import { useQuoteStore } from '../store/useQuoteStore';
 import { useAppSafeArea } from '../utils/safeArea';
+import { useKeyboard } from '../utils/useKeyboard';
 
 interface OnboardingModalProps {
   visible: boolean;
@@ -28,6 +29,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({ visible, onFin
   const { profile, updateProfile, isDarkMode } = useQuoteStore();
   const colors = getThemeColors(isDarkMode);
   const insets = useAppSafeArea();
+  const { keyboardHeight, isKeyboardVisible } = useKeyboard();
 
   const [businessName, setBusinessName] = useState(
     profile.hasCustomBusinessName ? profile.businessName : ''
@@ -91,10 +93,16 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({ visible, onFin
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={handleSkip}>
-      <View style={styles.overlay}>
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          style={[styles.container, { backgroundColor: colors.surface, borderColor: colors.border }]}
+      <View style={[styles.overlay, { paddingBottom: isKeyboardVisible ? keyboardHeight : 0 }]}>
+        <View
+          style={[
+            styles.container,
+            {
+              backgroundColor: colors.surface,
+              borderColor: colors.border,
+              maxHeight: isKeyboardVisible ? '100%' : '92%',
+            },
+          ]}
         >
           {/* Header */}
           <View style={styles.topBar}>
@@ -113,7 +121,13 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({ visible, onFin
             </TouchableOpacity>
           </View>
 
-          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
+          <ScrollView
+            style={{ flexShrink: 1 }}
+            showsVerticalScrollIndicator={true}
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="on-drag"
+            contentContainerStyle={[styles.scroll, { paddingBottom: isKeyboardVisible ? 40 : 24 }]}
+          >
             <Text style={[styles.mainHeading, { color: colors.textPrimary }]}>
               Customize Your Invoice
             </Text>
@@ -214,7 +228,15 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({ visible, onFin
           </ScrollView>
 
           {/* Bottom Actions */}
-          <View style={[styles.footerBar, { borderTopColor: colors.border, paddingBottom: 16 + insets.bottom }]}>
+          <View
+            style={[
+              styles.footerBar,
+              {
+                borderTopColor: colors.border,
+                paddingBottom: isKeyboardVisible ? 12 : 16 + insets.bottom,
+              },
+            ]}
+          >
             <TouchableOpacity
               style={[styles.skipBtn, { borderColor: colors.border }]}
               onPress={handleSkip}
@@ -226,7 +248,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({ visible, onFin
               <Text style={styles.saveBtnText}>Save & Get Started</Text>
             </TouchableOpacity>
           </View>
-        </KeyboardAvoidingView>
+        </View>
       </View>
     </Modal>
   );

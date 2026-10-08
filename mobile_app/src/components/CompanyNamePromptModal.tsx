@@ -7,13 +7,15 @@ import {
   TouchableOpacity,
   StyleSheet,
   TouchableWithoutFeedback,
-  KeyboardAvoidingView,
+  ScrollView,
   Platform,
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { Building2, X } from 'lucide-react-native';
 import { Theme, getThemeColors } from '../theme';
 import { useQuoteStore } from '../store/useQuoteStore';
+import { useKeyboard } from '../utils/useKeyboard';
+import { useAppSafeArea } from '../utils/safeArea';
 
 interface CompanyNamePromptModalProps {
   visible: boolean;
@@ -34,6 +36,8 @@ export const CompanyNamePromptModal: React.FC<CompanyNamePromptModalProps> = ({
 }) => {
   const isDarkMode = useQuoteStore((state) => state.isDarkMode);
   const colors = getThemeColors(isDarkMode);
+  const insets = useAppSafeArea();
+  const { keyboardHeight, isKeyboardVisible } = useKeyboard();
 
   const [businessName, setBusinessName] = useState(initialName);
   const [address, setAddress] = useState(initialAddress);
@@ -51,15 +55,24 @@ export const CompanyNamePromptModal: React.FC<CompanyNamePromptModalProps> = ({
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <TouchableWithoutFeedback onPress={onClose}>
-        <View style={styles.overlay}>
+        <View style={[styles.overlay, { paddingBottom: isKeyboardVisible ? keyboardHeight : 20 + insets.bottom }]}>
           <TouchableWithoutFeedback>
-            <KeyboardAvoidingView
-              behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+            <View
               style={[
                 styles.modalCard,
-                { backgroundColor: colors.surface, borderColor: colors.border },
+                {
+                  backgroundColor: colors.surface,
+                  borderColor: colors.border,
+                  maxHeight: isKeyboardVisible ? '100%' : '90%',
+                },
               ]}
             >
+              <ScrollView
+                style={{ flexShrink: 1 }}
+                bounces={false}
+                keyboardShouldPersistTaps="handled"
+                showsVerticalScrollIndicator={false}
+              >
               {/* Header */}
               <View style={styles.headerRow}>
                 <View style={styles.titleRow}>
@@ -143,7 +156,8 @@ export const CompanyNamePromptModal: React.FC<CompanyNamePromptModalProps> = ({
                   </Text>
                 </TouchableOpacity>
               </View>
-            </KeyboardAvoidingView>
+              </ScrollView>
+            </View>
           </TouchableWithoutFeedback>
         </View>
       </TouchableWithoutFeedback>

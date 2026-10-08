@@ -18,6 +18,7 @@ import { useQuoteStore } from '../store/useQuoteStore';
 import { TelemetryService } from '../services/TelemetryService';
 import { BehaviorLogEntry } from '../types';
 import { useAppSafeArea } from '../utils/safeArea';
+import { useKeyboard } from '../utils/useKeyboard';
 
 interface BehaviorLogsModalProps {
   visible: boolean;
@@ -29,6 +30,7 @@ export const BehaviorLogsModal: React.FC<BehaviorLogsModalProps> = ({ visible, o
   const colors = getThemeColors(isDarkMode);
   const styles = React.useMemo(() => makeStyles(colors), [colors]);
   const insets = useAppSafeArea();
+  const { keyboardHeight, isKeyboardVisible } = useKeyboard();
 
   const [logs, setLogs] = useState<BehaviorLogEntry[]>([]);
   const [totalCount, setTotalCount] = useState<number>(0);
@@ -157,8 +159,8 @@ export const BehaviorLogsModal: React.FC<BehaviorLogsModalProps> = ({ visible, o
 
   return (
     <Modal visible={visible} animationType="slide" transparent presentationStyle="overFullScreen">
-      <View style={styles.overlay}>
-        <View style={[styles.container, { paddingBottom: 20 + insets.bottom }]}>
+      <View style={[styles.overlay, { paddingBottom: isKeyboardVisible ? keyboardHeight : 0 }]}>
+        <View style={[styles.container, { paddingBottom: isKeyboardVisible ? 14 : 20 + insets.bottom }]}>
           {/* Header */}
           <View style={styles.header}>
             <View>

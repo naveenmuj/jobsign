@@ -28,6 +28,7 @@ import { TelemetryService } from '../services/TelemetryService';
 import { NotificationService } from '../services/NotificationService';
 import { FEATURE_FLAGS } from '../config/featureFlags';
 import { useAppSafeArea } from '../utils/safeArea';
+import { useKeyboard } from '../utils/useKeyboard';
 import { ChevronLeft, Camera, Image as ImageIcon, Plus, X, PenLine } from 'lucide-react-native';
 
 const makeStyles = (colors: ThemeColors) =>
@@ -415,6 +416,7 @@ export const QuoteBuilderScreen: React.FC<{ onBack: () => void }> = ({ onBack })
   const colors = getThemeColors(isDarkMode);
   const styles = React.useMemo(() => makeStyles(colors), [colors]);
   const insets = useAppSafeArea();
+  const { isKeyboardVisible } = useKeyboard();
 
   const [clientName, setClientName] = useState('');
   const [clientPhone, setClientPhone] = useState('');
@@ -742,7 +744,14 @@ export const QuoteBuilderScreen: React.FC<{ onBack: () => void }> = ({ onBack })
         <View style={{ width: 40 }} />
       </View>
 
-      <ScrollView contentContainerStyle={[styles.scrollContent, { paddingBottom: 100 + insets.bottom }]}>
+      <ScrollView
+        contentContainerStyle={[
+          styles.scrollContent,
+          { paddingBottom: isKeyboardVisible ? 160 : 120 + insets.bottom },
+        ]}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
+      >
         {/* Client Input */}
         <View style={styles.card}>
           <Text style={styles.label}>Client Details</Text>
@@ -973,12 +982,14 @@ export const QuoteBuilderScreen: React.FC<{ onBack: () => void }> = ({ onBack })
       </ScrollView>
 
       {/* Sticky Bottom Action */}
-      <View style={[styles.bottomBar, { paddingBottom: 16 + insets.bottom }]}>
-        <TouchableOpacity style={styles.signButton} onPress={handleStartSignature}>
-          <PenLine size={18} color="#FFFFFF" />
-          <Text style={styles.signButtonText}>Hand phone to client — Get Signature</Text>
-        </TouchableOpacity>
-      </View>
+      {!isKeyboardVisible && (
+        <View style={[styles.bottomBar, { paddingBottom: 16 + insets.bottom }]}>
+          <TouchableOpacity style={styles.signButton} onPress={handleStartSignature}>
+            <PenLine size={18} color="#FFFFFF" />
+            <Text style={styles.signButtonText}>Hand phone to client — Get Signature</Text>
+          </TouchableOpacity>
+        </View>
+      )}
 
       {/* Paywall Modal */}
       <PaywallModal visible={showPaywall} onClose={() => setShowPaywall(false)} />
