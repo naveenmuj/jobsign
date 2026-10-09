@@ -17,11 +17,16 @@ if (-not (Test-Path "$env:LOCALAPPDATA\Android\Sdk") -and -not (Test-Path "C:\An
 }
 Write-Host "Android SDK: Found" -ForegroundColor Green
 
-# 2. Run Test Suite
-Write-Host "`n👉 [2/4] Executing Production Test Suite..." -ForegroundColor Yellow
+# 2. Run Test Suites
+Write-Host "`n👉 [2/4] Executing Production & Stress Test Suites..." -ForegroundColor Yellow
 node scripts/run_production_tests.mjs
 if ($LASTEXITCODE -ne 0) {
-    Write-Error "Test suite failed! Aborting release build."
+    Write-Error "Production test suite failed! Aborting release build."
+    exit 1
+}
+node scripts/run_stress_and_latency_tests.mjs
+if ($LASTEXITCODE -ne 0) {
+    Write-Error "Stress & latency test suite failed! Aborting release build."
     exit 1
 }
 
