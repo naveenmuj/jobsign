@@ -487,13 +487,13 @@ export class PDFService {
                 <div class="payment-accounts">
                   ${[
                     profile.upiId
-                      ? `UPI (GPay/PhonePe/Paytm): ${escapeHtml(profile.upiId)}${
+                      ? `Instant QR Pay: ${escapeHtml(profile.upiId)}${
                           profile.upiPayeeName ? ` [${escapeHtml(profile.upiPayeeName)}]` : ''
                         }`
                       : '',
                     profile.bankAccountNumber
                       ? `Bank A/C: ${escapeHtml(profile.bankAccountNumber)}${
-                          profile.bankIfsc ? ` (IFSC: ${escapeHtml(profile.bankIfsc)})` : ''
+                          profile.bankIfsc ? ` (${escapeHtml(profile.bankIfsc)})` : ''
                         }${profile.bankName ? ` - ${escapeHtml(profile.bankName)}` : ''}`
                       : '',
                     profile.zelleAccount ? `Zelle: ${escapeHtml(profile.zelleAccount)}` : '',

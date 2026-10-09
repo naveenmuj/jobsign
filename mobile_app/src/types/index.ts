@@ -37,6 +37,20 @@ export interface NotificationPreferences {
   paymentReminders: boolean;   // Polite reminders for uncollected signed estimates
 }
 
+export interface SavedBankAccount {
+  id: string;
+  accountNumber: string;
+  bankName?: string;
+  ifscOrRouting?: string;
+  beneficiaryName?: string;
+}
+
+export interface SavedUpiAccount {
+  id: string;
+  upiId: string;
+  payeeName?: string;
+}
+
 export interface ContractorProfile {
   businessName: string;
   ownerName: string;
@@ -48,11 +62,13 @@ export interface ContractorProfile {
   zelleAccount?: string;
   venmoAccount?: string;
   cashAppAccount?: string;
-  upiId?: string;               // e.g. "contractor@okhdfcbank" or "9876543210@paytm"
-  upiPayeeName?: string;        // e.g. "Apex Electricals" or owner name
-  bankAccountNumber?: string;   // Direct IMPS/NEFT bank account
-  bankIfsc?: string;            // Bank IFSC code (e.g. "HDFC0001234")
+  upiId?: string;               // e.g. "contractor@bank" or virtual payment address
+  upiPayeeName?: string;        // e.g. "Apex Electricals" or registered owner name
+  bankAccountNumber?: string;   // Direct bank account number
+  bankIfsc?: string;            // Bank routing / IFSC / sort code
   bankName?: string;            // Bank Name (e.g. "HDFC Bank", "SBI")
+  savedBankAccounts?: SavedBankAccount[]; // Multiple saved bank accounts
+  savedUpiAccounts?: SavedUpiAccount[];   // Multiple saved UPI / instant payment IDs
   defaultTaxBasisPoints: number; // e.g. 825 for 8.25%
   taxEnabledByDefault?: boolean; // whether tax is enabled by default on new quotes
   taxLabel?: string;             // e.g. "Sales Tax", "VAT", "GST", "HST"

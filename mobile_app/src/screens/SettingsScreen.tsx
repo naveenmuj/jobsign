@@ -205,6 +205,28 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onBack }) => {
     const parsedTax = parseFloat(defaultTaxRate);
     const taxBasisPoints = Math.round((isNaN(parsedTax) ? 8.25 : parsedTax) * 100);
 
+    let updatedSavedBanks = profile.savedBankAccounts || [];
+    if (bankAccountNumber.trim()) {
+      const newBank = {
+        id: Date.now().toString(),
+        accountNumber: bankAccountNumber.trim(),
+        ifscOrRouting: bankIfsc.trim().toUpperCase() || undefined,
+        bankName: bankName.trim() || undefined,
+        beneficiaryName: upiPayeeName.trim() || businessName.trim() || ownerName.trim() || undefined,
+      };
+      updatedSavedBanks = [newBank, ...updatedSavedBanks.filter((b) => b.accountNumber !== bankAccountNumber.trim())];
+    }
+
+    let updatedSavedUpis = profile.savedUpiAccounts || [];
+    if (upiId.trim()) {
+      const newUpi = {
+        id: Date.now().toString(),
+        upiId: upiId.trim().toLowerCase(),
+        payeeName: upiPayeeName.trim() || businessName.trim() || ownerName.trim() || undefined,
+      };
+      updatedSavedUpis = [newUpi, ...updatedSavedUpis.filter((u) => u.upiId.toLowerCase() !== upiId.trim().toLowerCase())];
+    }
+
     const updatedProfile: Partial<ContractorProfile> = {
       businessName: businessName.trim() || 'My Contracting Co.',
       ownerName: ownerName.trim(),
@@ -226,6 +248,8 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onBack }) => {
       bankAccountNumber: bankAccountNumber.trim() || undefined,
       bankIfsc: bankIfsc.trim().toUpperCase() || undefined,
       bankName: bankName.trim() || undefined,
+      savedBankAccounts: updatedSavedBanks,
+      savedUpiAccounts: updatedSavedUpis,
       hasCustomBusinessName: true,
       invoiceTemplate: selectedTemplate,
       notificationPreferences: {
@@ -533,13 +557,13 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onBack }) => {
 
           <SettingsRow
             icon={<Zap size={18} color="#EAB308" />}
-            title="Direct Payment & UPI"
+            title="Instant QR & Bank Transfer"
             subtitle={
               upiId
-                ? `UPI: ${upiId}`
+                ? `Instant QR: ${upiId}`
                 : zelle
                 ? `Zelle: ${zelle}`
-                : 'Set up receiving UPI ID or Bank account'
+                : 'Set up Instant QR or Bank account'
             }
             badge={upiId || zelle ? 'Active' : 'Setup Required'}
             badgeColor={upiId || zelle ? colors.emerald : colors.amber}
@@ -850,19 +874,53 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onBack }) => {
         </TouchableOpacity>
       </SettingsSubModal>
 
-      {/* ── MODAL 4: DIRECT PAYMENT & UPI ──────────────────────────────────── */}
+      {/* ── MODAL 4: DIRECT PAYMENT & SETTLEMENT ────────────────────────────── */}
       <SettingsSubModal
         visible={activeModal === 'PAYMENT'}
-        title="Direct Payment & UPI"
-        subtitle="Pre-fills amount when homeowner scans QR code (0% commission)"
+        title="Instant QR & Bank Transfer"
+        subtitle="Pre-fills amount when homeowner scans QR code (0% middleman fees)"
         colors={colors}
         insets={insets}
         onClose={() => setActiveModal(null)}
       >
-        <Text style={styles.inputLabel}>Your Receiving UPI ID / VPA *</Text>
+        {profile?.savedUpiAccounts && profile.savedUpiAccounts.length > 1 && (
+          <View style={{ marginBottom: 10 }}>
+            <Text style={{ fontSize: 11, fontWeight: '700', color: colors.textMuted, marginBottom: 4 }}>
+              SAVED PAYMENT IDS (TAP TO SWITCH):
+            </Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ flexDirection: 'row', gap: 6 }}>
+              {profile.savedUpiAccounts.map((acc) => {
+                const isSelected = upiId.toLowerCase() === acc.upiId.toLowerCase();
+                return (
+                  <TouchableOpacity
+                    key={acc.id || acc.upiId}
+                    style={{
+                      paddingHorizontal: 10,
+                      paddingVertical: 5,
+                      borderRadius: 14,
+                      backgroundColor: isSelected ? colors.primary + '15' : colors.backgroundSecondary,
+                      borderWidth: 1,
+                      borderColor: isSelected ? colors.primary : colors.border,
+                    }}
+                    onPress={() => {
+                      setUpiId(acc.upiId);
+                      if (acc.payeeName) setUpiPayeeName(acc.payeeName);
+                    }}
+                  >
+                    <Text style={{ fontSize: 11, fontWeight: '700', color: isSelected ? colors.primary : colors.textSecondary }}>
+                      ⚡ {acc.upiId} {isSelected ? '✓' : ''}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          </View>
+        )}
+
+        <Text style={styles.inputLabel}>Receiving Payment ID (Instant QR / Virtual Address) *</Text>
         <TextInput
           style={styles.input}
-          placeholder="e.g. contractor@okhdfcbank, 9876543210@paytm"
+          placeholder="e.g. contractor@bank, mobile@bank"
           placeholderTextColor={colors.textMuted}
           value={upiId}
           onChangeText={setUpiId}
@@ -870,32 +928,69 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onBack }) => {
           autoCorrect={false}
         />
         <Text style={styles.inputHelp}>
-          When client scans with GPay, PhonePe or Paytm, funds transfer directly to your bank account.
+          When client scans with any camera or banking app, funds transfer directly to your bank account.
         </Text>
 
         <Text style={[styles.inputLabel, { marginTop: 12 }]}>Registered Payee / Business Name</Text>
         <TextInput
           style={styles.input}
-          placeholder="Name shown on client's UPI payment screen"
+          placeholder="Name displayed on client's payment screen"
           placeholderTextColor={colors.textMuted}
           value={upiPayeeName}
           onChangeText={setUpiPayeeName}
         />
 
+        {profile?.savedBankAccounts && profile.savedBankAccounts.length > 1 && (
+          <View style={{ marginTop: 12, marginBottom: 6 }}>
+            <Text style={{ fontSize: 11, fontWeight: '700', color: colors.textMuted, marginBottom: 4 }}>
+              SAVED BANK ACCOUNTS (TAP TO SWITCH):
+            </Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ flexDirection: 'row', gap: 6 }}>
+              {profile.savedBankAccounts.map((acc) => {
+                const isSelected = bankAccountNumber === acc.accountNumber;
+                const shortAcc = acc.accountNumber.length > 4 ? `••••${acc.accountNumber.slice(-4)}` : acc.accountNumber;
+                return (
+                  <TouchableOpacity
+                    key={acc.id || acc.accountNumber}
+                    style={{
+                      paddingHorizontal: 10,
+                      paddingVertical: 5,
+                      borderRadius: 14,
+                      backgroundColor: isSelected ? colors.primary + '15' : colors.backgroundSecondary,
+                      borderWidth: 1,
+                      borderColor: isSelected ? colors.primary : colors.border,
+                    }}
+                    onPress={() => {
+                      setBankAccountNumber(acc.accountNumber);
+                      setBankIfsc(acc.ifscOrRouting || '');
+                      setBankName(acc.bankName || '');
+                      if (acc.beneficiaryName) setUpiPayeeName(acc.beneficiaryName);
+                    }}
+                  >
+                    <Text style={{ fontSize: 11, fontWeight: '700', color: isSelected ? colors.primary : colors.textSecondary }}>
+                      🏛️ {acc.bankName ? `${acc.bankName} (${shortAcc})` : shortAcc} {isSelected ? '✓' : ''}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          </View>
+        )}
+
         <Text style={[styles.inputLabel, { marginTop: 12 }]}>Bank Account Number (Optional)</Text>
         <TextInput
           style={styles.input}
-          placeholder="For clients preferring direct IMPS/NEFT transfer"
+          placeholder="For clients preferring direct bank transfer"
           placeholderTextColor={colors.textMuted}
           value={bankAccountNumber}
           onChangeText={setBankAccountNumber}
           keyboardType="numeric"
         />
 
-        <Text style={[styles.inputLabel, { marginTop: 12 }]}>Bank IFSC Code (Optional)</Text>
+        <Text style={[styles.inputLabel, { marginTop: 12 }]}>Bank Routing / IFSC Code (Optional)</Text>
         <TextInput
           style={styles.input}
-          placeholder="e.g. HDFC0001234, SBIN0000456"
+          placeholder="e.g. Routing Number, IFSC, Sort Code"
           placeholderTextColor={colors.textMuted}
           value={bankIfsc}
           onChangeText={setBankIfsc}
@@ -905,7 +1000,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onBack }) => {
         <Text style={[styles.inputLabel, { marginTop: 12 }]}>Bank Name (Optional)</Text>
         <TextInput
           style={styles.input}
-          placeholder="e.g. HDFC Bank, State Bank of India"
+          placeholder="e.g. Chase, HDFC Bank, Barclays, RBC"
           placeholderTextColor={colors.textMuted}
           value={bankName}
           onChangeText={setBankName}
@@ -917,7 +1012,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onBack }) => {
           onPress={() => setShowOtherRails(!showOtherRails)}
         >
           <Text style={{ fontSize: 12, color: colors.primary, fontWeight: '700' }}>
-            {showOtherRails ? 'Hide US Rails (Zelle/Venmo) ▲' : 'Show US Rails (Zelle, Venmo, CashApp) ▼'}
+            {showOtherRails ? 'Hide Additional Payment Rails (Zelle, Venmo, Cash App) ▲' : 'Show Additional Payment Rails (Zelle, Venmo, Cash App) ▼'}
           </Text>
         </TouchableOpacity>
 

@@ -13,9 +13,19 @@ import {
 } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
 import * as Haptics from 'expo-haptics';
-import { X, Check, Edit3, ShieldCheck, AlertCircle, Building2, Smartphone, Landmark } from 'lucide-react-native';
+import {
+  X,
+  Check,
+  Edit3,
+  ShieldCheck,
+  AlertCircle,
+  Building2,
+  Smartphone,
+  Landmark,
+  Plus,
+} from 'lucide-react-native';
 import { Theme, getThemeColors, ThemeColors } from '../theme';
-import { Quote } from '../types';
+import { Quote, SavedBankAccount, SavedUpiAccount } from '../types';
 import { useQuoteStore } from '../store/useQuoteStore';
 import { NotificationService } from '../services/NotificationService';
 import { AlertService } from '../services/AlertService';
@@ -34,37 +44,181 @@ export const PaymentQRModal: React.FC<{ quote: Quote; onClose: () => void }> = (
   const isIndia = curSymbol === '₹' || profile?.currencyCode === 'INR';
 
   type RailType = 'UPI' | 'ZELLE' | 'VENMO' | 'CASHAPP' | 'BANK';
-  const [activeRail, setActiveRail] = useState<RailType>(isIndia ? 'UPI' : 'ZELLE');
+
+  const isUS = profile?.currencyCode === 'USD' || (!profile?.currencyCode && curSymbol === '$');
+
+  const availableRails = useMemo(() => {
+    if (isIndia) {
+      return [
+        { key: 'UPI' as RailType, label: '⚡ Instant QR Pay' },
+        { key: 'BANK' as RailType, label: '🏛️ Bank Transfer' },
+      ];
+    }
+    if (isUS) {
+      return [
+        ...(profile?.upiId ? [{ key: 'UPI' as RailType, label: '⚡ Instant QR' }] : []),
+        { key: 'ZELLE' as RailType, label: 'Zelle' },
+        { key: 'VENMO' as RailType, label: 'Venmo' },
+        { key: 'CASHAPP' as RailType, label: 'Cash App' },
+        { key: 'BANK' as RailType, label: 'Bank Wire' },
+      ];
+    }
+    // Global / International (UK, Europe, Australia, Canada, etc.)
+    return [
+      { key: 'UPI' as RailType, label: '⚡ Instant QR Pay' },
+      { key: 'BANK' as RailType, label: '🏛️ Bank Transfer' },
+      ...(profile?.zelleAccount ? [{ key: 'ZELLE' as RailType, label: 'Zelle' }] : []),
+      ...(profile?.venmoAccount ? [{ key: 'VENMO' as RailType, label: 'Venmo' }] : []),
+      ...(profile?.cashAppAccount ? [{ key: 'CASHAPP' as RailType, label: 'Cash App' }] : []),
+    ];
+  }, [isIndia, isUS, profile, curSymbol]);
+
+  const [activeRail, setActiveRail] = useState<RailType>(() => {
+    if (isIndia) return 'UPI';
+    if (isUS) return 'ZELLE';
+    return 'UPI';
+  });
   const [isProcessing, setIsProcessing] = useState(false);
 
-  // Inline UPI editing state
-  const [isEditingUpi, setIsEditingUpi] = useState(!profile?.upiId && isIndia);
+  // Saved accounts lists
+  const savedUpiList = useMemo(() => {
+    const list = [...(profile?.savedUpiAccounts || [])];
+    if (profile?.upiId && !list.some((item) => item.upiId.toLowerCase() === profile.upiId?.toLowerCase())) {
+      list.unshift({
+        id: 'primary-upi',
+        upiId: profile.upiId,
+        payeeName: profile.upiPayeeName || profile.businessName || profile.ownerName,
+      });
+    }
+    return list;
+  }, [profile?.savedUpiAccounts, profile?.upiId, profile?.upiPayeeName, profile?.businessName, profile?.ownerName]);
+
+  const savedBankList = useMemo(() => {
+    const list = [...(profile?.savedBankAccounts || [])];
+    if (profile?.bankAccountNumber && !list.some((item) => item.accountNumber === profile.bankAccountNumber)) {
+      list.unshift({
+        id: 'primary-bank',
+        accountNumber: profile.bankAccountNumber,
+        ifscOrRouting: profile.bankIfsc,
+        bankName: profile.bankName,
+        beneficiaryName: profile.upiPayeeName || profile.businessName || profile.ownerName,
+      });
+    }
+    return list;
+  }, [profile?.savedBankAccounts, profile?.bankAccountNumber, profile?.bankIfsc, profile?.bankName, profile?.upiPayeeName, profile?.businessName, profile?.ownerName]);
+
+  // Inline Instant QR editing state
+  const [isEditingUpi, setIsEditingUpi] = useState(!profile?.upiId && (isIndia || (!isUS && !profile?.zelleAccount)));
   const [upiInput, setUpiInput] = useState(profile?.upiId || '');
   const [upiNameInput, setUpiNameInput] = useState(
     profile?.upiPayeeName || profile?.businessName || profile?.ownerName || 'JobSign Contractor'
   );
   const [upiError, setUpiError] = useState('');
 
+  // Inline Bank editing state
+  const [isEditingBank, setIsEditingBank] = useState(!profile?.bankAccountNumber);
+  const [bankAccountInput, setBankAccountInput] = useState(profile?.bankAccountNumber || '');
+  const [bankIfscInput, setBankIfscInput] = useState(profile?.bankIfsc || '');
+  const [bankNameInput, setBankNameInput] = useState(profile?.bankName || '');
+  const [bankBeneficiaryInput, setBankBeneficiaryInput] = useState(
+    profile?.upiPayeeName || profile?.businessName || profile?.ownerName || 'JobSign Contractor'
+  );
+  const [bankError, setBankError] = useState('');
+
   const amountDecimal = (quote.totalAmountCents / 100).toFixed(2);
   const amountFormatted = `${curSymbol}${amountDecimal}`;
+
+  const handleSelectUpi = (acc: SavedUpiAccount) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    updateProfile({
+      upiId: acc.upiId,
+      upiPayeeName: acc.payeeName,
+    });
+    setUpiInput(acc.upiId);
+    setUpiNameInput(acc.payeeName || profile?.businessName || profile?.ownerName || 'JobSign Contractor');
+    setIsEditingUpi(false);
+  };
+
+  const handleSelectBank = (acc: SavedBankAccount) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    updateProfile({
+      bankAccountNumber: acc.accountNumber,
+      bankIfsc: acc.ifscOrRouting,
+      bankName: acc.bankName,
+      upiPayeeName: acc.beneficiaryName,
+    });
+    setBankAccountInput(acc.accountNumber);
+    setBankIfscInput(acc.ifscOrRouting || '');
+    setBankNameInput(acc.bankName || '');
+    setBankBeneficiaryInput(acc.beneficiaryName || profile?.businessName || profile?.ownerName || 'JobSign Contractor');
+    setIsEditingBank(false);
+  };
 
   const handleSaveUpi = () => {
     const trimmedId = upiInput.trim().toLowerCase();
     if (!trimmedId) {
-      setUpiError('Please enter a valid UPI ID (e.g. yourname@okhdfcbank or 9876543210@paytm)');
+      setUpiError('Please enter a valid payment ID (e.g. yourname@bank or 9876543210@bank)');
       return;
     }
     if (!trimmedId.includes('@')) {
-      setUpiError('UPI ID must include an @ handle (e.g. name@okhdfcbank, mobile@paytm)');
+      setUpiError('Payment ID must include an @ handle (e.g. name@bank, mobile@bank)');
       return;
     }
     setUpiError('');
+    const payee = upiNameInput.trim() || profile?.businessName || profile?.ownerName || 'JobSign Contractor';
+
+    const newUpi: SavedUpiAccount = {
+      id: Date.now().toString(),
+      upiId: trimmedId,
+      payeeName: payee,
+    };
+
+    const existing = profile?.savedUpiAccounts || [];
+    const filtered = existing.filter((u) => u.upiId.toLowerCase() !== trimmedId);
+    const updatedList = [newUpi, ...filtered];
+
     updateProfile({
       upiId: trimmedId,
-      upiPayeeName: upiNameInput.trim() || profile?.businessName || profile?.ownerName || 'JobSign Contractor',
+      upiPayeeName: payee,
+      savedUpiAccounts: updatedList,
     });
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     setIsEditingUpi(false);
+  };
+
+  const handleSaveBank = () => {
+    const trimmedAcc = bankAccountInput.trim();
+    if (!trimmedAcc || trimmedAcc.length < 4) {
+      setBankError('Please enter a valid bank account number');
+      return;
+    }
+    setBankError('');
+    const beneficiary = bankBeneficiaryInput.trim() || profile?.businessName || profile?.ownerName || 'JobSign Contractor';
+    const routing = bankIfscInput.trim().toUpperCase();
+    const bName = bankNameInput.trim();
+
+    const newAccount: SavedBankAccount = {
+      id: Date.now().toString(),
+      accountNumber: trimmedAcc,
+      ifscOrRouting: routing,
+      bankName: bName,
+      beneficiaryName: beneficiary,
+    };
+
+    const existing = profile?.savedBankAccounts || [];
+    const filtered = existing.filter((b) => b.accountNumber !== trimmedAcc);
+    const updatedList = [newAccount, ...filtered];
+
+    updateProfile({
+      bankAccountNumber: trimmedAcc,
+      bankIfsc: routing,
+      bankName: bName,
+      upiPayeeName: beneficiary,
+      savedBankAccounts: updatedList,
+    });
+
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    setIsEditingBank(false);
   };
 
   const getPayload = (): string => {
@@ -83,7 +237,7 @@ export const PaymentQRModal: React.FC<{ quote: Quote; onClose: () => void }> = (
         // upi://pay?pa={UPI_ID}&pn={NAME}&am={AMOUNT}&cu=INR&tn={NOTE}
         return `upi://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(
           payeeName
-        )}&am=${amtStr}&cu=INR&tn=${encodeURIComponent(`Payment for Quote #${quote.quoteNumber}`)}`;
+        )}&am=${amtStr}&cu=${profile?.currencyCode || 'INR'}&tn=${encodeURIComponent(`Payment for Quote #${quote.quoteNumber}`)}`;
       }
       case 'ZELLE':
         return profile?.zelleAccount
@@ -98,14 +252,16 @@ export const PaymentQRModal: React.FC<{ quote: Quote; onClose: () => void }> = (
           ? `https://cash.app/${profile.cashAppAccount.replace('$', '')}/${amtStr}`
           : 'https://cash.app';
       case 'BANK': {
-        if (isIndia && (profile?.bankAccountNumber || profile?.bankIfsc)) {
-          return `Bank Transfer (IMPS/NEFT):\nBeneficiary: ${
-            profile?.upiPayeeName || profile?.businessName
-          }\nA/C: ${profile?.bankAccountNumber || 'N/A'}\nIFSC: ${profile?.bankIfsc || 'N/A'}\nBank: ${
+        if (profile?.bankAccountNumber || profile?.bankIfsc) {
+          return `Direct Bank Transfer:\nBeneficiary: ${
+            profile?.upiPayeeName || profile?.businessName || profile?.ownerName
+          }\nA/C: ${profile?.bankAccountNumber || 'N/A'}\n${
+            isIndia ? 'IFSC' : 'Routing/Sort'
+          }: ${profile?.bankIfsc || 'N/A'}\nBank: ${
             profile?.bankName || 'N/A'
           }\nAmount: ${curSymbol}${amtStr}\nRef: Quote #${quote.quoteNumber}`;
         }
-        return `Direct Bank Settlement for ${profile?.businessName}\nAmount Due: ${curSymbol}${amtStr}\nRef: Agreement #${quote.quoteNumber}`;
+        return `Direct Bank Settlement for ${profile?.businessName || profile?.ownerName}\nAmount Due: ${curSymbol}${amtStr}\nRef: Agreement #${quote.quoteNumber}`;
       }
     }
   };
@@ -172,9 +328,7 @@ export const PaymentQRModal: React.FC<{ quote: Quote; onClose: () => void }> = (
             <View>
               <Text style={styles.title}>Direct Payment</Text>
               <Text style={styles.sub}>
-                {isIndia
-                  ? 'Client scans to pay directly into your bank via UPI'
-                  : 'Client scans contractor screen directly'}
+                Client scans to pay directly into contractor bank account
               </Text>
             </View>
             <TouchableOpacity
@@ -195,62 +349,70 @@ export const PaymentQRModal: React.FC<{ quote: Quote; onClose: () => void }> = (
             </View>
 
             {/* Payment Method Selector */}
-            {isIndia ? (
-              <View style={styles.railTabs}>
+            <View style={styles.railTabs}>
+              {availableRails.map((r) => (
                 <TouchableOpacity
-                  style={[styles.railTab, activeRail === 'UPI' && styles.railTabActive]}
+                  key={r.key}
+                  style={[styles.railTab, activeRail === r.key && styles.railTabActive]}
                   onPress={() => {
                     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                    setActiveRail('UPI');
+                    setActiveRail(r.key);
                   }}
                 >
-                  <Text style={[styles.railTabText, activeRail === 'UPI' && styles.railTabTextActive]}>
-                    ⚡ UPI (GPay • PhonePe • Paytm)
+                  <Text style={[styles.railTabText, activeRail === r.key && styles.railTabTextActive]}>
+                    {r.label}
                   </Text>
                 </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.railTab, activeRail === 'BANK' && styles.railTabActive]}
-                  onPress={() => {
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                    setActiveRail('BANK');
-                  }}
-                >
-                  <Text style={[styles.railTabText, activeRail === 'BANK' && styles.railTabTextActive]}>
-                    🏛️ Bank (IMPS/NEFT)
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            ) : (
-              <View style={styles.railTabs}>
-                {(['ZELLE', 'VENMO', 'CASHAPP', 'BANK'] as const).map((r) => (
-                  <TouchableOpacity
-                    key={r}
-                    style={[styles.railTab, activeRail === r && styles.railTabActive]}
-                    onPress={() => {
-                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                      setActiveRail(r);
-                    }}
-                  >
-                    <Text style={[styles.railTabText, activeRail === r && styles.railTabTextActive]}>
-                      {r === 'CASHAPP' ? 'Cash App' : r === 'BANK' ? 'Bank Wire' : r}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            )}
+              ))}
+            </View>
 
-            {/* UPI INLINE CONFIGURATION / QR CODE */}
+            {/* INSTANT QR INLINE CONFIGURATION / DISPLAY */}
             {activeRail === 'UPI' && (
               <>
+                {/* Account Switcher / Quick Select */}
+                {savedUpiList.length > 0 && !isEditingUpi && (
+                  <View style={styles.accountSwitcher}>
+                    <Text style={styles.switcherLabel}>SELECT PAYMENT ID:</Text>
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.switcherRow}>
+                      {savedUpiList.map((acc) => {
+                        const isSelected = profile?.upiId?.toLowerCase() === acc.upiId.toLowerCase();
+                        return (
+                          <TouchableOpacity
+                            key={acc.id || acc.upiId}
+                            style={[styles.accountChip, isSelected && styles.accountChipActive]}
+                            onPress={() => handleSelectUpi(acc)}
+                          >
+                            <Text style={[styles.accountChipText, isSelected && styles.accountChipTextActive]}>
+                              ⚡ {acc.upiId}
+                            </Text>
+                            {isSelected && <Check size={12} color={colors.primary} style={{ marginLeft: 2 }} />}
+                          </TouchableOpacity>
+                        );
+                      })}
+                      <TouchableOpacity
+                        style={styles.addAccountChip}
+                        onPress={() => {
+                          setUpiInput('');
+                          setUpiNameInput(profile?.businessName || profile?.ownerName || '');
+                          setIsEditingUpi(true);
+                        }}
+                      >
+                        <Plus size={12} color={colors.primary} />
+                        <Text style={styles.addAccountChipText}>+ Add ID</Text>
+                      </TouchableOpacity>
+                    </ScrollView>
+                  </View>
+                )}
+
                 {!profile?.upiId || isEditingUpi ? (
-                  /* UPI Setup Card */
+                  /* Setup Card */
                   <View style={styles.upiSetupCard}>
                     <View style={styles.setupCardHeader}>
                       <ShieldCheck size={20} color={colors.emerald} />
-                      <Text style={styles.setupCardTitle}>Configure Your Receiving UPI ID</Text>
+                      <Text style={styles.setupCardTitle}>Configure Instant QR Payment</Text>
                     </View>
                     <Text style={styles.setupCardDesc}>
-                      Enter your UPI ID so payments transfer 100% directly into your bank account.
+                      Enter your payment ID / Virtual Address so funds transfer 100% directly into your bank account.
                       The exact amount ({amountFormatted}) will be locked & pre-filled when your client scans.
                     </Text>
 
@@ -261,10 +423,10 @@ export const PaymentQRModal: React.FC<{ quote: Quote; onClose: () => void }> = (
                       </View>
                     ) : null}
 
-                    <Text style={styles.fieldLabel}>Your UPI ID (VPA):</Text>
+                    <Text style={styles.fieldLabel}>Receiving Payment ID (UPI / Virtual Address):</Text>
                     <TextInput
                       style={styles.textInput}
-                      placeholder="e.g. 9876543210@paytm, contractor@okhdfcbank"
+                      placeholder="e.g. contractor@bank, mobile@bank"
                       placeholderTextColor={colors.textMuted}
                       value={upiInput}
                       onChangeText={(t) => {
@@ -280,7 +442,7 @@ export const PaymentQRModal: React.FC<{ quote: Quote; onClose: () => void }> = (
                     </Text>
                     <TextInput
                       style={styles.textInput}
-                      placeholder="e.g. Apex Electricals or Your Name"
+                      placeholder="e.g. Apex Electricals or Contractor Name"
                       placeholderTextColor={colors.textMuted}
                       value={upiNameInput}
                       onChangeText={setUpiNameInput}
@@ -289,7 +451,7 @@ export const PaymentQRModal: React.FC<{ quote: Quote; onClose: () => void }> = (
                     <View style={styles.setupActions}>
                       <TouchableOpacity style={styles.saveUpiBtn} onPress={handleSaveUpi}>
                         <Check size={16} color="#FFFFFF" style={{ marginRight: 6 }} />
-                        <Text style={styles.saveUpiBtnText}>Save & Generate UPI QR</Text>
+                        <Text style={styles.saveUpiBtnText}>Save & Generate QR</Text>
                       </TouchableOpacity>
 
                       {profile?.upiId ? (
@@ -306,11 +468,11 @@ export const PaymentQRModal: React.FC<{ quote: Quote; onClose: () => void }> = (
                     </View>
 
                     <Text style={styles.securityNote}>
-                      🔒 Zero Middleman • Instant Bank-to-Bank Transfer • 0% Fees
+                      🔒 Zero Middleman • Instant Bank Settlement • 0% Fees
                     </Text>
                   </View>
                 ) : (
-                  /* Live UPI QR Display */
+                  /* Live QR Display */
                   <View style={styles.qrContainer}>
                     <View style={styles.qrFrame}>
                       <QRCode
@@ -348,15 +510,15 @@ export const PaymentQRModal: React.FC<{ quote: Quote; onClose: () => void }> = (
                     {/* Apps list & features */}
                     <View style={styles.appSupportBox}>
                       <Text style={styles.appSupportTitle}>
-                        SCAN WITH ANY UPI APP
+                        SCAN WITH ANY CAMERA OR BANKING APP
                       </Text>
                       <Text style={styles.appSupportList}>
-                        Google Pay • PhonePe • Paytm • BHIM • Cred • Any Bank App
+                        Compatible with all major banking, wallet, and scan-to-pay apps
                       </Text>
                       <View style={styles.appGuarantees}>
                         <Text style={styles.guaranteeItem}>✓ Pre-filled exact amount: {amountFormatted}</Text>
-                        <Text style={styles.guaranteeItem}>✓ Money transfers directly to your bank account</Text>
-                        <Text style={styles.guaranteeItem}>✓ No middleman or commission deducted</Text>
+                        <Text style={styles.guaranteeItem}>✓ Direct transfer to contractor bank account</Text>
+                        <Text style={styles.guaranteeItem}>✓ Zero middleman fees or transaction deductions</Text>
                       </View>
                     </View>
                   </View>
@@ -364,15 +526,162 @@ export const PaymentQRModal: React.FC<{ quote: Quote; onClose: () => void }> = (
               </>
             )}
 
-            {/* BANK WIRE / IMPS RAIL */}
+            {/* DIRECT BANK TRANSFER RAIL */}
             {activeRail === 'BANK' && (
               <View style={styles.bankContainer}>
-                {isIndia && profile?.bankAccountNumber ? (
+                {/* Account Switcher / Quick Select */}
+                {savedBankList.length > 0 && !isEditingBank && (
+                  <View style={styles.accountSwitcher}>
+                    <Text style={styles.switcherLabel}>SELECT BANK ACCOUNT:</Text>
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.switcherRow}>
+                      {savedBankList.map((acc) => {
+                        const isSelected = profile?.bankAccountNumber === acc.accountNumber;
+                        const shortAcc = acc.accountNumber.length > 4 ? `••••${acc.accountNumber.slice(-4)}` : acc.accountNumber;
+                        return (
+                          <TouchableOpacity
+                            key={acc.id || acc.accountNumber}
+                            style={[styles.accountChip, isSelected && styles.accountChipActive]}
+                            onPress={() => handleSelectBank(acc)}
+                          >
+                            <Landmark size={12} color={isSelected ? colors.primary : colors.textMuted} />
+                            <Text style={[styles.accountChipText, isSelected && styles.accountChipTextActive]}>
+                              {acc.bankName ? `${acc.bankName} (${shortAcc})` : shortAcc}
+                            </Text>
+                            {isSelected && <Check size={12} color={colors.primary} style={{ marginLeft: 2 }} />}
+                          </TouchableOpacity>
+                        );
+                      })}
+                      <TouchableOpacity
+                        style={styles.addAccountChip}
+                        onPress={() => {
+                          setBankAccountInput('');
+                          setBankIfscInput('');
+                          setBankNameInput('');
+                          setBankBeneficiaryInput(profile?.businessName || profile?.ownerName || '');
+                          setIsEditingBank(true);
+                        }}
+                      >
+                        <Plus size={12} color={colors.primary} />
+                        <Text style={styles.addAccountChipText}>+ Add Bank</Text>
+                      </TouchableOpacity>
+                    </ScrollView>
+                  </View>
+                )}
+
+                {!profile?.bankAccountNumber || isEditingBank ? (
+                  /* Bank Inline Setup Card - Simple & Beautiful! */
+                  <View style={styles.upiSetupCard}>
+                    <View style={styles.setupCardHeader}>
+                      <Building2 size={20} color={colors.emerald} />
+                      <Text style={styles.setupCardTitle}>
+                        {profile?.bankAccountNumber ? 'Edit Bank Account Details' : 'Enter Bank Account Details'}
+                      </Text>
+                    </View>
+                    <Text style={styles.setupCardDesc}>
+                      Enter your bank account details for direct client transfers. Exact settlement amount ({amountFormatted}) will be displayed to the client.
+                    </Text>
+
+                    {bankError ? (
+                      <View style={styles.errorBox}>
+                        <AlertCircle size={14} color={colors.rose} />
+                        <Text style={styles.errorText}>{bankError}</Text>
+                      </View>
+                    ) : null}
+
+                    <Text style={styles.fieldLabel}>Account Beneficiary / Name:</Text>
+                    <TextInput
+                      style={styles.textInput}
+                      placeholder="Account holder or business name"
+                      placeholderTextColor={colors.textMuted}
+                      value={bankBeneficiaryInput}
+                      onChangeText={setBankBeneficiaryInput}
+                    />
+
+                    <Text style={[styles.fieldLabel, { marginTop: 10 }]}>Bank Account Number *:</Text>
+                    <TextInput
+                      style={styles.textInput}
+                      placeholder="e.g. 50100234567890"
+                      placeholderTextColor={colors.textMuted}
+                      value={bankAccountInput}
+                      onChangeText={(t) => {
+                        setBankAccountInput(t);
+                        if (bankError) setBankError('');
+                      }}
+                      keyboardType="numeric"
+                    />
+
+                    <Text style={[styles.fieldLabel, { marginTop: 10 }]}>
+                      {isIndia ? 'IFSC Code (Optional):' : 'Routing / Sort Code (Optional):'}
+                    </Text>
+                    <TextInput
+                      style={styles.textInput}
+                      placeholder={isIndia ? 'e.g. HDFC0001234' : 'e.g. 021000021'}
+                      placeholderTextColor={colors.textMuted}
+                      value={bankIfscInput}
+                      onChangeText={setBankIfscInput}
+                      autoCapitalize="characters"
+                    />
+
+                    <Text style={[styles.fieldLabel, { marginTop: 10 }]}>Bank Name (Optional):</Text>
+                    <TextInput
+                      style={styles.textInput}
+                      placeholder={isIndia ? 'e.g. HDFC Bank, SBI' : 'e.g. Chase, Bank of America'}
+                      placeholderTextColor={colors.textMuted}
+                      value={bankNameInput}
+                      onChangeText={setBankNameInput}
+                    />
+
+                    <View style={styles.setupActions}>
+                      <TouchableOpacity style={styles.saveUpiBtn} onPress={handleSaveBank}>
+                        <Check size={16} color="#FFFFFF" style={{ marginRight: 6 }} />
+                        <Text style={styles.saveUpiBtnText}>Save & Display Bank Details</Text>
+                      </TouchableOpacity>
+
+                      {profile?.bankAccountNumber ? (
+                        <TouchableOpacity
+                          style={styles.cancelUpiBtn}
+                          onPress={() => {
+                            setBankAccountInput(profile.bankAccountNumber || '');
+                            setBankIfscInput(profile.bankIfsc || '');
+                            setBankNameInput(profile.bankName || '');
+                            setBankBeneficiaryInput(profile.upiPayeeName || profile.businessName || profile.ownerName || '');
+                            setIsEditingBank(false);
+                          }}
+                        >
+                          <Text style={styles.cancelUpiBtnText}>Cancel</Text>
+                        </TouchableOpacity>
+                      ) : null}
+                    </View>
+
+                    <Text style={styles.securityNote}>
+                      🔒 100% Direct Bank Settlement • Stored Securely on Device
+                    </Text>
+                  </View>
+                ) : (
+                  /* Verified Bank Details Card with Edit & Switch option! */
                   <View style={styles.bankDetailsCard}>
                     <View style={styles.bankHeader}>
-                      <Landmark size={20} color={colors.primary} />
-                      <Text style={styles.bankTitle}>Direct Bank Transfer (NEFT / IMPS)</Text>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                        <Landmark size={20} color={colors.primary} />
+                        <Text style={styles.bankTitle}>Direct Bank Transfer Details</Text>
+                      </View>
+                      <TouchableOpacity
+                        style={styles.editBankBtn}
+                        onPress={() => {
+                          setBankAccountInput(profile.bankAccountNumber || '');
+                          setBankIfscInput(profile.bankIfsc || '');
+                          setBankNameInput(profile.bankName || '');
+                          setBankBeneficiaryInput(
+                            profile.upiPayeeName || profile.businessName || profile.ownerName || ''
+                          );
+                          setIsEditingBank(true);
+                        }}
+                      >
+                        <Edit3 size={14} color={colors.primary} />
+                        <Text style={styles.editBankBtnText}>Edit</Text>
+                      </TouchableOpacity>
                     </View>
+
                     <View style={styles.bankRow}>
                       <Text style={styles.bankLabel}>Beneficiary:</Text>
                       <Text style={styles.bankVal}>
@@ -385,7 +694,9 @@ export const PaymentQRModal: React.FC<{ quote: Quote; onClose: () => void }> = (
                     </View>
                     {profile.bankIfsc ? (
                       <View style={styles.bankRow}>
-                        <Text style={styles.bankLabel}>IFSC Code:</Text>
+                        <Text style={styles.bankLabel}>
+                          {isIndia ? 'IFSC Code:' : 'Routing / Sort Code:'}
+                        </Text>
                         <Text style={[styles.bankVal, styles.monoVal]}>{profile.bankIfsc}</Text>
                       </View>
                     ) : null}
@@ -401,22 +712,12 @@ export const PaymentQRModal: React.FC<{ quote: Quote; onClose: () => void }> = (
                         {amountFormatted}
                       </Text>
                     </View>
-                  </View>
-                ) : (
-                  <View style={styles.qrContainer}>
-                    <View style={styles.qrFrame}>
-                      <QRCode
-                        value={currentPayload}
-                        size={180}
-                        color="#0F172A"
-                        backgroundColor="#FFFFFF"
-                      />
+
+                    <View style={styles.bankFooterGuarantee}>
+                      <Text style={styles.guaranteeItem}>✓ Pre-filled exact amount: {amountFormatted}</Text>
+                      <Text style={styles.guaranteeItem}>✓ Direct bank transfer with 0% middleman fees</Text>
+                      <Text style={styles.guaranteeItem}>✓ Client transfers via any mobile banking app</Text>
                     </View>
-                    <Text style={styles.qrHint}>
-                      {isIndia
-                        ? 'Add Bank Account & IFSC code in Settings to show direct transfer details.'
-                        : `Have client scan or initiate wire to settle ${amountFormatted}.`}
-                    </Text>
                   </View>
                 )}
               </View>
@@ -815,6 +1116,84 @@ const makeStyles = (colors: ThemeColors) =>
       textAlign: 'center',
       paddingHorizontal: 20,
       lineHeight: 16,
+    },
+    accountSwitcher: {
+      marginBottom: 12,
+    },
+    switcherLabel: {
+      fontSize: 10,
+      fontWeight: '800',
+      color: colors.textMuted,
+      letterSpacing: 0.6,
+      marginBottom: 6,
+    },
+    switcherRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+      paddingVertical: 2,
+    },
+    accountChip: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      paddingHorizontal: 12,
+      paddingVertical: 7,
+      borderRadius: 20,
+      backgroundColor: colors.backgroundSecondary,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    accountChipActive: {
+      backgroundColor: colors.primary + '15',
+      borderColor: colors.primary,
+    },
+    accountChipText: {
+      fontSize: 12,
+      fontWeight: '700',
+      color: colors.textSecondary,
+    },
+    accountChipTextActive: {
+      color: colors.primary,
+      fontWeight: '800',
+    },
+    addAccountChip: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+      paddingHorizontal: 12,
+      paddingVertical: 7,
+      borderRadius: 20,
+      borderWidth: 1,
+      borderStyle: 'dashed',
+      borderColor: colors.primary,
+      backgroundColor: 'transparent',
+    },
+    addAccountChipText: {
+      fontSize: 12,
+      fontWeight: '700',
+      color: colors.primary,
+    },
+    editBankBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+      paddingHorizontal: 10,
+      paddingVertical: 6,
+      borderRadius: 6,
+      backgroundColor: colors.primary + '15',
+    },
+    editBankBtnText: {
+      fontSize: 12,
+      fontWeight: '700',
+      color: colors.primary,
+    },
+    bankFooterGuarantee: {
+      borderTopWidth: 1,
+      borderColor: colors.border,
+      paddingTop: 10,
+      marginTop: 10,
+      gap: 4,
     },
     confirmPaidBtn: {
       backgroundColor: colors.emerald,

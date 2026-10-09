@@ -283,13 +283,17 @@ assert(testUpiUrl.includes('pn=JobSign%20Electric'), 'UPI URL correctly encodes 
 assert(testUpiUrl.includes('am=119.08'), 'UPI URL pre-fills exact decimal amount (119.08) for scanning client');
 assert(testUpiUrl.includes('cu=INR'), 'UPI URL specifies currency as INR');
 
-const settingsScreenPaymentRaw = fs.readFileSync(path.resolve('./src/screens/SettingsScreen.tsx'), 'utf8');
-assert(settingsScreenPaymentRaw.includes('upiId'), 'SettingsScreen manages contractor UPI ID state');
-assert(settingsScreenPaymentRaw.includes('bankAccountNumber'), 'SettingsScreen manages contractor Bank Account Number');
-assert(settingsScreenPaymentRaw.includes('bankIfsc'), 'SettingsScreen manages contractor Bank IFSC code');
+assert(paymentModalRaw.includes('handleSaveBank'), 'PaymentQRModal implements inline handleSaveBank without requiring dummy QR scanner');
+assert(paymentModalRaw.includes('handleSelectBank'), 'PaymentQRModal supports instant switching between multiple saved bank accounts');
+assert(paymentModalRaw.includes('handleSelectUpi'), 'PaymentQRModal supports instant switching between multiple saved UPI IDs');
+assert(paymentModalRaw.includes('isEditingBank'), 'PaymentQRModal supports inline editing of bank details directly on modal page');
+
+const typesRaw = fs.readFileSync(path.resolve('./src/types/index.ts'), 'utf8');
+assert(typesRaw.includes('SavedBankAccount'), 'types/index.ts exports SavedBankAccount data model');
+assert(typesRaw.includes('SavedUpiAccount'), 'types/index.ts exports SavedUpiAccount data model');
 
 const pdfPaymentRaw = fs.readFileSync(path.resolve('./src/services/PDFService.ts'), 'utf8');
-assert(pdfPaymentRaw.includes('UPI (GPay/PhonePe/Paytm)'), 'PDFService prints UPI payment details on generated contracts');
+assert(pdfPaymentRaw.includes('Instant QR Pay'), 'PDFService prints Instant QR payment details on generated contracts');
 assert(pdfPaymentRaw.includes('public static async viewPDF'), 'PDFService exposes viewPDF method for direct document viewing');
 
 const quoteDetailRaw = fs.readFileSync(path.resolve('./src/screens/QuoteDetailScreen.tsx'), 'utf8');
