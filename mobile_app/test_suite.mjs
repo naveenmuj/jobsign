@@ -293,13 +293,44 @@ assert(typesRaw.includes('SavedBankAccount'), 'types/index.ts exports SavedBankA
 assert(typesRaw.includes('SavedUpiAccount'), 'types/index.ts exports SavedUpiAccount data model');
 
 const pdfPaymentRaw = fs.readFileSync(path.resolve('./src/services/PDFService.ts'), 'utf8');
-assert(pdfPaymentRaw.includes('Instant QR Pay'), 'PDFService prints Instant QR payment details on generated contracts');
+assert(pdfPaymentRaw.includes('RegionPaymentService.formatInvoicePaymentAccounts'), 'PDFService delegates localized payment details to RegionPaymentService');
+assert(pdfPaymentRaw.includes('customPaymentNote'), 'PDFService prints contractor custom payment note / instructions on invoices');
 assert(pdfPaymentRaw.includes('public static async viewPDF'), 'PDFService exposes viewPDF method for direct document viewing');
 
 const quoteDetailRaw = fs.readFileSync(path.resolve('./src/screens/QuoteDetailScreen.tsx'), 'utf8');
 assert(quoteDetailRaw.includes('handleViewPDF'), 'QuoteDetailScreen implements handleViewPDF handler');
 assert(quoteDetailRaw.includes('View PDF'), 'QuoteDetailScreen renders View PDF button');
 assert(quoteDetailRaw.includes('View Receipt'), 'QuoteDetailScreen renders View Receipt button when paid');
+
+// -----------------------------------------------------------------
+// 10. MULTI-REGION LOCALIZATION & CUSTOM PAYMENT INSTRUCTIONS
+// -----------------------------------------------------------------
+console.log('\n10. [LOCALIZATION & REGIONAL RAILS] Multi-Country Payment Formatting');
+
+const regionServiceRaw = fs.readFileSync(path.resolve('./src/services/RegionPaymentService.ts'), 'utf8');
+assert(regionServiceRaw.includes('class RegionPaymentService'), 'RegionPaymentService class exported');
+assert(regionServiceRaw.includes('detectRegion'), 'RegionPaymentService implements region detection');
+assert(regionServiceRaw.includes('getConfig'), 'RegionPaymentService provides regional configs');
+assert(regionServiceRaw.includes('formatInvoicePaymentAccounts'), 'RegionPaymentService formats invoice payment accounts');
+
+// Assert support for 7 worldwide regional configurations
+assert(regionServiceRaw.includes("'IN'") && regionServiceRaw.includes('IFSC'), 'RegionPaymentService supports India (UPI + IFSC)');
+assert(regionServiceRaw.includes("'US'") && regionServiceRaw.includes('Routing'), 'RegionPaymentService supports United States (ACH + Routing + Zelle)');
+assert(regionServiceRaw.includes("'GB'") && regionServiceRaw.includes('Sort Code'), 'RegionPaymentService supports United Kingdom (Faster Payments + Sort Code)');
+assert(regionServiceRaw.includes("'EU'") && regionServiceRaw.includes('IBAN'), 'RegionPaymentService supports Eurozone (SEPA + IBAN + BIC)');
+assert(regionServiceRaw.includes("'CA'") && regionServiceRaw.includes('Interac'), 'RegionPaymentService supports Canada (Interac e-Transfer + Transit)');
+assert(regionServiceRaw.includes("'AU'") && regionServiceRaw.includes('PayID') && regionServiceRaw.includes('BSB'), 'RegionPaymentService supports Australia (PayID + BSB)');
+assert(regionServiceRaw.includes("'GLOBAL'"), 'RegionPaymentService provides Global / International fallback');
+
+// Verify contractor custom fields in types
+assert(typesRaw.includes('customPaymentLabel?: string'), 'types/index.ts includes optional customPaymentLabel');
+assert(typesRaw.includes('customPaymentNote?: string'), 'types/index.ts includes optional customPaymentNote');
+
+// Verify SettingsScreen Modal 4 supports custom fields & regionConfig
+const settingsRaw = fs.readFileSync(path.resolve('./src/screens/SettingsScreen.tsx'), 'utf8');
+assert(settingsRaw.includes('customPaymentLabel'), 'SettingsScreen allows editing customPaymentLabel');
+assert(settingsRaw.includes('customPaymentNote'), 'SettingsScreen allows editing customPaymentNote');
+assert(settingsRaw.includes('regionConfig.bankCodeLabel'), 'SettingsScreen dynamically localizes bank code label by country');
 
 console.log('\n======================================================');
 console.log(`TOTAL TESTS: ${passedCount + failedCount} | PASSED: ${passedCount} | FAILED: ${failedCount}`);

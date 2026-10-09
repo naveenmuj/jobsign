@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   View,
   Text,
@@ -19,6 +19,7 @@ import { useQuoteStore } from '../store/useQuoteStore';
 import { PDFService } from '../services/PDFService';
 import { AlertService } from '../services/AlertService';
 import { CurrencyService, POPULAR_CURRENCIES } from '../services/CurrencyService';
+import { RegionPaymentService } from '../services/RegionPaymentService';
 import { PaywallModal } from '../components/PaywallModal';
 import { BehaviorLogsModal } from '../components/BehaviorLogsModal';
 import { BillingService } from '../services/BillingService';
@@ -162,6 +163,8 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onBack }) => {
   const [zelle, setZelle] = useState(profile.zelleAccount || '');
   const [venmo, setVenmo] = useState(profile.venmoAccount || '');
   const [cashApp, setCashApp] = useState(profile.cashAppAccount || '');
+  const [customPaymentLabel, setCustomPaymentLabel] = useState(profile.customPaymentLabel || '');
+  const [customPaymentNote, setCustomPaymentNote] = useState(profile.customPaymentNote || '');
   const [showOtherRails, setShowOtherRails] = useState(false);
 
   // Templates
@@ -199,6 +202,10 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onBack }) => {
     .slice(0, 2)
     .map((w) => w[0].toUpperCase())
     .join('') || 'JS';
+
+  const regionConfig = useMemo(() => {
+    return RegionPaymentService.getConfig(currencyCode, currencySymbol);
+  }, [currencyCode, currencySymbol]);
 
   // Save changes to store
   const handleSaveAll = (showToast = true) => {
@@ -250,6 +257,8 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onBack }) => {
       bankName: bankName.trim() || undefined,
       savedBankAccounts: updatedSavedBanks,
       savedUpiAccounts: updatedSavedUpis,
+      customPaymentLabel: customPaymentLabel.trim() || undefined,
+      customPaymentNote: customPaymentNote.trim() || undefined,
       hasCustomBusinessName: true,
       invoiceTemplate: selectedTemplate,
       notificationPreferences: {
@@ -917,10 +926,10 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onBack }) => {
           </View>
         )}
 
-        <Text style={styles.inputLabel}>Receiving Payment ID (Instant QR / Virtual Address) *</Text>
+        <Text style={styles.inputLabel}>{regionConfig.instantIdLabel}</Text>
         <TextInput
           style={styles.input}
-          placeholder="e.g. contractor@bank, mobile@bank"
+          placeholder={regionConfig.instantIdPlaceholder}
           placeholderTextColor={colors.textMuted}
           value={upiId}
           onChangeText={setUpiId}
@@ -928,7 +937,9 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onBack }) => {
           autoCorrect={false}
         />
         <Text style={styles.inputHelp}>
-          When client scans with any camera or banking app, funds transfer directly to your bank account.
+          {regionConfig.region === 'IN'
+            ? 'When client scans with GPay, PhonePe, Paytm or BHIM, funds transfer directly to your bank account.'
+            : 'Pre-filled automatically when homeowner scans the QR code.'}
         </Text>
 
         <Text style={[styles.inputLabel, { marginTop: 12 }]}>Registered Payee / Business Name</Text>
@@ -977,20 +988,20 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onBack }) => {
           </View>
         )}
 
-        <Text style={[styles.inputLabel, { marginTop: 12 }]}>Bank Account Number (Optional)</Text>
+        <Text style={[styles.inputLabel, { marginTop: 12 }]}>{regionConfig.bankAccountLabel}</Text>
         <TextInput
           style={styles.input}
-          placeholder="For clients preferring direct bank transfer"
+          placeholder={regionConfig.bankAccountPlaceholder}
           placeholderTextColor={colors.textMuted}
           value={bankAccountNumber}
           onChangeText={setBankAccountNumber}
           keyboardType="numeric"
         />
 
-        <Text style={[styles.inputLabel, { marginTop: 12 }]}>Bank Routing / IFSC Code (Optional)</Text>
+        <Text style={[styles.inputLabel, { marginTop: 12 }]}>{regionConfig.bankCodeLabel}</Text>
         <TextInput
           style={styles.input}
-          placeholder="e.g. Routing Number, IFSC, Sort Code"
+          placeholder={regionConfig.bankCodePlaceholder}
           placeholderTextColor={colors.textMuted}
           value={bankIfsc}
           onChangeText={setBankIfsc}
@@ -1006,13 +1017,43 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onBack }) => {
           onChangeText={setBankName}
         />
 
+        {/* Custom Flexibility & Invoice Instructions */}
+        <View style={{ marginTop: 14, paddingTop: 12, borderTopWidth: 1, borderColor: colors.border }}>
+          <Text style={[styles.inputLabel, { color: colors.primary }]}>Custom Payment Label (Optional)</Text>
+          <TextInput
+            style={styles.input}
+            placeholder={`Overrides default "${regionConfig.instantRailName}" on invoices`}
+            placeholderTextColor={colors.textMuted}
+            value={customPaymentLabel}
+            onChangeText={setCustomPaymentLabel}
+          />
+          <Text style={styles.inputHelp}>
+            Customize what clients see on their contract (e.g. "Direct Bank Settlement", "Company Pay").
+          </Text>
+
+          <Text style={[styles.inputLabel, { marginTop: 12, color: colors.primary }]}>
+            Invoice Payment Instructions / Note (Optional)
+          </Text>
+          <TextInput
+            style={[styles.input, { minHeight: 60, textAlignVertical: 'top' }]}
+            placeholder="e.g. Please put Quote # in transfer notes. Payment due within 7 days."
+            placeholderTextColor={colors.textMuted}
+            value={customPaymentNote}
+            onChangeText={setCustomPaymentNote}
+            multiline
+          />
+          <Text style={styles.inputHelp}>
+            Printed directly onto the invoice & PDF contracts for client instructions.
+          </Text>
+        </View>
+
         {/* International Rails Toggle */}
         <TouchableOpacity
           style={{ marginTop: 14, alignSelf: 'flex-start' }}
           onPress={() => setShowOtherRails(!showOtherRails)}
         >
           <Text style={{ fontSize: 12, color: colors.primary, fontWeight: '700' }}>
-            {showOtherRails ? 'Hide Additional Payment Rails (Zelle, Venmo, Cash App) ▲' : 'Show Additional Payment Rails (Zelle, Venmo, Cash App) ▼'}
+            {showOtherRails ? 'Hide US Rails (Zelle/Venmo) ▲' : 'Show US Rails (Zelle, Venmo, Cash App) ▼'}
           </Text>
         </TouchableOpacity>
 

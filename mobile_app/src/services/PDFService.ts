@@ -5,6 +5,7 @@ import * as FileSystem from 'expo-file-system';
 import { Quote, ContractorProfile } from '../types';
 import { InvoiceTemplateId } from '../constants/invoiceTemplates';
 import { TelemetryService } from './TelemetryService';
+import { RegionPaymentService } from './RegionPaymentService';
 
 function escapeHtml(s: string = ''): string {
   return String(s)
@@ -479,30 +480,22 @@ export class PDFService {
             profile?.bankAccountNumber ||
             profile?.zelleAccount ||
             profile?.venmoAccount ||
-            profile?.cashAppAccount
+            profile?.cashAppAccount ||
+            profile?.customPaymentNote
               ? `
             <div class="payment-box">
-              <div>
+              <div style="width: 100%;">
                 <div class="payment-title">Direct Payment & Settlement Details (0% Fee)</div>
                 <div class="payment-accounts">
-                  ${[
-                    profile.upiId
-                      ? `Instant QR Pay: ${escapeHtml(profile.upiId)}${
-                          profile.upiPayeeName ? ` [${escapeHtml(profile.upiPayeeName)}]` : ''
-                        }`
-                      : '',
-                    profile.bankAccountNumber
-                      ? `Bank A/C: ${escapeHtml(profile.bankAccountNumber)}${
-                          profile.bankIfsc ? ` (${escapeHtml(profile.bankIfsc)})` : ''
-                        }${profile.bankName ? ` - ${escapeHtml(profile.bankName)}` : ''}`
-                      : '',
-                    profile.zelleAccount ? `Zelle: ${escapeHtml(profile.zelleAccount)}` : '',
-                    profile.venmoAccount ? `Venmo: ${escapeHtml(profile.venmoAccount)}` : '',
-                    profile.cashAppAccount ? `CashApp: ${escapeHtml(profile.cashAppAccount)}` : '',
-                  ]
-                    .filter(Boolean)
-                    .join('  •  ')}
+                  ${RegionPaymentService.formatInvoicePaymentAccounts(profile, curSymbol, profile?.currencyCode)}
                 </div>
+                ${
+                  profile?.customPaymentNote
+                    ? `<div style="margin-top: 6px; font-size: 11px; color: #334155; line-height: 1.4; border-top: 1px dashed #CBD5E1; padding-top: 5px;">
+                        <strong>Payment Instructions:</strong> ${escapeHtml(profile.customPaymentNote)}
+                      </div>`
+                    : ''
+                }
               </div>
             </div>
           `

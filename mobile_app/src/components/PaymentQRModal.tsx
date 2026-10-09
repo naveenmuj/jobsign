@@ -29,6 +29,7 @@ import { Quote, SavedBankAccount, SavedUpiAccount } from '../types';
 import { useQuoteStore } from '../store/useQuoteStore';
 import { NotificationService } from '../services/NotificationService';
 import { AlertService } from '../services/AlertService';
+import { RegionPaymentService } from '../services/RegionPaymentService';
 import { useAppSafeArea } from '../utils/safeArea';
 
 export const PaymentQRModal: React.FC<{ quote: Quote; onClose: () => void }> = ({
@@ -45,37 +46,39 @@ export const PaymentQRModal: React.FC<{ quote: Quote; onClose: () => void }> = (
 
   type RailType = 'UPI' | 'ZELLE' | 'VENMO' | 'CASHAPP' | 'BANK';
 
-  const isUS = profile?.currencyCode === 'USD' || (!profile?.currencyCode && curSymbol === '$');
+  const regionConfig = useMemo(() => {
+    return RegionPaymentService.getConfig(profile?.currencyCode, curSymbol);
+  }, [profile?.currencyCode, curSymbol]);
 
   const availableRails = useMemo(() => {
-    if (isIndia) {
+    if (regionConfig.region === 'IN') {
       return [
-        { key: 'UPI' as RailType, label: '⚡ Instant QR Pay' },
-        { key: 'BANK' as RailType, label: '🏛️ Bank Transfer' },
+        { key: 'UPI' as RailType, label: profile?.customPaymentLabel || regionConfig.instantRailLabel },
+        { key: 'BANK' as RailType, label: regionConfig.bankRailLabel },
       ];
     }
-    if (isUS) {
+    if (regionConfig.region === 'US') {
       return [
-        ...(profile?.upiId ? [{ key: 'UPI' as RailType, label: '⚡ Instant QR' }] : []),
+        ...(profile?.upiId ? [{ key: 'UPI' as RailType, label: profile.customPaymentLabel || '⚡ Instant Pay' }] : []),
         { key: 'ZELLE' as RailType, label: 'Zelle' },
         { key: 'VENMO' as RailType, label: 'Venmo' },
         { key: 'CASHAPP' as RailType, label: 'Cash App' },
-        { key: 'BANK' as RailType, label: 'Bank Wire' },
+        { key: 'BANK' as RailType, label: regionConfig.bankRailLabel },
       ];
     }
-    // Global / International (UK, Europe, Australia, Canada, etc.)
+    // Region-specific (UK, Europe, Canada, Australia, Global)
     return [
-      { key: 'UPI' as RailType, label: '⚡ Instant QR Pay' },
-      { key: 'BANK' as RailType, label: '🏛️ Bank Transfer' },
+      { key: 'UPI' as RailType, label: profile?.customPaymentLabel || regionConfig.instantRailLabel },
+      { key: 'BANK' as RailType, label: regionConfig.bankRailLabel },
       ...(profile?.zelleAccount ? [{ key: 'ZELLE' as RailType, label: 'Zelle' }] : []),
       ...(profile?.venmoAccount ? [{ key: 'VENMO' as RailType, label: 'Venmo' }] : []),
       ...(profile?.cashAppAccount ? [{ key: 'CASHAPP' as RailType, label: 'Cash App' }] : []),
     ];
-  }, [isIndia, isUS, profile, curSymbol]);
+  }, [regionConfig, profile]);
 
   const [activeRail, setActiveRail] = useState<RailType>(() => {
-    if (isIndia) return 'UPI';
-    if (isUS) return 'ZELLE';
+    if (regionConfig.region === 'IN') return 'UPI';
+    if (regionConfig.region === 'US') return 'ZELLE';
     return 'UPI';
   });
   const [isProcessing, setIsProcessing] = useState(false);
@@ -108,6 +111,7 @@ export const PaymentQRModal: React.FC<{ quote: Quote; onClose: () => void }> = (
   }, [profile?.savedBankAccounts, profile?.bankAccountNumber, profile?.bankIfsc, profile?.bankName, profile?.upiPayeeName, profile?.businessName, profile?.ownerName]);
 
   // Inline Instant QR editing state
+  const isUS = regionConfig.region === 'US';
   const [isEditingUpi, setIsEditingUpi] = useState(!profile?.upiId && (isIndia || (!isUS && !profile?.zelleAccount)));
   const [upiInput, setUpiInput] = useState(profile?.upiId || '');
   const [upiNameInput, setUpiNameInput] = useState(
@@ -157,10 +161,10 @@ export const PaymentQRModal: React.FC<{ quote: Quote; onClose: () => void }> = (
   const handleSaveUpi = () => {
     const trimmedId = upiInput.trim().toLowerCase();
     if (!trimmedId) {
-      setUpiError('Please enter a valid payment ID (e.g. yourname@bank or 9876543210@bank)');
+      setUpiError(`Please enter a valid ${regionConfig.instantRailName} ID`);
       return;
     }
-    if (!trimmedId.includes('@')) {
+    if (regionConfig.region === 'IN' && !trimmedId.includes('@')) {
       setUpiError('Payment ID must include an @ handle (e.g. name@bank, mobile@bank)');
       return;
     }
@@ -253,13 +257,15 @@ export const PaymentQRModal: React.FC<{ quote: Quote; onClose: () => void }> = (
           : 'https://cash.app';
       case 'BANK': {
         if (profile?.bankAccountNumber || profile?.bankIfsc) {
-          return `Direct Bank Transfer:\nBeneficiary: ${
+          return `${regionConfig.bankTitle}:\nBeneficiary: ${
             profile?.upiPayeeName || profile?.businessName || profile?.ownerName
-          }\nA/C: ${profile?.bankAccountNumber || 'N/A'}\n${
-            isIndia ? 'IFSC' : 'Routing/Sort'
+          }\n${regionConfig.bankAccountLabel.replace('*', '').trim()}: ${profile?.bankAccountNumber || 'N/A'}\n${
+            regionConfig.bankCodeLabel.replace('*', '').trim()
           }: ${profile?.bankIfsc || 'N/A'}\nBank: ${
             profile?.bankName || 'N/A'
-          }\nAmount: ${curSymbol}${amtStr}\nRef: Quote #${quote.quoteNumber}`;
+          }\nAmount: ${curSymbol}${amtStr}\nRef: Quote #${quote.quoteNumber}${
+            profile?.customPaymentNote ? `\nInstructions: ${profile.customPaymentNote}` : ''
+          }`;
         }
         return `Direct Bank Settlement for ${profile?.businessName || profile?.ownerName}\nAmount Due: ${curSymbol}${amtStr}\nRef: Agreement #${quote.quoteNumber}`;
       }
@@ -409,10 +415,10 @@ export const PaymentQRModal: React.FC<{ quote: Quote; onClose: () => void }> = (
                   <View style={styles.upiSetupCard}>
                     <View style={styles.setupCardHeader}>
                       <ShieldCheck size={20} color={colors.emerald} />
-                      <Text style={styles.setupCardTitle}>Configure Instant QR Payment</Text>
+                      <Text style={styles.setupCardTitle}>Configure {regionConfig.instantRailName} Payment</Text>
                     </View>
                     <Text style={styles.setupCardDesc}>
-                      Enter your payment ID / Virtual Address so funds transfer 100% directly into your bank account.
+                      Enter your {regionConfig.instantIdLabel.replace('*', '').trim()} so funds transfer 100% directly into your bank account.
                       The exact amount ({amountFormatted}) will be locked & pre-filled when your client scans.
                     </Text>
 
@@ -423,10 +429,10 @@ export const PaymentQRModal: React.FC<{ quote: Quote; onClose: () => void }> = (
                       </View>
                     ) : null}
 
-                    <Text style={styles.fieldLabel}>Receiving Payment ID (UPI / Virtual Address):</Text>
+                    <Text style={styles.fieldLabel}>{regionConfig.instantIdLabel}:</Text>
                     <TextInput
                       style={styles.textInput}
-                      placeholder="e.g. contractor@bank, mobile@bank"
+                      placeholder={regionConfig.instantIdPlaceholder}
                       placeholderTextColor={colors.textMuted}
                       value={upiInput}
                       onChangeText={(t) => {
@@ -486,7 +492,7 @@ export const PaymentQRModal: React.FC<{ quote: Quote; onClose: () => void }> = (
                     {/* Payee Verification Badge */}
                     <View style={styles.verifiedPayeeCard}>
                       <View style={styles.payeeInfo}>
-                        <Text style={styles.payeeLabel}>RECEIVING BANK ACCOUNT</Text>
+                        <Text style={styles.payeeLabel}>RECEIVING {regionConfig.instantRailName.toUpperCase()} ACCOUNT</Text>
                         <Text style={styles.payeeUpi}>{profile.upiId}</Text>
                         <Text style={styles.payeeName}>
                           Name: {profile.upiPayeeName || profile.businessName || 'JobSign Contractor'}
@@ -510,16 +516,22 @@ export const PaymentQRModal: React.FC<{ quote: Quote; onClose: () => void }> = (
                     {/* Apps list & features */}
                     <View style={styles.appSupportBox}>
                       <Text style={styles.appSupportTitle}>
-                        SCAN WITH ANY CAMERA OR BANKING APP
+                        {regionConfig.scannerTitle}
                       </Text>
                       <Text style={styles.appSupportList}>
-                        Compatible with all major banking, wallet, and scan-to-pay apps
+                        {regionConfig.scannerApps}
                       </Text>
                       <View style={styles.appGuarantees}>
                         <Text style={styles.guaranteeItem}>✓ Pre-filled exact amount: {amountFormatted}</Text>
                         <Text style={styles.guaranteeItem}>✓ Direct transfer to contractor bank account</Text>
                         <Text style={styles.guaranteeItem}>✓ Zero middleman fees or transaction deductions</Text>
                       </View>
+                      {profile?.customPaymentNote ? (
+                        <View style={styles.customNoteBox}>
+                          <Text style={styles.customNoteLabel}>INVOICE PAYMENT INSTRUCTIONS:</Text>
+                          <Text style={styles.customNoteText}>{profile.customPaymentNote}</Text>
+                        </View>
+                      ) : null}
                     </View>
                   </View>
                 )}
@@ -574,7 +586,7 @@ export const PaymentQRModal: React.FC<{ quote: Quote; onClose: () => void }> = (
                     <View style={styles.setupCardHeader}>
                       <Building2 size={20} color={colors.emerald} />
                       <Text style={styles.setupCardTitle}>
-                        {profile?.bankAccountNumber ? 'Edit Bank Account Details' : 'Enter Bank Account Details'}
+                        {profile?.bankAccountNumber ? 'Edit ' + regionConfig.bankTitle : 'Enter ' + regionConfig.bankTitle}
                       </Text>
                     </View>
                     <Text style={styles.setupCardDesc}>
@@ -597,10 +609,10 @@ export const PaymentQRModal: React.FC<{ quote: Quote; onClose: () => void }> = (
                       onChangeText={setBankBeneficiaryInput}
                     />
 
-                    <Text style={[styles.fieldLabel, { marginTop: 10 }]}>Bank Account Number *:</Text>
+                    <Text style={[styles.fieldLabel, { marginTop: 10 }]}>{regionConfig.bankAccountLabel}:</Text>
                     <TextInput
                       style={styles.textInput}
-                      placeholder="e.g. 50100234567890"
+                      placeholder={regionConfig.bankAccountPlaceholder}
                       placeholderTextColor={colors.textMuted}
                       value={bankAccountInput}
                       onChangeText={(t) => {
@@ -611,11 +623,11 @@ export const PaymentQRModal: React.FC<{ quote: Quote; onClose: () => void }> = (
                     />
 
                     <Text style={[styles.fieldLabel, { marginTop: 10 }]}>
-                      {isIndia ? 'IFSC Code (Optional):' : 'Routing / Sort Code (Optional):'}
+                      {regionConfig.bankCodeLabel}:
                     </Text>
                     <TextInput
                       style={styles.textInput}
-                      placeholder={isIndia ? 'e.g. HDFC0001234' : 'e.g. 021000021'}
+                      placeholder={regionConfig.bankCodePlaceholder}
                       placeholderTextColor={colors.textMuted}
                       value={bankIfscInput}
                       onChangeText={setBankIfscInput}
@@ -625,7 +637,7 @@ export const PaymentQRModal: React.FC<{ quote: Quote; onClose: () => void }> = (
                     <Text style={[styles.fieldLabel, { marginTop: 10 }]}>Bank Name (Optional):</Text>
                     <TextInput
                       style={styles.textInput}
-                      placeholder={isIndia ? 'e.g. HDFC Bank, SBI' : 'e.g. Chase, Bank of America'}
+                      placeholder={isIndia ? 'e.g. HDFC Bank, SBI' : 'e.g. Chase, Barclays, RBC, ANZ'}
                       placeholderTextColor={colors.textMuted}
                       value={bankNameInput}
                       onChangeText={setBankNameInput}
@@ -663,7 +675,7 @@ export const PaymentQRModal: React.FC<{ quote: Quote; onClose: () => void }> = (
                     <View style={styles.bankHeader}>
                       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                         <Landmark size={20} color={colors.primary} />
-                        <Text style={styles.bankTitle}>Direct Bank Transfer Details</Text>
+                        <Text style={styles.bankTitle}>{regionConfig.bankTitle}</Text>
                       </View>
                       <TouchableOpacity
                         style={styles.editBankBtn}
@@ -689,13 +701,13 @@ export const PaymentQRModal: React.FC<{ quote: Quote; onClose: () => void }> = (
                       </Text>
                     </View>
                     <View style={styles.bankRow}>
-                      <Text style={styles.bankLabel}>Account Number:</Text>
+                      <Text style={styles.bankLabel}>{regionConfig.bankAccountLabel.replace('*', '').trim()}:</Text>
                       <Text style={[styles.bankVal, styles.monoVal]}>{profile.bankAccountNumber}</Text>
                     </View>
                     {profile.bankIfsc ? (
                       <View style={styles.bankRow}>
                         <Text style={styles.bankLabel}>
-                          {isIndia ? 'IFSC Code:' : 'Routing / Sort Code:'}
+                          {regionConfig.bankCodeLabel.replace('*', '').trim()}:
                         </Text>
                         <Text style={[styles.bankVal, styles.monoVal]}>{profile.bankIfsc}</Text>
                       </View>
@@ -717,6 +729,12 @@ export const PaymentQRModal: React.FC<{ quote: Quote; onClose: () => void }> = (
                       <Text style={styles.guaranteeItem}>✓ Pre-filled exact amount: {amountFormatted}</Text>
                       <Text style={styles.guaranteeItem}>✓ Direct bank transfer with 0% middleman fees</Text>
                       <Text style={styles.guaranteeItem}>✓ Client transfers via any mobile banking app</Text>
+                      {profile?.customPaymentNote ? (
+                        <View style={styles.customNoteBox}>
+                          <Text style={styles.customNoteLabel}>INVOICE PAYMENT INSTRUCTIONS:</Text>
+                          <Text style={styles.customNoteText}>{profile.customPaymentNote}</Text>
+                        </View>
+                      ) : null}
                     </View>
                   </View>
                 )}
@@ -1228,5 +1246,25 @@ const makeStyles = (colors: ThemeColors) =>
       fontSize: 12,
       textAlign: 'center',
       fontWeight: '600',
+    },
+    customNoteBox: {
+      marginTop: 10,
+      padding: 10,
+      backgroundColor: colors.backgroundSecondary,
+      borderRadius: 8,
+      borderLeftWidth: 3,
+      borderLeftColor: colors.primary,
+    },
+    customNoteLabel: {
+      fontSize: 10,
+      fontWeight: '800',
+      color: colors.primary,
+      letterSpacing: 0.6,
+      marginBottom: 2,
+    },
+    customNoteText: {
+      fontSize: 12,
+      color: colors.textPrimary,
+      lineHeight: 16,
     },
   });

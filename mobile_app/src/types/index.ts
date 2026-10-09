@@ -78,6 +78,8 @@ export interface ContractorProfile {
   notificationPreferences?: NotificationPreferences; // user notification preferences
   currencySymbol?: string;      // e.g. "₹", "$", "£", "€", "CA$", "A$"
   currencyCode?: string;        // e.g. "INR", "USD", "GBP", "EUR"
+  customPaymentLabel?: string;  // user-defined custom payment label (e.g. "Direct Transfer", "Bank Wire")
+  customPaymentNote?: string;   // user-defined payment instructions printed on invoices
 }
 
 export interface Quote {
