@@ -44,10 +44,20 @@ WHY 10,000+ SOLO CONTRACTORS CHOOSE JOBSIGN
 • Found unexpected rotted subfloor or damaged copper piping? 
 • Add an instant Change Order rider on-site. Homeowner signs the extra $250 add-on before you buy the parts. Never work for free again.
 
-💵 DIRECT 0% FEE P2P SETTLEMENT
-• Stop paying 3.5% transaction cuts ($35 lost on every $1,000 job) to invoice software.
-• Generate instant, on-screen dynamic QR codes for Zelle, Venmo, Cash App, or Bank Wire.
-• Client scans your screen with their camera to pay you directly into your bank account. Keep 100% of your hard-earned money.
+💵 DIRECT 0% FEE SETTLEMENT (UPI / ZELLE / VENMO)
+• Stop paying 3.5% transaction cuts ($35 lost on every $1,000 job) to payment gateways.
+• In India: Generate instant on-screen dynamic UPI QR codes (GPay, PhonePe, Paytm, BHIM) linked directly to your VPA.
+• In US/Global: Instant dynamic QR codes for Zelle, Venmo, Cash App, or Bank Wire.
+• Client scans your phone screen to pay directly into your bank account. Keep 100% of your earnings.
+
+📲 1-TAP WHATSAPP SHARING & DISPATCH
+• Share professional PDF quotes and invoices instantly via WhatsApp or SMS.
+• Pre-formatted breakdown includes scope summary, due date, bank IFSC/account details, and direct UPI payment links.
+
+📊 INDIAN GST & DAYBOOK ACCOUNTING EXPORT
+• Full GST compliance: CGST + SGST intra-state split or IGST with Indian SAC/HSN codes.
+• Amounts formatted in Indian Lakhs/Crores (₹) and Western thousands ($) automatically.
+• Export 22-column RFC-4180 Daybook CSV / Excel spreadsheets for your CA or tax accountant in 1 tap.
 
 📄 AUTOMATIC CONDITIONAL LIEN WAIVER
 • When payment is marked received, JobSign automatically generates a signed Conditional Lien Waiver and Release on the receipt, giving homeowners ultimate peace of mind.
@@ -55,7 +65,7 @@ WHY 10,000+ SOLO CONTRACTORS CHOOSE JOBSIGN
 📡 BASEMENT & OFFLINE OUTBOX MODE
 • Working in a concrete basement or remote rural crawlspace with zero bars? 
 • JobSign runs 100% offline with zero cloud server dependencies. All quotes and signatures save instantly in your private offline vault.
-• Outbox automatically dispatches SMS and email receipts the moment your phone reconnects to 4G or Wi-Fi.
+• Outbox automatically dispatches WhatsApp, SMS, and email receipts the moment your phone reconnects to 4G or Wi-Fi.
 
 🔒 100% PRIVATE & LOCAL-FIRST
 • No mandatory cloud logins. No remote servers tracking your customers. 
@@ -64,14 +74,14 @@ WHY 10,000+ SOLO CONTRACTORS CHOOSE JOBSIGN
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 DESIGNED FOR FIELD TRADES:
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-• Handymen & Home Remodelers
-• Electricians & Wiremen
-• Plumbers & Pipefitters
-• HVAC & Refrigeration Technicians
+• Electricians & Electrical Contractors
+• Plumbers, Pipefitters & Sanitation Pros
+• Handymen & Home Remodelers / Civil Contractors
+• HVAC & AC Repair Technicians
 • Painters, Drywallers & Finishers
+• Carpenters & Fabrication Specialists
 • Landscapers & Tree Services
-• Roofers & Siding Installers
-• Appliance Repair Techs
+• Roofers & Waterproofing Installers
 
 Download JobSign today and never lose another payment dispute!
 ```
@@ -80,11 +90,19 @@ Download JobSign today and never lose another payment dispute!
 
 ## 3. High-Intent Target Keyword Clusters (ASO)
 
+### Global / US Markets
 | Priority | Keyword Phrase | Search Volume / Intent |
 | :--- | :--- | :--- |
 | **Tier 1 (High Intent)** | contractor estimate maker, handyman quote maker, sign on glass, contractor invoicing app, invoice simple alternative | Contractors actively searching for fast mobile quoting tools. |
-| **Tier 2 (Pain Point)** | contractor agreement app, small claims contract, change order app, lien waiver generator | Contractors who recently got burned by non-paying clients. |
+| **Tier 2 (Pain Point)** | contractor agreement app, small claims contract, change order app, lien waiver generator, basement offline invoice | Contractors who recently got burned by non-paying clients. |
 | **Tier 3 (Trade Specific)** | plumbing estimate app, electrician quote app, hvac invoice generator, painter quote maker | Trade specialists searching for targeted tools. |
+
+### Indian Market (GST & Trade Contractors)
+| Priority | Keyword Phrase | Search Volume / Intent |
+| :--- | :--- | :--- |
+| **Tier 1 (High Intent)** | contractor bill book app, electrical contractor quotation maker, gst invoice maker for contractors, sign on mobile invoice | Tradesmen and civil/electrical contractors looking for billing apps. |
+| **Tier 2 (Alternative/Advantage)** | mybillbook alternative for contractors, vyapar alternative offline, upi qr invoice maker, daybook excel export app | Contractors who want digital signatures, photo proof, and zero monthly cloud lock-in. |
+| **Tier 3 (Trade Specific)** | electrician quotation app, plumbing estimate bill, interior contractor quotation, ac repair bill maker | Indian trade specialists needing SAC codes and instant WhatsApp dispatch. |
 
 ---
 
