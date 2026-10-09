@@ -10,11 +10,12 @@ import {
   Linking,
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
-import { Settings, WifiOff, Search, X, Check } from 'lucide-react-native';
+import { Settings, WifiOff, Search, X, Check, FileSpreadsheet } from 'lucide-react-native';
 import { Theme, getThemeColors, ThemeColors } from '../theme';
 import { Quote } from '../types';
 import { useQuoteStore } from '../store/useQuoteStore';
 import { PDFService } from '../services/PDFService';
+import { ExportService } from '../services/ExportService';
 import { AlertService } from '../services/AlertService';
 import { JobCard } from '../components/JobCard';
 import { PaymentQRModal } from '../components/PaymentQRModal';
@@ -476,6 +477,11 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
     }
   };
 
+  const handleExportCSV = async () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    await ExportService.exportQuotesToCSV(quotes, profile);
+  };
+
   return (
     <View style={styles.container}>
       {/* Top Header */}
@@ -521,6 +527,14 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
               </View>
             </TouchableOpacity>
           )}
+          <TouchableOpacity
+            style={styles.settingsIconBtn}
+            onPress={handleExportCSV}
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+            accessibilityLabel="Export daybook spreadsheet"
+          >
+            <FileSpreadsheet size={18} color={colors.textSecondary} />
+          </TouchableOpacity>
           <TouchableOpacity
             style={styles.settingsIconBtn}
             onPress={onOpenSettings}

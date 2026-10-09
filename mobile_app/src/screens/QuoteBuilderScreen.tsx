@@ -452,7 +452,10 @@ const makeStyles = (colors: ThemeColors) =>
     },
   });
 
-export const QuoteBuilderScreen: React.FC<{ onBack: () => void }> = ({ onBack }) => {
+export const QuoteBuilderScreen: React.FC<{ onBack: () => void; initialQuote?: Quote | null }> = ({
+  onBack,
+  initialQuote,
+}) => {
   const { presets, addQuote, updateProfile, profile, quotes, isPro } = useQuoteStore();
   const isDarkMode = useQuoteStore((state) => state.isDarkMode);
   const colors = getThemeColors(isDarkMode);
@@ -460,10 +463,10 @@ export const QuoteBuilderScreen: React.FC<{ onBack: () => void }> = ({ onBack })
   const insets = useAppSafeArea();
   const { isKeyboardVisible } = useKeyboard();
 
-  const [clientName, setClientName] = useState('');
-  const [clientPhone, setClientPhone] = useState('');
-  const [jobDescription, setJobDescription] = useState('');
-  const [notes, setNotes] = useState('');
+  const [clientName, setClientName] = useState(initialQuote?.clientName || '');
+  const [clientPhone, setClientPhone] = useState(initialQuote?.clientPhone || '');
+  const [jobDescription, setJobDescription] = useState(initialQuote?.jobDescription || '');
+  const [notes, setNotes] = useState(initialQuote?.notes || '');
   const [customDesc, setCustomDesc] = useState('');
   const [customPrice, setCustomPrice] = useState('');
   const [customQty, setCustomQty] = useState('1');
@@ -472,22 +475,34 @@ export const QuoteBuilderScreen: React.FC<{ onBack: () => void }> = ({ onBack })
   const [customDiscount, setCustomDiscount] = useState('');
   const [photoUri, setPhotoUri] = useState<string | null>(null);
   const [includePhotoInPdf, setIncludePhotoInPdf] = useState<boolean>(true);
-  const [items, setItems] = useState<LineItem[]>([]);
+  const [items, setItems] = useState<LineItem[]>(
+    initialQuote?.lineItems ? initialQuote.lineItems.map((i) => ({ ...i, id: Crypto.randomUUID() })) : []
+  );
   const [isTaxEnabled, setIsTaxEnabled] = useState<boolean>(
-    profile.taxEnabledByDefault ?? true
+    initialQuote ? initialQuote.taxRateBasisPoints > 0 : (profile.taxEnabledByDefault ?? true)
   );
   const [taxRateInput, setTaxRateInput] = useState<string>(
-    ((profile.defaultTaxBasisPoints ?? 825) / 100).toFixed(2)
+    initialQuote
+      ? ((initialQuote.taxRateBasisPoints || 0) / 100).toFixed(2)
+      : ((profile.defaultTaxBasisPoints ?? 825) / 100).toFixed(2)
   );
   const [taxLabelInput, setTaxLabelInput] = useState<string>(
-    profile.taxLabel || 'Sales Tax'
+    initialQuote?.taxLabel || profile.taxLabel || 'Sales Tax'
   );
-  const [paymentTerms, setPaymentTerms] = useState<'DUE_ON_RECEIPT' | 'NET_7' | 'NET_15' | 'NET_30'>('DUE_ON_RECEIPT');
-  const [depositInput, setDepositInput] = useState<string>('');
-  const [isGstSplit, setIsGstSplit] = useState<boolean>(profile.isGstSplitEnabled ?? true);
-  const [placeOfSupply, setPlaceOfSupply] = useState<string>(profile.stateCode || '');
+  const [paymentTerms, setPaymentTerms] = useState<'DUE_ON_RECEIPT' | 'NET_7' | 'NET_15' | 'NET_30'>(
+    (initialQuote?.paymentTerms as any) || 'DUE_ON_RECEIPT'
+  );
+  const [depositInput, setDepositInput] = useState<string>(
+    initialQuote?.depositAmountCents ? (initialQuote.depositAmountCents / 100).toFixed(2) : ''
+  );
+  const [isGstSplit, setIsGstSplit] = useState<boolean>(
+    initialQuote?.isGstSplit ?? (profile.isGstSplitEnabled ?? true)
+  );
+  const [placeOfSupply, setPlaceOfSupply] = useState<string>(
+    initialQuote?.placeOfSupply || profile.stateCode || ''
+  );
   const [documentType, setDocumentType] = useState<'TAX_INVOICE' | 'BILL_OF_SUPPLY' | 'ESTIMATE' | 'DELIVERY_CHALLAN'>(
-    profile.defaultInvoiceType || 'ESTIMATE'
+    initialQuote?.documentType || profile.defaultInvoiceType || 'ESTIMATE'
   );
   const [isSigning, setIsSigning] = useState(false);
   const [showPaywall, setShowPaywall] = useState(false);

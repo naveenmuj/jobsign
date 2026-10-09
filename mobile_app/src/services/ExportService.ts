@@ -36,10 +36,12 @@ export class ExportService {
 
       const headers = [
         'Document #',
+        'Document Type',
         'Document Status',
         'Date Created',
         'Due Date',
         'Payment Terms',
+        'Place of Supply',
         'Client Name',
         'Client Phone',
         'Client Email',
@@ -77,10 +79,12 @@ export class ExportService {
 
         const row = [
           `#${q.quoteNumber}`,
+          q.documentType || 'ESTIMATE',
           q.status,
           createdDate,
           dueDate,
           q.paymentTerms || 'Due on Receipt',
+          q.placeOfSupply || 'Intra-State',
           q.clientName,
           q.clientPhone || '',
           q.clientEmail || '',

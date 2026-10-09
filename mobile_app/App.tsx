@@ -28,6 +28,7 @@ export default function App() {
   console.log('[JobSign] App() component rendering...');
   const [currentScreen, setCurrentScreen] = useState<'HOME' | 'BUILDER' | 'DETAIL' | 'SETTINGS'>('HOME');
   const [activeQuoteId, setActiveQuoteId] = useState<string | null>(null);
+  const [builderInitialQuote, setBuilderInitialQuote] = useState<Quote | null>(null);
   const profile = useQuoteStore((state) => state.profile);
   const [showOnboarding, setShowOnboarding] = useState(!profile.isOnboardingCompleted);
   const quotes = useQuoteStore((state) => state.quotes);
@@ -94,18 +95,31 @@ export default function App() {
       <StatusBar style={isDarkMode ? 'light' : 'dark'} />
       {currentScreen === 'HOME' && (
         <HomeScreen
-          onNewQuote={() => setCurrentScreen('BUILDER')}
+          onNewQuote={() => {
+            setBuilderInitialQuote(null);
+            setCurrentScreen('BUILDER');
+          }}
           onSelectQuote={handleSelectQuote}
           onOpenSettings={() => setCurrentScreen('SETTINGS')}
         />
       )}
       {currentScreen === 'BUILDER' && (
-        <QuoteBuilderScreen onBack={() => setCurrentScreen('HOME')} />
+        <QuoteBuilderScreen
+          initialQuote={builderInitialQuote}
+          onBack={() => {
+            setBuilderInitialQuote(null);
+            setCurrentScreen('HOME');
+          }}
+        />
       )}
       {currentScreen === 'DETAIL' && activeQuote && (
         <QuoteDetailScreen
           quote={activeQuote}
           onBack={() => setCurrentScreen('HOME')}
+          onDuplicate={(q) => {
+            setBuilderInitialQuote(q);
+            setCurrentScreen('BUILDER');
+          }}
         />
       )}
       {currentScreen === 'SETTINGS' && (

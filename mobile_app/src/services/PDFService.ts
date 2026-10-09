@@ -188,16 +188,21 @@ export class PDFService {
     ].filter(Boolean);
 
     // Compute document title according to Indian / Global standards
+    const isIndia = regionConfig.region === 'IN' || profile?.currencyCode === 'INR' || curSymbol === '₹';
     let computedDocTitle = isInvoiced ? regionConfig.invoiceTitle : regionConfig.estimateTitle;
-    if (quote.documentType === 'TAX_INVOICE') computedDocTitle = 'TAX INVOICE';
-    else if (quote.documentType === 'BILL_OF_SUPPLY') computedDocTitle = 'BILL OF SUPPLY';
-    else if (quote.documentType === 'ESTIMATE') computedDocTitle = 'ESTIMATE / QUOTATION';
-    else if (quote.documentType === 'DELIVERY_CHALLAN') computedDocTitle = 'DELIVERY CHALLAN';
-    else if (regionConfig.region === 'IN') {
+    if (quote.documentType === 'TAX_INVOICE') {
+      computedDocTitle = isIndia ? 'TAX INVOICE / कर इनवॉइस' : 'TAX INVOICE';
+    } else if (quote.documentType === 'BILL_OF_SUPPLY') {
+      computedDocTitle = isIndia ? 'BILL OF SUPPLY / आपूर्ति बिल' : 'BILL OF SUPPLY';
+    } else if (quote.documentType === 'ESTIMATE') {
+      computedDocTitle = isIndia ? 'ESTIMATE & QUOTATION / कोटेशन' : 'ESTIMATE / QUOTATION';
+    } else if (quote.documentType === 'DELIVERY_CHALLAN') {
+      computedDocTitle = isIndia ? 'DELIVERY CHALLAN / डिलीवरी चालान' : 'DELIVERY CHALLAN';
+    } else if (isIndia) {
       if (isInvoiced || isPaid) {
-        computedDocTitle = taxIdVal ? 'TAX INVOICE' : 'BILL OF SUPPLY';
+        computedDocTitle = taxIdVal ? 'TAX INVOICE / कर इनवॉइस' : 'BILL OF SUPPLY / आपूर्ति बिल';
       } else {
-        computedDocTitle = 'ESTIMATE / QUOTATION';
+        computedDocTitle = 'ESTIMATE & QUOTATION / कोटेशन';
       }
     }
 

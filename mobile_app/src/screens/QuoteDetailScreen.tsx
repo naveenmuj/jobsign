@@ -20,12 +20,13 @@ import { CompanyNamePromptModal } from '../components/CompanyNamePromptModal';
 import * as ImagePicker from 'expo-image-picker';
 import { useQuoteStore } from '../store/useQuoteStore';
 import { useAppSafeArea } from '../utils/safeArea';
-import { ChevronLeft, Trash2, FileText, Phone, MessageSquare, Plus, Check, Eye, Share2, Camera, Image as ImageIcon, MessageCircle, FileCheck } from 'lucide-react-native';
+import { ChevronLeft, Trash2, FileText, Phone, MessageSquare, Plus, Check, Eye, Share2, Camera, Image as ImageIcon, MessageCircle, FileCheck, Copy } from 'lucide-react-native';
 import { formatAmountInWords } from '../utils/numberToIndianWords';
 
 interface QuoteDetailScreenProps {
   quote: Quote;
   onBack: () => void;
+  onDuplicate?: (quote: Quote) => void;
 }
 
 const makeStyles = (colors: ThemeColors) =>
@@ -388,7 +389,11 @@ const makeStyles = (colors: ThemeColors) =>
     },
   });
 
-export const QuoteDetailScreen: React.FC<QuoteDetailScreenProps> = ({ quote: initialQuote, onBack }) => {
+export const QuoteDetailScreen: React.FC<QuoteDetailScreenProps> = ({
+  quote: initialQuote,
+  onBack,
+  onDuplicate,
+}) => {
   const { quotes, profile, deleteQuote, addQuote } = useQuoteStore();
   const isDarkMode = useQuoteStore((state) => state.isDarkMode);
   const colors = getThemeColors(isDarkMode);
@@ -700,6 +705,19 @@ export const QuoteDetailScreen: React.FC<QuoteDetailScreenProps> = ({ quote: ini
             <Share2 size={13} color={colors.textPrimary} />
             <Text style={styles.shareText}>Share</Text>
           </TouchableOpacity>
+          {onDuplicate && (
+            <TouchableOpacity
+              style={styles.shareBtn}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                onDuplicate(quote);
+              }}
+              hitSlop={{ top: 14, bottom: 14, left: 14, right: 14 }}
+            >
+              <Copy size={13} color={colors.textPrimary} />
+              <Text style={styles.shareText}>Clone</Text>
+            </TouchableOpacity>
+          )}
           <TouchableOpacity
             style={styles.trashBtn}
             onPress={handleDelete}
