@@ -105,7 +105,7 @@ export const CompanyNamePromptModal: React.FC<CompanyNamePromptModalProps> = ({
                     color: colors.textPrimary,
                   },
                 ]}
-                placeholder="e.g. Miller Plumbing & Heating"
+                placeholder="e.g. Apex Electricals & Services"
                 placeholderTextColor={colors.textMuted}
                 value={businessName}
                 onChangeText={setBusinessName}
@@ -125,7 +125,7 @@ export const CompanyNamePromptModal: React.FC<CompanyNamePromptModalProps> = ({
                     color: colors.textPrimary,
                   },
                 ]}
-                placeholder="e.g. 1204 Industrial Blvd, Austin, TX"
+                placeholder="e.g. Indiranagar, Bengaluru or 100 Main St"
                 placeholderTextColor={colors.textMuted}
                 value={address}
                 onChangeText={setAddress}

@@ -1,11 +1,13 @@
 import * as Crypto from 'expo-crypto';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import { Quote, ContractorProfile } from '../types';
 import { InvoiceTemplateId } from '../constants/invoiceTemplates';
 import { TelemetryService } from './TelemetryService';
 import { RegionPaymentService } from './RegionPaymentService';
+import { formatAmountInWords } from '../utils/numberToIndianWords';
+import { generateQrSvg } from '../utils/generateQrSvg';
 
 function escapeHtml(s: string = ''): string {
   return String(s)
@@ -177,11 +179,40 @@ export class PDFService {
       }
     }
 
+    const stateDisplay = profile?.stateCode ? `State: ${profile.stateCode}` : '';
     const contactParts = [
       phone ? `📞 ${phone}` : '',
       email ? `✉️ ${email}` : '',
       taxIdDisplay,
+      stateDisplay,
     ].filter(Boolean);
+
+    // Compute document title according to Indian / Global standards
+    let computedDocTitle = isInvoiced ? regionConfig.invoiceTitle : regionConfig.estimateTitle;
+    if (quote.documentType === 'TAX_INVOICE') computedDocTitle = 'TAX INVOICE';
+    else if (quote.documentType === 'BILL_OF_SUPPLY') computedDocTitle = 'BILL OF SUPPLY';
+    else if (quote.documentType === 'ESTIMATE') computedDocTitle = 'ESTIMATE / QUOTATION';
+    else if (quote.documentType === 'DELIVERY_CHALLAN') computedDocTitle = 'DELIVERY CHALLAN';
+    else if (regionConfig.region === 'IN') {
+      if (isInvoiced || isPaid) {
+        computedDocTitle = taxIdVal ? 'TAX INVOICE' : 'BILL OF SUPPLY';
+      } else {
+        computedDocTitle = 'ESTIMATE / QUOTATION';
+      }
+    }
+
+    const balanceDueCents = Math.max(0, quote.totalAmountCents - (quote.depositAmountCents || 0));
+    const totalAmountInWords = formatAmountInWords(quote.totalAmountCents, profile?.currencyCode, curSymbol);
+    const balanceDueInWords = formatAmountInWords(balanceDueCents, profile?.currencyCode, curSymbol);
+
+    let upiQrSvg = '';
+    if (profile?.upiId && (regionConfig.region === 'IN' || profile.currencyCode === 'INR' || curSymbol === '₹')) {
+      const upiPayee = profile.upiPayeeName || businessName;
+      const upiAmount = isPaid ? '0.00' : (balanceDueCents / 100).toFixed(2);
+      const upiUrl = `upi://pay?pa=${encodeURIComponent(profile.upiId)}&pn=${encodeURIComponent(upiPayee)}&am=${upiAmount}&cu=INR&tn=${encodeURIComponent(`Inv_${quote.quoteNumber}`)}`;
+      upiQrSvg = await generateQrSvg(upiUrl, 100);
+    }
+
     const templateId: InvoiceTemplateId = (profile?.invoiceTemplate as InvoiceTemplateId) || 'modern';
 
     return `
@@ -440,7 +471,7 @@ export class PDFService {
                 <span class="doc-badge ${isPaid ? 'doc-badge-paid' : isInvoiced ? 'doc-badge-paid' : 'doc-badge-estimate'}">
                   ${isPaid ? '✓ PAID IN FULL' : isInvoiced ? '✓ INVOICE ISSUED • PAYMENT DUE' : '✓ SIGNED & APPROVED'}
                 </span>
-                <div class="doc-title">${isInvoiced ? regionConfig.invoiceTitle : regionConfig.estimateTitle}</div>
+                <div class="doc-title">${escapeHtml(computedDocTitle)}</div>
                 <div class="meta-line"><strong>Reference:</strong> #${quote.quoteNumber}</div>
                 <div class="meta-line"><strong>Date:</strong> ${formattedDate}</div>
                 ${
@@ -464,6 +495,7 @@ export class PDFService {
                 ${quote.clientPhone ? `<div class="card-text">📞 ${escapeHtml(quote.clientPhone)}</div>` : ''}
                 ${quote.clientEmail ? `<div class="card-text">✉️ ${escapeHtml(quote.clientEmail)}</div>` : ''}
                 ${quote.clientAddress ? `<div class="card-text">📍 ${escapeHtml(quote.clientAddress)}</div>` : ''}
+                ${quote.placeOfSupply ? `<div class="card-text" style="color: #475569; font-weight: 600; margin-top: 3px;">🏛️ Place of Supply: ${escapeHtml(quote.placeOfSupply)}</div>` : ''}
               </td>
               <td class="info-card" style="width: 50%;">
                 <div class="card-title">Project & Scope Details</div>
@@ -531,10 +563,21 @@ export class PDFService {
               </tr>
               ${
                 quote.taxAmountCents > 0
-                  ? `<tr>
-                      <td class="label-col">${escapeHtml(quote.taxLabel || regionConfig.defaultTaxLabel)} (${(quote.taxRateBasisPoints / 100).toFixed(2)}%):</td>
-                      <td class="val-col">${curSymbol}${(quote.taxAmountCents / 100).toFixed(2)}</td>
-                    </tr>`
+                  ? regionConfig.region === 'IN' && quote.isGstSplit !== false
+                    ? `
+                      <tr>
+                        <td class="label-col">CGST (${(quote.taxRateBasisPoints / 200).toFixed(2)}%):</td>
+                        <td class="val-col">${curSymbol}${((quote.taxAmountCents / 2) / 100).toFixed(2)}</td>
+                      </tr>
+                      <tr>
+                        <td class="label-col">SGST (${(quote.taxRateBasisPoints / 200).toFixed(2)}%):</td>
+                        <td class="val-col">${curSymbol}${((quote.taxAmountCents / 2) / 100).toFixed(2)}</td>
+                      </tr>
+                    `
+                    : `<tr>
+                        <td class="label-col">${escapeHtml(quote.taxLabel || regionConfig.defaultTaxLabel)} (${(quote.taxRateBasisPoints / 100).toFixed(2)}%):</td>
+                        <td class="val-col">${curSymbol}${(quote.taxAmountCents / 100).toFixed(2)}</td>
+                      </tr>`
                   : `<tr>
                       <td class="label-col">${escapeHtml(quote.taxLabel || regionConfig.defaultTaxLabel)}:</td>
                       <td class="val-col" style="color: #64748B; font-weight: normal;">Exempt / 0%</td>
@@ -560,6 +603,17 @@ export class PDFService {
               }
             </table>
             <div style="clear: both;"></div>
+
+            <!-- ── AMOUNT IN WORDS (RULE 46 COMPLIANT) ── -->
+            <div style="margin-top: 14px; padding: 10px 14px; background: #F8FAFC; border: 1px solid #E2E8F0; border-left: 4px solid #2563EB; border-radius: 6px;">
+              <div style="font-size: 10px; font-weight: 800; color: #475569; text-transform: uppercase; letter-spacing: 0.6px;">Amount in Words (शब्दों में राशि):</div>
+              <div style="font-size: 12.5px; font-weight: 800; color: #0F172A; margin-top: 2px;">${escapeHtml(totalAmountInWords)}</div>
+              ${
+                (quote.depositAmountCents || 0) > 0 && !isPaid
+                  ? `<div style="margin-top: 4px; font-size: 11.5px; color: #B45309; font-weight: 700;"><strong>Balance Due in Words:</strong> ${escapeHtml(balanceDueInWords)}</div>`
+                  : ''
+              }
+            </div>
           </div>
 
           <!-- ── PAYMENT SETTLEMENT DETAILS (IF CONFIGURED) ── -->
@@ -572,19 +626,36 @@ export class PDFService {
             profile?.customPaymentNote
               ? `
             <div class="payment-box">
-              <div style="width: 100%;">
-                <div class="payment-title">Direct Payment & Settlement Details (0% Fee)</div>
-                <div class="payment-accounts">
-                  ${RegionPaymentService.formatInvoicePaymentAccounts(profile, curSymbol, profile?.currencyCode)}
-                </div>
-                ${
-                  profile?.customPaymentNote
-                    ? `<div style="margin-top: 6px; font-size: 11px; color: #334155; line-height: 1.4; border-top: 1px dashed #CBD5E1; padding-top: 5px;">
-                        <strong>Payment Instructions:</strong> ${escapeHtml(profile.customPaymentNote)}
-                      </div>`
-                    : ''
-                }
-              </div>
+              <table style="width: 100%; border-collapse: collapse;">
+                <tr>
+                  ${
+                    upiQrSvg
+                      ? `
+                    <td style="width: 115px; vertical-align: top; padding-right: 14px; text-align: center;">
+                      <div style="background: #FFFFFF; border: 1.5px solid #CBD5E1; border-radius: 6px; padding: 6px; display: inline-block;">
+                        ${upiQrSvg}
+                        <div style="font-size: 8.5px; font-weight: 800; color: #0F172A; margin-top: 3px;">SCAN & PAY VIA UPI</div>
+                        <div style="font-size: 7.5px; color: #64748B;">GPay • PhonePe • Paytm • BHIM</div>
+                      </div>
+                    </td>
+                  `
+                      : ''
+                  }
+                  <td style="vertical-align: top;">
+                    <div class="payment-title">Direct Payment & Settlement Details (0% Fee)</div>
+                    <div class="payment-accounts">
+                      ${RegionPaymentService.formatInvoicePaymentAccounts(profile, curSymbol, profile?.currencyCode)}
+                    </div>
+                    ${
+                      profile?.customPaymentNote
+                        ? `<div style="margin-top: 6px; font-size: 11px; color: #334155; line-height: 1.4; border-top: 1px dashed #CBD5E1; padding-top: 5px;">
+                            <strong>Payment Instructions:</strong> ${escapeHtml(profile.customPaymentNote)}
+                          </div>`
+                        : ''
+                    }
+                  </td>
+                </tr>
+              </table>
             </div>
           `
               : ''
@@ -602,14 +673,35 @@ export class PDFService {
               : ''
           }
 
-          <!-- ── CLIENT SIGNATURE & LEGAL BINDING ── -->
+          <!-- ── DUAL SIGNATURE: CLIENT APPROVAL & AUTHORIZED SIGNATORY ── -->
           <div class="signature-card">
-            <div class="signature-header">Client Signature of Affirmative Approval:</div>
-            ${
-              quote.signatureSvg
-                ? `<div style="margin: 8px 0;"><svg height="80" width="280" viewBox="0 0 500 200">${quote.signatureSvg}</svg></div>`
-                : `<div style="height: 45px; line-height: 45px; color: #94A3B8; font-style: italic;">[ Signed on Smartphone Glass ]</div>`
-            }
+            <table style="width: 100%; border-collapse: collapse; margin-bottom: 10px;">
+              <tr>
+                <td style="width: 52%; vertical-align: top; padding-right: 14px; border-right: 1px dashed #CBD5E1;">
+                  <div class="signature-header">Customer Acceptance & Signature:</div>
+                  ${
+                    quote.signatureSvg
+                      ? `<div style="margin: 6px 0;"><svg height="70" width="240" viewBox="0 0 500 200">${quote.signatureSvg}</svg></div>`
+                      : `<div style="height: 45px; line-height: 45px; color: #94A3B8; font-style: italic;">[ Signed on Smartphone Glass ]</div>`
+                  }
+                  <div style="font-size: 11px; color: #475569; font-weight: 600;">
+                    Accepted by: ${escapeHtml(quote.clientName)}
+                  </div>
+                </td>
+                <td style="width: 48%; vertical-align: top; padding-left: 14px; text-align: right;">
+                  <div class="signature-header" style="text-align: right;">For ${escapeHtml(businessName)}:</div>
+                  <div style="height: 55px; display: flex; align-items: flex-end; justify-content: flex-end; margin-top: 6px;">
+                    <div style="border-bottom: 1.5px dashed #94A3B8; width: 150px; text-align: center; color: #94A3B8; font-size: 9px; padding-bottom: 3px; margin-left: auto;">
+                      [ Authorized Sign / Seal ]
+                    </div>
+                  </div>
+                  <div style="font-size: 11px; font-weight: 800; color: #334155; margin-top: 6px; text-transform: uppercase; letter-spacing: 0.5px;">
+                    Authorized Signatory
+                  </div>
+                </td>
+              </tr>
+            </table>
+
             <div class="legal-consent">
               <strong>AFFIRMATIVE CONSENT & NON-REPUDIATION:</strong>
               By affixing signature above, client acknowledges receipt and approval of the itemized estimate and authorizes contractor to furnish indicated labor and materials. Electronic signatures execute a legally binding instrument under ${regionConfig.legalConsentCitation}.

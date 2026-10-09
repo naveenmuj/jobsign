@@ -480,6 +480,11 @@ export const QuoteBuilderScreen: React.FC<{ onBack: () => void }> = ({ onBack })
   );
   const [paymentTerms, setPaymentTerms] = useState<'DUE_ON_RECEIPT' | 'NET_7' | 'NET_15' | 'NET_30'>('DUE_ON_RECEIPT');
   const [depositInput, setDepositInput] = useState<string>('');
+  const [isGstSplit, setIsGstSplit] = useState<boolean>(profile.isGstSplitEnabled ?? true);
+  const [placeOfSupply, setPlaceOfSupply] = useState<string>(profile.stateCode || '');
+  const [documentType, setDocumentType] = useState<'TAX_INVOICE' | 'BILL_OF_SUPPLY' | 'ESTIMATE'>(
+    profile.defaultInvoiceType || 'ESTIMATE'
+  );
   const [isSigning, setIsSigning] = useState(false);
   const [showPaywall, setShowPaywall] = useState(false);
   const [pendingPdfQuote, setPendingPdfQuote] = useState<Quote | null>(null);
@@ -505,7 +510,7 @@ export const QuoteBuilderScreen: React.FC<{ onBack: () => void }> = ({ onBack })
   const handleInitiateSendPDF = (targetQuote: Quote) => {
     const needsCompanyName =
       !profile.hasCustomBusinessName &&
-      (!profile.businessName || profile.businessName.trim() === '' || profile.businessName === 'Apex Field Services LLC');
+      (!profile.businessName || profile.businessName.trim() === '');
     if (needsCompanyName) {
       setPendingPdfQuote(targetQuote);
       setShowCompanyModal(true);
@@ -642,6 +647,21 @@ export const QuoteBuilderScreen: React.FC<{ onBack: () => void }> = ({ onBack })
   const totalAmountCents = subtotalCents + taxAmountCents;
 
   const regionConfig = RegionPaymentService.getConfig(profile.currencyCode, profile.currencySymbol);
+  const isIndia = regionConfig.region === 'IN' || profile.currencyCode === 'INR' || profile.currencySymbol === '₹';
+
+  const availablePresets = React.useMemo(() => {
+    if (isIndia) {
+      const indianItems = RegionPaymentService.INDIAN_TRADE_PRESETS.map((p, idx) => ({
+        id: `in-preset-${idx}`,
+        title: p.title,
+        priceCents: p.priceCents,
+        category: p.category as any,
+      }));
+      return [...indianItems, ...presets];
+    }
+    return presets;
+  }, [isIndia, presets]);
+
   const parsedDeposit = parseFloat(depositInput) || 0;
   const depositAmountCents = Math.min(totalAmountCents, Math.round(parsedDeposit * 100));
   const balanceDueCents = Math.max(0, totalAmountCents - depositAmountCents);
@@ -717,6 +737,9 @@ export const QuoteBuilderScreen: React.FC<{ onBack: () => void }> = ({ onBack })
       currencySymbol,
       depositAmountCents: depositAmountCents > 0 ? depositAmountCents : undefined,
       paymentTerms,
+      documentType,
+      placeOfSupply: placeOfSupply.trim() || undefined,
+      isGstSplit,
       dueDateTimestamp:
         paymentTerms === 'NET_7'
           ? Date.now() + 7 * 86400000
@@ -882,14 +905,14 @@ export const QuoteBuilderScreen: React.FC<{ onBack: () => void }> = ({ onBack })
 
           <TextInput
             style={styles.input}
-            placeholder="Client Name (e.g. Sarah Jenkins)"
+            placeholder={isIndia ? "Client Name (e.g. Vikram Malhotra)" : "Client Name (e.g. John Doe)"}
             placeholderTextColor={colors.textMuted}
             value={clientName}
             onChangeText={setClientName}
           />
           <TextInput
             style={[styles.input, { marginTop: 10 }]}
-            placeholder="Phone Number (e.g. 512-555-0199)"
+            placeholder={isIndia ? "Phone Number (e.g. 98450 12345)" : "Phone Number (e.g. (555) 234-5678)"}
             placeholderTextColor={colors.textMuted}
             keyboardType="phone-pad"
             value={clientPhone}
@@ -897,11 +920,20 @@ export const QuoteBuilderScreen: React.FC<{ onBack: () => void }> = ({ onBack })
           />
           <TextInput
             style={[styles.input, { marginTop: 10 }]}
-            placeholder="Short Scope Summary (e.g. Electrical Breaker Swap)"
+            placeholder={isIndia ? "Short Scope Summary (e.g. 3BHK Concealed Wiring & MCB)" : "Short Scope Summary (e.g. Electrical Breaker Swap)"}
             placeholderTextColor={colors.textMuted}
             value={jobDescription}
             onChangeText={setJobDescription}
           />
+          {isIndia && (
+            <TextInput
+              style={[styles.input, { marginTop: 10 }]}
+              placeholder="🏛️ Place of Supply / State (e.g. 29 - Karnataka)"
+              placeholderTextColor={colors.textMuted}
+              value={placeOfSupply}
+              onChangeText={setPlaceOfSupply}
+            />
+          )}
         </View>
 
         {/* Damage Proof Photo Attachment */}
@@ -971,10 +1003,10 @@ export const QuoteBuilderScreen: React.FC<{ onBack: () => void }> = ({ onBack })
 
         {/* Quick Presets Bar */}
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Quick Presets</Text>
+          <Text style={styles.sectionTitle}>{isIndia ? '🇮🇳 Trade Service Presets' : 'Quick Presets'}</Text>
         </View>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.presetScroll}>
-          {presets.map((preset) => (
+          {availablePresets.map((preset) => (
             <TouchableOpacity
               key={preset.id}
               style={styles.presetChip}
@@ -1094,6 +1126,42 @@ export const QuoteBuilderScreen: React.FC<{ onBack: () => void }> = ({ onBack })
                     <Text style={{ fontSize: 13, fontWeight: '700', color: colors.textSecondary }}>%</Text>
                   </View>
                 </View>
+
+                {isIndia && (
+                  <View style={{ flexDirection: 'row', gap: 6, marginTop: 8, marginBottom: 6 }}>
+                    <TouchableOpacity
+                      style={[
+                        styles.termChip,
+                        isGstSplit && { backgroundColor: colors.primaryLight, borderColor: colors.primary },
+                        { flex: 1, alignItems: 'center' },
+                      ]}
+                      onPress={() => {
+                        Haptics.selectionAsync();
+                        setIsGstSplit(true);
+                      }}
+                    >
+                      <Text style={[styles.termChipText, isGstSplit && { color: colors.primary, fontWeight: '700' }]}>
+                        🇮🇳 Intra-State (CGST+SGST)
+                      </Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[
+                        styles.termChip,
+                        !isGstSplit && { backgroundColor: colors.primaryLight, borderColor: colors.primary },
+                        { flex: 1, alignItems: 'center' },
+                      ]}
+                      onPress={() => {
+                        Haptics.selectionAsync();
+                        setIsGstSplit(false);
+                      }}
+                    >
+                      <Text style={[styles.termChipText, !isGstSplit && { color: colors.primary, fontWeight: '700' }]}>
+                        🇮🇳 Inter-State (IGST)
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+
                 <TouchableOpacity style={styles.setDefaultTaxBtn} onPress={handleSetAsDefault}>
                   <Text style={styles.setDefaultTaxText}>★ Keep {taxRateInput}% ({taxLabelInput || 'Tax'}) enabled by default</Text>
                 </TouchableOpacity>
@@ -1195,6 +1263,22 @@ export const QuoteBuilderScreen: React.FC<{ onBack: () => void }> = ({ onBack })
         {/* Legal Terms & Custom Scope Notes */}
         <View style={styles.card}>
           <Text style={styles.label}>Terms & Conditions</Text>
+          {isIndia && (
+            <TouchableOpacity
+              style={[
+                styles.termChip,
+                { backgroundColor: colors.primaryLight, borderColor: colors.primary, marginBottom: 8, alignSelf: 'flex-start' },
+              ]}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                setNotes(RegionPaymentService.INDIAN_STANDARD_TERMS);
+              }}
+            >
+              <Text style={[styles.termChipText, { color: colors.primary, fontWeight: '700' }]}>
+                📜 Apply Indian Trade T&Cs (Bayaana, 18% p.a., Jurisdiction)
+              </Text>
+            </TouchableOpacity>
+          )}
           <View style={styles.termsChipRow}>
             {[
               'Payment due upon completion',

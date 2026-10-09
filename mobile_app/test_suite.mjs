@@ -455,6 +455,41 @@ const settingsUpdatedRaw = fs.readFileSync(path.resolve('./src/screens/SettingsS
 assert(settingsUpdatedRaw.includes('handleExportCSV'), 'SettingsScreen implements handleExportCSV');
 assert(settingsUpdatedRaw.includes('Bookkeeping Export (CSV / Excel)'), 'SettingsScreen renders Bookkeeping Export row');
 
+console.log('\n14. [INDIA & MYBILLBOOK PARITY] GST State Codes, Words, UPI QR & Authorized Signatory');
+// 1. numberToIndianWords utility
+const wordsUtilRaw = fs.readFileSync(path.resolve('./src/utils/numberToIndianWords.ts'), 'utf8');
+assert(wordsUtilRaw.includes('numberToIndianWords'), 'numberToIndianWords utility exported');
+assert(wordsUtilRaw.includes('formatAmountInWords'), 'formatAmountInWords helper exported');
+assert(wordsUtilRaw.includes('Lakh'), 'numberToIndianWords handles Indian numbering system (Lakh/Crore)');
+
+// 2. generateQrSvg vector QR generator
+const qrUtilRaw = fs.readFileSync(path.resolve('./src/utils/generateQrSvg.ts'), 'utf8');
+assert(qrUtilRaw.includes('generateQrSvg'), 'generateQrSvg vector SVG utility exported');
+
+// 3. Database migrations for GST & document types
+assert(dbServiceCurrentRaw.includes('document_type TEXT'), 'DatabaseService migrates document_type column');
+assert(dbServiceCurrentRaw.includes('place_of_supply TEXT'), 'DatabaseService migrates place_of_supply column');
+assert(dbServiceCurrentRaw.includes('is_gst_split INTEGER DEFAULT 1'), 'DatabaseService migrates is_gst_split column');
+
+// 4. RegionPaymentService Indian states and presets
+assert(regionServiceLatestRaw.includes('INDIAN_GST_STATES'), 'RegionPaymentService defines INDIAN_GST_STATES list');
+assert(regionServiceLatestRaw.includes('INDIAN_TRADE_PRESETS'), 'RegionPaymentService defines INDIAN_TRADE_PRESETS catalog');
+assert(regionServiceLatestRaw.includes('INDIAN_STANDARD_TERMS'), 'RegionPaymentService defines INDIAN_STANDARD_TERMS preset');
+
+// 5. PDFService Indian Tax Invoice standards
+assert(pdfUpdatedRaw.includes('formatAmountInWords'), 'PDFService formats official Amount in Words (Rule 46 compliance)');
+assert(pdfUpdatedRaw.includes('CGST ('), 'PDFService renders CGST intra-state breakdown');
+assert(pdfUpdatedRaw.includes('SGST ('), 'PDFService renders SGST intra-state breakdown');
+assert(pdfUpdatedRaw.includes('generateQrSvg'), 'PDFService embeds vector UPI QR code on invoice PDF');
+assert(pdfUpdatedRaw.includes('Authorized Signatory'), 'PDFService renders formal Authorized Signatory block');
+assert(pdfUpdatedRaw.includes('Place of Supply:'), 'PDFService renders Place of Supply on Bill To card');
+
+// 6. SettingsScreen Indian GST Compliance UI
+assert(settingsUpdatedRaw.includes('🇮🇳 GST & Indian Compliance'), 'SettingsScreen renders Indian GST compliance section');
+assert(settingsUpdatedRaw.includes('29 - Karnataka'), 'SettingsScreen provides Indian GST State chips');
+assert(settingsUpdatedRaw.includes('Default Document Title'), 'SettingsScreen provides default document title selector');
+assert(settingsUpdatedRaw.includes('Load Indian Trade Presets'), 'SettingsScreen provides 1-tap Indian Trade Presets button');
+
 console.log('\n======================================================');
 console.log(`TOTAL TESTS: ${passedCount + failedCount} | PASSED: ${passedCount} | FAILED: ${failedCount}`);
 console.log('======================================================');

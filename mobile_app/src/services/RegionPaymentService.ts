@@ -343,6 +343,80 @@ export class RegionPaymentService {
 
     return parts.filter(Boolean).join('  •  ');
   }
+
+  /**
+   * Official list of 37 Indian States and Union Territories with standard 2-digit GST codes.
+   */
+  public static readonly INDIAN_GST_STATES: { code: string; name: string }[] = [
+    { code: '01', name: 'Jammu & Kashmir' },
+    { code: '02', name: 'Himachal Pradesh' },
+    { code: '03', name: 'Punjab' },
+    { code: '04', name: 'Chandigarh' },
+    { code: '05', name: 'Uttarakhand' },
+    { code: '06', name: 'Haryana' },
+    { code: '07', name: 'Delhi' },
+    { code: '08', name: 'Rajasthan' },
+    { code: '09', name: 'Uttar Pradesh' },
+    { code: '10', name: 'Bihar' },
+    { code: '11', name: 'Sikkim' },
+    { code: '12', name: 'Arunachal Pradesh' },
+    { code: '13', name: 'Nagaland' },
+    { code: '14', name: 'Manipur' },
+    { code: '15', name: 'Mizoram' },
+    { code: '16', name: 'Tripura' },
+    { code: '17', name: 'Meghalaya' },
+    { code: '18', name: 'Assam' },
+    { code: '19', name: 'West Bengal' },
+    { code: '20', name: 'Jharkhand' },
+    { code: '21', name: 'Odisha' },
+    { code: '22', name: 'Chhattisgarh' },
+    { code: '23', name: 'Madhya Pradesh' },
+    { code: '24', name: 'Gujarat' },
+    { code: '26', name: 'Dadra and Nagar Haveli and Daman and Diu' },
+    { code: '27', name: 'Maharashtra' },
+    { code: '28', name: 'Andhra Pradesh (Old)' },
+    { code: '29', name: 'Karnataka' },
+    { code: '30', name: 'Goa' },
+    { code: '31', name: 'Lakshadweep' },
+    { code: '32', name: 'Kerala' },
+    { code: '33', name: 'Tamil Nadu' },
+    { code: '34', name: 'Puducherry' },
+    { code: '35', name: 'Andaman & Nicobar Islands' },
+    { code: '36', name: 'Telangana' },
+    { code: '37', name: 'Andhra Pradesh (New)' },
+    { code: '38', name: 'Ladakh' },
+  ];
+
+  /**
+   * Top trade contractor service presets for the Indian market in INR (₹).
+   */
+  public static readonly INDIAN_TRADE_PRESETS = [
+    { title: 'Electrical Wiring (Per Point)', priceCents: 25000, category: 'Labor' },
+    { title: 'Switchboard / Socket Installation', priceCents: 35000, category: 'Labor' },
+    { title: 'Ceiling Fan / Exhaust Fitting', priceCents: 30000, category: 'Labor' },
+    { title: 'MCB / Distribution Board Repair', priceCents: 120000, category: 'Diagnostic' },
+    { title: 'Inverter & Battery Wiring Setup', priceCents: 150000, category: 'Labor' },
+    { title: 'Plumbing Leakage & Pipe Joint Repair', priceCents: 65000, category: 'Diagnostic' },
+    { title: 'Tap / Cock / Bib Cock Replacement', priceCents: 30000, category: 'Labor' },
+    { title: 'Water Tank Fitting & Valve Setup', priceCents: 180000, category: 'Labor' },
+    { title: 'Wall Putty & Primer Coat (Per Sq.Ft)', priceCents: 1200, category: 'Labor' },
+    { title: 'Interior Emulsion Painting 2 Coats (Per Sq.Ft)', priceCents: 1800, category: 'Labor' },
+    { title: 'AC General Service & Jet Wash', priceCents: 80000, category: 'Diagnostic' },
+    { title: 'AC Gas Charging & Refrigerant Top-up', priceCents: 220000, category: 'Parts' },
+    { title: 'Door Lock / Handle Fitting & Repair', priceCents: 45000, category: 'Labor' },
+    { title: 'Bathroom Tile Laying (Per Sq.Ft)', priceCents: 3500, category: 'Labor' },
+    { title: 'Granite Countertop Cutting & Fitting', priceCents: 250000, category: 'Labor' },
+  ];
+
+  /**
+   * Standard Indian commercial trade Terms & Conditions preset.
+   */
+  public static readonly INDIAN_STANDARD_TERMS = `1. Goods & services once supplied/installed are deemed accepted upon test run.
+2. Advance/bayaana received is non-refundable upon commencement of work.
+3. Balance payment due immediately upon invoice submission.
+4. Interest @ 18% per annum will be charged on all delayed dues beyond agreed credit period.
+5. Material warranty is governed directly by original manufacturer policies.
+6. All disputes subject to local jurisdiction only.`;
 }
 
 function escapeHtml(str: string): string {

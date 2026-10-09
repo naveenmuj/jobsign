@@ -145,6 +145,24 @@ export class DatabaseService {
     } catch {
       // Column already exists or freshly created
     }
+
+    try {
+      await db.execAsync('ALTER TABLE quotes ADD COLUMN document_type TEXT;');
+    } catch {
+      // Column already exists or freshly created
+    }
+
+    try {
+      await db.execAsync('ALTER TABLE quotes ADD COLUMN place_of_supply TEXT;');
+    } catch {
+      // Column already exists or freshly created
+    }
+
+    try {
+      await db.execAsync('ALTER TABLE quotes ADD COLUMN is_gst_split INTEGER DEFAULT 1;');
+    } catch {
+      // Column already exists or freshly created
+    }
   }
 
   public static async getNextQuoteNumber(): Promise<number> {
@@ -198,6 +216,9 @@ export class DatabaseService {
         depositAmountCents: r.deposit_amount_cents || 0,
         paymentTerms: r.payment_terms || undefined,
         dueDateTimestamp: r.due_date_timestamp || undefined,
+        documentType: r.document_type || undefined,
+        placeOfSupply: r.place_of_supply || undefined,
+        isGstSplit: r.is_gst_split === 0 ? false : true,
         createdAt: r.created_at,
         updatedAt: r.updated_at,
         lineItems: items.map((i) => ({
@@ -233,8 +254,8 @@ export class DatabaseService {
           total_amount_cents, notes, photo_uri, signature_svg, signature_timestamp,
           signature_gps_lat, signature_gps_lng, pdf_sha256_hash, created_at, updated_at,
           tax_label, currency_symbol, include_photo_in_pdf, completed_photo_uri, invoice_issued_timestamp,
-          deposit_amount_cents, payment_terms, due_date_timestamp
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          deposit_amount_cents, payment_terms, due_date_timestamp, document_type, place_of_supply, is_gst_split
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           quote.id,
           quote.quoteNumber,
@@ -265,6 +286,9 @@ export class DatabaseService {
           quote.depositAmountCents || 0,
           quote.paymentTerms || null,
           quote.dueDateTimestamp || null,
+          quote.documentType || null,
+          quote.placeOfSupply || null,
+          quote.isGstSplit === false ? 0 : 1,
         ]
       );
 

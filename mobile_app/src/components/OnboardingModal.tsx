@@ -182,7 +182,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({ visible, onFin
                 styles.input,
                 { backgroundColor: colors.backgroundSecondary, borderColor: colors.border, color: colors.textPrimary },
               ]}
-              placeholder="e.g. Apex Electrical & HVAC"
+              placeholder="e.g. Apex Electricals & Services"
               placeholderTextColor={colors.textMuted}
               value={businessName}
               onChangeText={setBusinessName}
@@ -195,7 +195,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({ visible, onFin
                 styles.input,
                 { backgroundColor: colors.backgroundSecondary, borderColor: colors.border, color: colors.textPrimary },
               ]}
-              placeholder="e.g. 1204 Industrial Blvd, Austin, TX 78701"
+              placeholder="e.g. Shop #4, Main Market, Indiranagar or 100 Main St"
               placeholderTextColor={colors.textMuted}
               value={address}
               onChangeText={setAddress}
@@ -208,7 +208,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({ visible, onFin
                 styles.input,
                 { backgroundColor: colors.backgroundSecondary, borderColor: colors.border, color: colors.textPrimary },
               ]}
-              placeholder="e.g. (512) 555-0199"
+              placeholder="e.g. 98450 12345 or (555) 234-5678"
               placeholderTextColor={colors.textMuted}
               keyboardType="phone-pad"
               value={phone}

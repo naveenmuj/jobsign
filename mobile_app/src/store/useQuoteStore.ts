@@ -18,17 +18,30 @@ export const DEFAULT_PRESETS: ItemPreset[] = [
   { id: 'p6', title: 'Drywall Patch & Sanding', priceCents: 14000, category: 'Labor' },
 ];
 
+// Determine region-aware tax defaults based on detected currency
+const _getDefaultTaxForCurrency = (code: string): { label: string; basisPoints: number } => {
+  switch (code) {
+    case 'INR': return { label: 'GST', basisPoints: 1800 };   // India: 18% GST
+    case 'GBP': return { label: 'VAT', basisPoints: 2000 };   // UK: 20% VAT
+    case 'EUR': return { label: 'VAT', basisPoints: 2000 };   // EU: 20% VAT
+    case 'CAD': return { label: 'HST/GST', basisPoints: 1300 }; // Canada: 13% HST
+    case 'AUD': return { label: 'GST', basisPoints: 1000 };   // Australia: 10% GST
+    default:    return { label: 'Sales Tax', basisPoints: 825 }; // US / default: 8.25%
+  }
+};
+const _defaultTax = _getDefaultTaxForCurrency(detectedCurrency.code);
+
 export const DEFAULT_PROFILE: ContractorProfile = {
-  businessName: 'Apex Field Services LLC',
-  ownerName: 'Mike Sullivan',
-  phone: '(512) 843-9201',
-  email: 'mike@apexfieldservice.com',
-  address: '1204 Industrial Blvd, Suite B, Austin, TX 78701',
+  businessName: '',
+  ownerName: '',
+  phone: '',
+  email: '',
+  address: '',
   logoUri: undefined,
-  licenseNumber: 'TX-EL-92841',
-  zelleAccount: 'mike@apexfieldservice.com',
-  venmoAccount: '@ApexServices',
-  cashAppAccount: '$ApexMike',
+  licenseNumber: '',
+  zelleAccount: '',
+  venmoAccount: '',
+  cashAppAccount: '',
   upiId: '',
   upiPayeeName: '',
   bankAccountNumber: '',
@@ -36,9 +49,9 @@ export const DEFAULT_PROFILE: ContractorProfile = {
   bankName: '',
   savedBankAccounts: [],
   savedUpiAccounts: [],
-  defaultTaxBasisPoints: 825, // 8.25%
-  taxEnabledByDefault: true,  // Tax enabled by default on new quotes
-  taxLabel: 'Sales Tax',      // Default tax naming
+  defaultTaxBasisPoints: _defaultTax.basisPoints,
+  taxEnabledByDefault: true,
+  taxLabel: _defaultTax.label,
   isOnboardingCompleted: false,
   hasCustomBusinessName: false,
   invoiceTemplate: 'modern',

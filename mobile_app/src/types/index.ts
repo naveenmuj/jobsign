@@ -81,6 +81,9 @@ export interface ContractorProfile {
   customPaymentLabel?: string;  // user-defined custom payment label (e.g. "Direct Transfer", "Bank Wire")
   customPaymentNote?: string;   // user-defined payment instructions printed on invoices
   taxIdNumber?: string;         // Business Tax ID / GSTIN (India) / Contractor License & EIN (US)
+  stateCode?: string;           // Indian GST State & Code (e.g. "29 - Karnataka")
+  isGstSplitEnabled?: boolean;  // Whether intra-state CGST + SGST split is active
+  defaultInvoiceType?: 'TAX_INVOICE' | 'BILL_OF_SUPPLY' | 'ESTIMATE'; // Default document title
 }
 
 export interface Quote {
@@ -106,6 +109,9 @@ export interface Quote {
   paymentTerms?: string;       // e.g. 'DUE_ON_RECEIPT', 'NET_7', 'NET_15', 'NET_30', 'CUSTOM'
   dueDateTimestamp?: number;   // Expected payment due date timestamp
   depositAmountCents?: number; // Advance / deposit already collected
+  documentType?: 'TAX_INVOICE' | 'BILL_OF_SUPPLY' | 'ESTIMATE' | 'DELIVERY_CHALLAN'; // Document title
+  placeOfSupply?: string;      // Place of supply / client state code (e.g. "29 - Karnataka")
+  isGstSplit?: boolean;        // Split into CGST + SGST (intra-state) vs IGST (inter-state)
   signatureSvg?: string;
   signatureTimestamp?: number;
   signatureGpsLat?: number;

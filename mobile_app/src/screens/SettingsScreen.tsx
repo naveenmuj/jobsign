@@ -55,52 +55,113 @@ import {
   FileSpreadsheet,
 } from 'lucide-react-native';
 
-// Sample quote used for live instant preview of invoice templates
-const SAMPLE_PREVIEW_QUOTE: Quote = {
-  id: 'preview-sample-quote',
-  quoteNumber: 1042,
-  clientName: 'Sarah Jenkins',
-  clientPhone: '(512) 555-0199',
-  clientEmail: 'sarah.jenkins@example.com',
-  clientAddress: '4218 Crestview Dr, Austin, TX 78756',
-  jobDescription: 'Main Electrical Panel Upgrade (200A) & Surge Protection',
-  status: 'SIGNED_LOCKED',
-  subtotalCents: 272500,
-  taxRateBasisPoints: 825,
-  taxAmountCents: 22481,
-  totalAmountCents: 294981,
-  taxLabel: 'Sales Tax',
-  notes: '• 1-Year Workmanship Warranty on all labor and breaker connections\n• Homeowner supplies unobstructed access to meter and panel',
-  createdAt: Date.now() - 86400000,
-  updatedAt: Date.now(),
-  signatureSvg: '<path d="M 10 90 Q 60 20 110 85 T 210 70 Q 260 130 330 40 T 450 95" fill="none" stroke="#0F172A" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>',
-  signatureTimestamp: Date.now(),
-  signatureGpsLat: 30.2672,
-  signatureGpsLng: -97.7431,
-  pdfSha256Hash: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
-  lineItems: [
-    {
-      id: 'li-1',
-      description: '200-Amp Main Service Panel Replacement (Square D QO)',
-      quantity: 1,
-      unitPriceCents: 185000,
-      totalCents: 185000,
-    },
-    {
-      id: 'li-2',
-      description: 'Whole-Home Type 2 Surge Protective Device (SPD)',
-      quantity: 1,
-      unitPriceCents: 47500,
-      totalCents: 47500,
-    },
-    {
-      id: 'li-3',
-      description: 'City Electrical Permit Application & Inspection Coordination',
-      quantity: 1,
-      unitPriceCents: 40000,
-      totalCents: 40000,
-    },
-  ],
+// Generates a localized preview quote matching the active regional currency & tax setup
+const getSamplePreviewQuote = (code: string, symbol: string): Quote => {
+  const isIndia = code === 'INR' || symbol === '₹';
+  if (isIndia) {
+    return {
+      id: 'preview-sample-quote-in',
+      quoteNumber: 1042,
+      clientName: 'Ramesh Kumar',
+      clientPhone: '+91 98450 12345',
+      clientEmail: 'ramesh.kumar@example.in',
+      clientAddress: '14, 100ft Road, Indiranagar, Bengaluru, KA 560038',
+      placeOfSupply: '29 - Karnataka',
+      documentType: 'TAX_INVOICE',
+      jobDescription: 'Concealed Electrical Conduit, Wiring & Switchboard Fitting',
+      status: 'SIGNED_LOCKED',
+      subtotalCents: 870000,
+      taxRateBasisPoints: 1800,
+      taxAmountCents: 156600,
+      totalAmountCents: 1026600,
+      depositAmountCents: 300000,
+      paymentTerms: 'NET_15',
+      dueDateTimestamp: Date.now() + 15 * 86400000,
+      taxLabel: 'GST',
+      isGstSplit: true,
+      notes: '• 1-Year Workmanship Warranty on all labor and conduit fittings\n• 50% Advance with work order\n• Balance payable within 15 days of project sign-off',
+      createdAt: Date.now() - 86400000,
+      updatedAt: Date.now(),
+      signatureSvg: '<path d="M 10 90 Q 60 20 110 85 T 210 70 Q 260 130 330 40 T 450 95" fill="none" stroke="#0F172A" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>',
+      signatureTimestamp: Date.now(),
+      signatureGpsLat: 12.9716,
+      signatureGpsLng: 77.5946,
+      pdfSha256Hash: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
+      lineItems: [
+        {
+          id: 'li-1',
+          description: 'Concealed Copper Wiring & FR PVC Conduit (24 Points)',
+          quantity: 24,
+          unitPriceCents: 25000,
+          totalCents: 600000,
+        },
+        {
+          id: 'li-2',
+          description: 'Modular Switchboard & MCB Distribution Box Installation',
+          quantity: 6,
+          unitPriceCents: 35000,
+          totalCents: 210000,
+        },
+        {
+          id: 'li-3',
+          description: 'Ceiling Fan Assembly & Safety Hook Anchor Fitting',
+          quantity: 4,
+          unitPriceCents: 15000,
+          totalCents: 60000,
+        },
+      ],
+    };
+  }
+
+  return {
+    id: 'preview-sample-quote-us',
+    quoteNumber: 1042,
+    clientName: 'Sarah Jenkins',
+    clientPhone: '(512) 555-0199',
+    clientEmail: 'sarah.jenkins@example.com',
+    clientAddress: '4218 Crestview Dr, Austin, TX 78756',
+    jobDescription: 'Main Electrical Panel Upgrade (200A) & Surge Protection',
+    documentType: 'TAX_INVOICE',
+    status: 'SIGNED_LOCKED',
+    subtotalCents: 272500,
+    taxRateBasisPoints: 825,
+    taxAmountCents: 22481,
+    totalAmountCents: 294981,
+    depositAmountCents: 50000,
+    paymentTerms: 'DUE_ON_RECEIPT',
+    taxLabel: 'Sales Tax',
+    notes: '• 1-Year Workmanship Warranty on all labor and breaker connections\n• Homeowner supplies unobstructed access to meter and panel',
+    createdAt: Date.now() - 86400000,
+    updatedAt: Date.now(),
+    signatureSvg: '<path d="M 10 90 Q 60 20 110 85 T 210 70 Q 260 130 330 40 T 450 95" fill="none" stroke="#0F172A" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>',
+    signatureTimestamp: Date.now(),
+    signatureGpsLat: 30.2672,
+    signatureGpsLng: -97.7431,
+    pdfSha256Hash: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
+    lineItems: [
+      {
+        id: 'li-1',
+        description: '200-Amp Main Service Panel Replacement (Square D QO)',
+        quantity: 1,
+        unitPriceCents: 185000,
+        totalCents: 185000,
+      },
+      {
+        id: 'li-2',
+        description: 'Whole-Home Type 2 Surge Protective Device (SPD)',
+        quantity: 1,
+        unitPriceCents: 47500,
+        totalCents: 47500,
+      },
+      {
+        id: 'li-3',
+        description: 'City Electrical Permit Application & Inspection Coordination',
+        quantity: 1,
+        unitPriceCents: 40000,
+        totalCents: 40000,
+      },
+    ],
+  };
 };
 
 interface SettingsScreenProps {
@@ -157,6 +218,9 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onBack }) => {
   const [currencySymbol, setCurrencySymbol] = useState(profile.currencySymbol || '$');
   const [currencyCode, setCurrencyCode] = useState(profile.currencyCode || 'USD');
   const [isDetectingCurrency, setIsDetectingCurrency] = useState(false);
+  const [stateCode, setStateCode] = useState(profile.stateCode || '');
+  const [isGstSplitEnabled, setIsGstSplitEnabled] = useState(profile.isGstSplitEnabled ?? true);
+  const [defaultInvoiceType, setDefaultInvoiceType] = useState(profile.defaultInvoiceType || 'ESTIMATE');
 
   // Payments
   const [upiId, setUpiId] = useState(profile.upiId || '');
@@ -247,6 +311,9 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onBack }) => {
       logoUri: logoUri || undefined,
       licenseNumber: license.trim() || taxIdNumber.trim() || undefined,
       taxIdNumber: taxIdNumber.trim() || undefined,
+      stateCode: stateCode.trim() || undefined,
+      isGstSplitEnabled,
+      defaultInvoiceType,
       currencySymbol: currencySymbol.trim() || '$',
       currencyCode: currencyCode.trim() || 'USD',
       defaultTaxBasisPoints: taxBasisPoints,
@@ -347,8 +414,9 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onBack }) => {
         currencyCode: currencyCode || profile.currencyCode || 'USD',
         invoiceTemplate: templateId,
       };
-      // Uses direct viewPDF so user can inspect the sample layout right on screen
-      await PDFService.viewPDF(SAMPLE_PREVIEW_QUOTE, previewProfile);
+      // Uses direct viewPDF with localized sample data matching the active currency & region
+      const sampleQuote = getSamplePreviewQuote(previewProfile.currencyCode || 'USD', previewProfile.currencySymbol || '$');
+      await PDFService.viewPDF(sampleQuote, previewProfile);
     } catch (err: any) {
       AlertService.alert({
         title: 'Preview Error',
@@ -592,13 +660,17 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onBack }) => {
             title="Instant QR & Bank Transfer"
             subtitle={
               upiId
-                ? `Instant QR: ${upiId}`
+                ? `${regionConfig.region === 'IN' ? 'UPI QR' : 'Instant QR'}: ${upiId}`
                 : zelle
                 ? `Zelle: ${zelle}`
+                : bankAccountNumber
+                ? `Bank: A/C ending ...${bankAccountNumber.slice(-4)}`
+                : regionConfig.region === 'IN'
+                ? 'Set up UPI ID or Bank Account'
                 : 'Set up Instant QR or Bank account'
             }
-            badge={upiId || zelle ? 'Active' : 'Setup Required'}
-            badgeColor={upiId || zelle ? colors.emerald : colors.amber}
+            badge={upiId || zelle || bankAccountNumber ? 'Active' : 'Setup Required'}
+            badgeColor={upiId || zelle || bankAccountNumber ? colors.emerald : colors.amber}
             colors={colors}
             onPress={() => setActiveModal('PAYMENT')}
           />
@@ -710,7 +782,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onBack }) => {
         <Text style={styles.inputLabel}>Business / Contracting Name *</Text>
         <TextInput
           style={styles.input}
-          placeholder="e.g. Apex Electrical Solutions"
+          placeholder={regionConfig.region === 'IN' ? "e.g. Apex Electricals & Services" : "e.g. Apex Electrical Solutions"}
           placeholderTextColor={colors.textMuted}
           value={businessName}
           onChangeText={setBusinessName}
@@ -719,7 +791,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onBack }) => {
         <Text style={styles.inputLabel}>Owner / Contractor Full Name</Text>
         <TextInput
           style={styles.input}
-          placeholder="e.g. Mike Sullivan"
+          placeholder={regionConfig.region === 'IN' ? "e.g. Ramesh Sharma" : "e.g. John Miller"}
           placeholderTextColor={colors.textMuted}
           value={ownerName}
           onChangeText={setOwnerName}
@@ -728,7 +800,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onBack }) => {
         <Text style={styles.inputLabel}>Phone Number</Text>
         <TextInput
           style={styles.input}
-          placeholder="e.g. (512) 843-9201"
+          placeholder={regionConfig.region === 'IN' ? "e.g. 98450 12345" : "e.g. (555) 234-5678"}
           placeholderTextColor={colors.textMuted}
           value={phone}
           onChangeText={setPhone}
@@ -738,7 +810,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onBack }) => {
         <Text style={styles.inputLabel}>Email Address</Text>
         <TextInput
           style={styles.input}
-          placeholder="e.g. mike@apexservices.com"
+          placeholder={regionConfig.region === 'IN' ? "e.g. contractor@sharmaelectric.in" : "e.g. contractor@mybusiness.com"}
           placeholderTextColor={colors.textMuted}
           value={email}
           onChangeText={setEmail}
@@ -749,7 +821,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onBack }) => {
         <Text style={styles.inputLabel}>Business Physical Address</Text>
         <TextInput
           style={styles.input}
-          placeholder="e.g. 1204 Industrial Blvd, Suite B"
+          placeholder={regionConfig.region === 'IN' ? "e.g. #14, 100ft Road, Indiranagar, Bengaluru" : "e.g. 100 Main Street, Suite 200"}
           placeholderTextColor={colors.textMuted}
           value={address}
           onChangeText={setAddress}
@@ -1095,7 +1167,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onBack }) => {
             <Text style={styles.inputLabel}>Zelle Phone or Email</Text>
             <TextInput
               style={styles.input}
-              placeholder="e.g. mike@apexservices.com"
+              placeholder="e.g. contractor@mybusiness.com or (555) 234-5678"
               placeholderTextColor={colors.textMuted}
               value={zelle}
               onChangeText={setZelle}
@@ -1104,7 +1176,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onBack }) => {
             <Text style={[styles.inputLabel, { marginTop: 10 }]}>Venmo Username</Text>
             <TextInput
               style={styles.input}
-              placeholder="e.g. @ApexServices"
+              placeholder="e.g. @ContractorHandle"
               placeholderTextColor={colors.textMuted}
               value={venmo}
               onChangeText={setVenmo}
@@ -1113,7 +1185,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onBack }) => {
             <Text style={[styles.inputLabel, { marginTop: 10 }]}>Cash App Cashtag</Text>
             <TextInput
               style={styles.input}
-              placeholder="e.g. $ApexMike"
+              placeholder="e.g. $ContractorCashtag"
               placeholderTextColor={colors.textMuted}
               value={cashApp}
               onChangeText={setCashApp}
@@ -1154,6 +1226,13 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onBack }) => {
                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                   setCurrencySymbol(c.symbol);
                   setCurrencyCode(c.code);
+                  if (c.code === 'INR') {
+                    if (taxLabel === 'Sales Tax' || !taxLabel) setTaxLabel('GST');
+                    if (defaultTaxRate === '8.25' || !defaultTaxRate) setDefaultTaxRate('18.00');
+                  } else if (c.code === 'USD') {
+                    if (taxLabel === 'GST' || !taxLabel) setTaxLabel('Sales Tax');
+                    if (defaultTaxRate === '18.00' || !defaultTaxRate) setDefaultTaxRate('8.25');
+                  }
                 }}
               >
                 <Text style={[styles.currencyChipSymbol, isCur && styles.currencyChipSymbolActive]}>
@@ -1235,6 +1314,93 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onBack }) => {
           </View>
         </TouchableOpacity>
 
+        {regionConfig.region === 'IN' && (
+          <View style={{ marginTop: 14, paddingTop: 14, borderTopWidth: 1, borderColor: colors.border }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+              <Text style={{ fontSize: 13, fontWeight: '800', color: colors.textPrimary }}>
+                🇮🇳 GST & Indian Compliance
+              </Text>
+              <View style={{ backgroundColor: colors.emerald + '20', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, marginLeft: 8 }}>
+                <Text style={{ fontSize: 9, fontWeight: '800', color: colors.emerald }}>myBillBook Standard</Text>
+              </View>
+            </View>
+
+            <Text style={styles.inputLabel}>Registered State & 2-Digit GST Code</Text>
+            <View style={styles.taxPresetRow}>
+              {[
+                { code: '29', name: '29 - Karnataka' },
+                { code: '27', name: '27 - Maharashtra' },
+                { code: '07', name: '07 - Delhi' },
+                { code: '33', name: '33 - Tamil Nadu' },
+                { code: '36', name: '36 - Telangana' },
+                { code: '24', name: '24 - Gujarat' },
+                { code: '09', name: '09 - Uttar Pradesh' },
+              ].map((s) => (
+                <TouchableOpacity
+                  key={s.code}
+                  style={[styles.taxChip, stateCode === s.name && styles.taxChipActive]}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    setStateCode(s.name);
+                  }}
+                >
+                  <Text style={[styles.taxChipText, stateCode === s.name && styles.taxChipTextActive]}>
+                    {s.name}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+            <TextInput
+              style={[styles.input, { marginTop: 4 }]}
+              placeholder="e.g. 29 - Karnataka, 27 - Maharashtra"
+              placeholderTextColor={colors.textMuted}
+              value={stateCode}
+              onChangeText={setStateCode}
+            />
+
+            <Text style={[styles.inputLabel, { marginTop: 12 }]}>Default Document Title</Text>
+            <View style={{ flexDirection: 'row', gap: 8, marginTop: 4, marginBottom: 8 }}>
+              {[
+                { id: 'TAX_INVOICE' as const, label: 'Tax Invoice' },
+                { id: 'BILL_OF_SUPPLY' as const, label: 'Bill of Supply' },
+                { id: 'ESTIMATE' as const, label: 'Estimate / Quote' },
+              ].map((t) => (
+                <TouchableOpacity
+                  key={t.id}
+                  style={[
+                    styles.taxChip,
+                    { flex: 1, alignItems: 'center' },
+                    defaultInvoiceType === t.id && styles.taxChipActive,
+                  ]}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    setDefaultInvoiceType(t.id);
+                  }}
+                >
+                  <Text style={[styles.taxChipText, defaultInvoiceType === t.id && styles.taxChipTextActive]}>
+                    {t.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <TouchableOpacity
+              style={styles.toggleRow}
+              onPress={() => setIsGstSplitEnabled(!isGstSplitEnabled)}
+            >
+              <View style={{ flex: 1, paddingRight: 10 }}>
+                <Text style={styles.toggleLabel}>Auto Split CGST (50%) + SGST (50%)</Text>
+                <Text style={styles.toggleSub}>
+                  Applies intra-state 50/50 tax breakdown (e.g. 18% GST → 9% CGST + 9% SGST)
+                </Text>
+              </View>
+              <View style={[styles.toggleSwitch, isGstSplitEnabled && styles.toggleSwitchActive]}>
+                <View style={[styles.toggleThumb, isGstSplitEnabled && styles.toggleThumbActive]} />
+              </View>
+            </TouchableOpacity>
+          </View>
+        )}
+
         <TouchableOpacity
           style={styles.modalPrimaryBtn}
           onPress={() => {
@@ -1278,6 +1444,44 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onBack }) => {
             <Text style={styles.addPresetBtnText}>+ Add to Catalog</Text>
           </TouchableOpacity>
         </View>
+
+        {regionConfig.region === 'IN' && (
+          <TouchableOpacity
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'center',
+              backgroundColor: colors.emerald + '15',
+              paddingVertical: 10,
+              paddingHorizontal: 12,
+              borderRadius: 8,
+              borderWidth: 1,
+              borderColor: colors.emerald + '30',
+              marginBottom: 14,
+            }}
+            onPress={() => {
+              RegionPaymentService.INDIAN_TRADE_PRESETS.forEach((p) => {
+                if (!presets.some((existing) => existing.title === p.title)) {
+                  addPreset({
+                    title: p.title,
+                    priceCents: p.priceCents,
+                    category: p.category as any,
+                  });
+                }
+              });
+              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+              AlertService.alert({
+                title: 'Indian Presets Loaded',
+                message: 'Standard electrical, plumbing, fitting & painting presets added to your catalog.',
+                type: 'SUCCESS',
+              });
+            }}
+          >
+            <Text style={{ fontSize: 12, fontWeight: '700', color: colors.emerald }}>
+              🇮🇳 Load Indian Trade Presets (Wiring, Fitting, Plumbing)
+            </Text>
+          </TouchableOpacity>
+        )}
 
         <Text style={[styles.inputLabel, { marginTop: 16 }]}>Existing Presets ({presets.length})</Text>
         {presets.map((p) => (

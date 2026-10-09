@@ -21,6 +21,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { useQuoteStore } from '../store/useQuoteStore';
 import { useAppSafeArea } from '../utils/safeArea';
 import { ChevronLeft, Trash2, FileText, Phone, MessageSquare, Plus, Check, Eye, Share2, Camera, Image as ImageIcon, MessageCircle, FileCheck } from 'lucide-react-native';
+import { formatAmountInWords } from '../utils/numberToIndianWords';
 
 interface QuoteDetailScreenProps {
   quote: Quote;
@@ -437,7 +438,7 @@ export const QuoteDetailScreen: React.FC<QuoteDetailScreenProps> = ({ quote: ini
     const quoteForPdf = getQuoteForPdf();
     const needsCompanyName =
       !profile.hasCustomBusinessName &&
-      (!profile.businessName || profile.businessName.trim() === '' || profile.businessName === 'Apex Field Services LLC');
+      (!profile.businessName || profile.businessName.trim() === '');
     if (needsCompanyName) {
       setPendingPdfAction('SHARE');
       setShowCompanyModal(true);
@@ -451,7 +452,7 @@ export const QuoteDetailScreen: React.FC<QuoteDetailScreenProps> = ({ quote: ini
     const quoteForPdf = getQuoteForPdf();
     const needsCompanyName =
       !profile.hasCustomBusinessName &&
-      (!profile.businessName || profile.businessName.trim() === '' || profile.businessName === 'Apex Field Services LLC');
+      (!profile.businessName || profile.businessName.trim() === '');
     if (needsCompanyName) {
       setPendingPdfAction('VIEW');
       setShowCompanyModal(true);
@@ -1069,12 +1070,27 @@ export const QuoteDetailScreen: React.FC<QuoteDetailScreenProps> = ({ quote: ini
             <Text style={styles.sumLabel}>Original Scope</Text>
             <Text style={styles.sumVal}>{curSymbol}{(quote.subtotalCents / 100).toFixed(2)}</Text>
           </View>
-          <View style={styles.summaryRow}>
-            <Text style={styles.sumLabel}>
-              {quote.taxLabel || regionConfig.defaultTaxLabel} ({((quote.taxRateBasisPoints ?? 825) / 100).toFixed(2)}%)
-            </Text>
-            <Text style={styles.sumVal}>{curSymbol}{(quote.taxAmountCents / 100).toFixed(2)}</Text>
-          </View>
+
+          {regionConfig.region === 'IN' && quote.isGstSplit !== false && quote.taxAmountCents > 0 ? (
+            <>
+              <View style={styles.summaryRow}>
+                <Text style={styles.sumLabel}>CGST ({(quote.taxRateBasisPoints / 200).toFixed(2)}%)</Text>
+                <Text style={styles.sumVal}>{curSymbol}{((quote.taxAmountCents / 2) / 100).toFixed(2)}</Text>
+              </View>
+              <View style={styles.summaryRow}>
+                <Text style={styles.sumLabel}>SGST ({(quote.taxRateBasisPoints / 200).toFixed(2)}%)</Text>
+                <Text style={styles.sumVal}>{curSymbol}{((quote.taxAmountCents / 2) / 100).toFixed(2)}</Text>
+              </View>
+            </>
+          ) : (
+            <View style={styles.summaryRow}>
+              <Text style={styles.sumLabel}>
+                {quote.taxLabel || regionConfig.defaultTaxLabel} ({((quote.taxRateBasisPoints ?? 825) / 100).toFixed(2)}%)
+              </Text>
+              <Text style={styles.sumVal}>{curSymbol}{(quote.taxAmountCents / 100).toFixed(2)}</Text>
+            </View>
+          )}
+
           <View style={[styles.summaryRow, styles.totalRow]}>
             <Text style={styles.totalLabel}>TOTAL CONTRACT</Text>
             <Text style={styles.totalVal}>{curSymbol}{(quote.totalAmountCents / 100).toFixed(2)}</Text>
@@ -1100,6 +1116,14 @@ export const QuoteDetailScreen: React.FC<QuoteDetailScreenProps> = ({ quote: ini
               </View>
             </View>
           )}
+
+          {/* Amount in Words */}
+          <View style={{ marginTop: 10, paddingTop: 8, borderTopWidth: 1, borderColor: colors.borderSubtle }}>
+            <Text style={{ fontSize: 11, color: colors.textSecondary, fontWeight: '700' }}>Amount in Words:</Text>
+            <Text style={{ fontSize: 12, fontWeight: '700', color: colors.textPrimary, marginTop: 1 }}>
+              {formatAmountInWords(quote.totalAmountCents, profile?.currencyCode, curSymbol)}
+            </Text>
+          </View>
 
           {(quote.dueDateTimestamp || quote.paymentTerms) && (
             <View style={{ marginTop: 8, paddingTop: 6, borderTopWidth: 1, borderColor: colors.borderSubtle, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>

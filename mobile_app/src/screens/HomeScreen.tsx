@@ -375,7 +375,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     const needsCompanyName =
       !profile.hasCustomBusinessName &&
-      (!profile.businessName || profile.businessName.trim() === '' || profile.businessName === 'Apex Field Services LLC');
+      (!profile.businessName || profile.businessName.trim() === '');
     if (needsCompanyName) {
       setPendingPdfQuote(quote);
       setShowCompanyModal(true);
@@ -411,7 +411,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
       <View style={styles.header}>
         <View>
           <Text style={styles.brandTitle}>JobSign</Text>
-          <Text style={styles.brandSub}>{profile.businessName}</Text>
+          <Text style={styles.brandSub}>{profile.businessName || 'Estimates & Invoices'}</Text>
         </View>
         <View style={styles.headerRight}>
           <TouchableOpacity
