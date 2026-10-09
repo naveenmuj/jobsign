@@ -89,6 +89,8 @@ export interface ContractorProfile {
   stateCode?: string;           // Indian GST State & Code (e.g. "29 - Karnataka")
   isGstSplitEnabled?: boolean;  // Whether intra-state CGST + SGST split is active
   defaultInvoiceType?: 'TAX_INVOICE' | 'BILL_OF_SUPPLY' | 'ESTIMATE'; // Default document title
+  region?: 'IN' | 'US' | 'GB' | 'EU' | 'CA' | 'AU' | 'GLOBAL'; // Explicit market/region mode ('US' or 'IN' or global)
+  checkPayableTo?: string;      // US check payee (e.g. "Apex Contracting LLC")
 }
 
 export interface Quote {

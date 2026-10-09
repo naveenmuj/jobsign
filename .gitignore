@@ -39,3 +39,11 @@ service_account.json
 .vscode/
 *.swp
 
+# Testing Artifacts & Scratch
+*.xml
+screen*.png
+current_screen.png
+find_bounds.js
+scratch/
+mobile_app/stress_test.*
+

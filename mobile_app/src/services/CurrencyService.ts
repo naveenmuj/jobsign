@@ -159,6 +159,67 @@ export class CurrencyService {
   }
 
   /**
+   * Synchronously detect whether the device is in the US or India based on timezone/locale.
+   */
+  public static detectMarketRegion(): 'US' | 'IN' {
+    try {
+      const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || '';
+      const locale = Intl.NumberFormat().resolvedOptions().locale || '';
+
+      if (
+        tz.includes('Calcutta') ||
+        tz.includes('Kolkata') ||
+        locale.endsWith('-IN') ||
+        locale.startsWith('hi') ||
+        locale.startsWith('ta') ||
+        locale.startsWith('te') ||
+        locale.startsWith('kn') ||
+        locale.startsWith('mr') ||
+        locale.startsWith('bn') ||
+        locale.startsWith('gu')
+      ) {
+        return 'IN';
+      }
+
+      if (
+        tz.startsWith('America/') ||
+        tz.startsWith('US/') ||
+        locale.endsWith('-US') ||
+        locale === 'en-US'
+      ) {
+        return 'US';
+      }
+
+      return 'US';
+    } catch {
+      return 'US';
+    }
+  }
+
+  /**
+   * Asynchronously detect US vs India from GPS reverse-geocoding, falling back to timezone.
+   */
+  public static async detectMarketFromLocationOrDevice(): Promise<'US' | 'IN'> {
+    try {
+      const { status } = await Location.getForegroundPermissionsAsync();
+      if (status === 'granted') {
+        const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Low });
+        const geo = await Location.reverseGeocodeAsync({
+          latitude: loc.coords.latitude,
+          longitude: loc.coords.longitude,
+        });
+
+        if (geo && geo[0] && geo[0].isoCountryCode) {
+          const code = geo[0].isoCountryCode.toUpperCase();
+          if (code === 'IN') return 'IN';
+          if (code === 'US') return 'US';
+        }
+      }
+    } catch {}
+    return this.detectMarketRegion();
+  }
+
+  /**
    * Universal currency formatter with active symbol and regional number grouping.
    * Supports Indian number formatting (e.g. ₹1,50,000.00) and Western formatting (e.g. $150,000.00).
    */

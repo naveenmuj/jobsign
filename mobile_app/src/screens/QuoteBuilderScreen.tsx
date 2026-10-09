@@ -698,8 +698,8 @@ export const QuoteBuilderScreen: React.FC<{ onBack: () => void; initialQuote?: Q
     : 0;
   const totalAmountCents = subtotalCents + taxAmountCents;
 
-  const regionConfig = RegionPaymentService.getConfig(profile.currencyCode, profile.currencySymbol);
-  const isIndia = regionConfig.region === 'IN' || profile.currencyCode === 'INR' || profile.currencySymbol === '₹';
+  const regionConfig = RegionPaymentService.getConfig(profile.currencyCode, profile.currencySymbol, profile.region);
+  const isIndia = (profile.region === 'IN') || (profile.region !== 'US' && (regionConfig.region === 'IN' || profile.currencyCode === 'INR' || profile.currencySymbol === '₹'));
 
   const availablePresets = React.useMemo(() => {
     if (isIndia) {
@@ -711,7 +711,13 @@ export const QuoteBuilderScreen: React.FC<{ onBack: () => void; initialQuote?: Q
       }));
       return [...indianItems, ...presets];
     }
-    return presets;
+    const usItems = RegionPaymentService.US_TRADE_PRESETS.map((p, idx) => ({
+      id: `us-preset-${idx}`,
+      title: p.title,
+      priceCents: p.priceCents,
+      category: p.category as any,
+    }));
+    return [...usItems, ...presets];
   }, [isIndia, presets]);
 
   const parsedDeposit = parseFloat(depositInput);
@@ -921,12 +927,18 @@ export const QuoteBuilderScreen: React.FC<{ onBack: () => void; initialQuote?: Q
         <View style={[styles.card, { paddingVertical: 12, marginBottom: 14 }]}>
           <Text style={styles.label}>Document Type</Text>
           <View style={{ flexDirection: 'row', gap: 6 }}>
-            {[
-              { id: 'TAX_INVOICE', label: 'Tax Invoice', icon: '📄' },
-              { id: 'ESTIMATE', label: 'Quotation', icon: '📋' },
-              { id: 'BILL_OF_SUPPLY', label: 'Bill of Supply', icon: '🧾' },
-              { id: 'DELIVERY_CHALLAN', label: 'Challan', icon: '🚚' },
-            ].map((doc) => {
+            {(isIndia
+              ? [
+                  { id: 'TAX_INVOICE', label: 'Tax Invoice', icon: '📄' },
+                  { id: 'ESTIMATE', label: 'Quotation', icon: '📋' },
+                  { id: 'BILL_OF_SUPPLY', label: 'Bill of Supply', icon: '🧾' },
+                  { id: 'DELIVERY_CHALLAN', label: 'Challan', icon: '🚚' },
+                ]
+              : [
+                  { id: 'ESTIMATE', label: 'Estimate / Proposal', icon: '📋' },
+                  { id: 'TAX_INVOICE', label: 'Invoice', icon: '📄' },
+                ]
+            ).map((doc) => {
               const isSelected = documentType === doc.id;
               return (
                 <TouchableOpacity
@@ -1250,15 +1262,17 @@ export const QuoteBuilderScreen: React.FC<{ onBack: () => void; initialQuote?: Q
                 />
               </View>
 
-              <View style={{ width: 72 }}>
-                <TextInput
-                  style={[styles.input, { fontSize: 12, textAlign: 'center', paddingVertical: 8 }]}
-                  placeholder="SAC #"
-                  placeholderTextColor={colors.textMuted}
-                  value={customHsn}
-                  onChangeText={setCustomHsn}
-                />
-              </View>
+              {isIndia && (
+                <View style={{ width: 72 }}>
+                  <TextInput
+                    style={[styles.input, { fontSize: 12, textAlign: 'center', paddingVertical: 8 }]}
+                    placeholder="SAC #"
+                    placeholderTextColor={colors.textMuted}
+                    value={customHsn}
+                    onChangeText={setCustomHsn}
+                  />
+                </View>
+              )}
 
               <TouchableOpacity style={[styles.addCustomBtn, { flex: 1 }]} onPress={handleAddCustomItem}>
                 <Plus size={14} color="#FFFFFF" />
@@ -1268,7 +1282,10 @@ export const QuoteBuilderScreen: React.FC<{ onBack: () => void; initialQuote?: Q
 
             {/* Trade Unit Selector Chips */}
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ flexDirection: 'row', gap: 6, paddingVertical: 2 }}>
-              {['nos', 'sq.ft', 'mtr', 'pts', 'hrs', 'kg', 'set', 'box'].map((u) => {
+              {(isIndia
+                ? ['nos', 'sq.ft', 'mtr', 'pts', 'hrs', 'kg', 'set', 'box']
+                : ['hrs', 'sq ft', 'linear ft', 'ea', 'trip', 'system', 'day']
+              ).map((u) => {
                 const isSelected = customUnit === u;
                 return (
                   <TouchableOpacity
@@ -1505,7 +1522,7 @@ export const QuoteBuilderScreen: React.FC<{ onBack: () => void; initialQuote?: Q
         {/* Legal Terms & Custom Scope Notes */}
         <View style={styles.card}>
           <Text style={styles.label}>Terms & Conditions</Text>
-          {isIndia && (
+          {isIndia ? (
             <TouchableOpacity
               style={[
                 styles.termChip,
@@ -1518,6 +1535,21 @@ export const QuoteBuilderScreen: React.FC<{ onBack: () => void; initialQuote?: Q
             >
               <Text style={[styles.termChipText, { color: colors.primary, fontWeight: '700' }]}>
                 📜 Apply Indian Trade T&Cs (Bayaana, 18% p.a., Jurisdiction)
+              </Text>
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity
+              style={[
+                styles.termChip,
+                { backgroundColor: colors.primaryLight, borderColor: colors.primary, marginBottom: 8, alignSelf: 'flex-start' },
+              ]}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                setNotes(RegionPaymentService.US_STANDARD_TERMS);
+              }}
+            >
+              <Text style={[styles.termChipText, { color: colors.primary, fontWeight: '700' }]}>
+                📜 Apply US Contractor Terms (Net 30, Lien Waiver, Warranty, Rescission)
               </Text>
             </TouchableOpacity>
           )}

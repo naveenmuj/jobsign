@@ -6,17 +6,27 @@ import { Quote, ItemPreset, ContractorProfile } from '../types';
 import { DatabaseService } from '../services/DatabaseService';
 import { FEATURE_FLAGS } from '../config/featureFlags';
 import { CurrencyService } from '../services/CurrencyService';
+import { RegionPaymentService } from '../services/RegionPaymentService';
 
+const detectedMarket = CurrencyService.detectMarketRegion();
 const detectedCurrency = CurrencyService.detectDeviceCurrency();
 
-export const DEFAULT_PRESETS: ItemPreset[] = [
-  { id: 'p1', title: 'Diagnostic & Service Call', priceCents: 9500, category: 'Diagnostic' },
-  { id: 'p2', title: 'Hourly Labor Rate', priceCents: 8500, category: 'Labor' },
-  { id: 'p3', title: 'Main Breaker Replacement', priceCents: 22000, category: 'Parts' },
-  { id: 'p4', title: 'Water Pipe Leak Repair', priceCents: 18000, category: 'Parts' },
-  { id: 'p5', title: 'HVAC Capacitor Replacement', priceCents: 16500, category: 'Parts' },
-  { id: 'p6', title: 'Drywall Patch & Sanding', priceCents: 14000, category: 'Labor' },
-];
+export const DEFAULT_PRESETS: ItemPreset[] = detectedMarket === 'IN'
+  ? RegionPaymentService.INDIAN_TRADE_PRESETS.map((p, i) => ({
+      id: `in-p-${i + 1}`,
+      title: p.title,
+      priceCents: p.priceCents,
+      category: p.category as any,
+      hsnSac: p.hsnSac,
+      unit: p.unit,
+    }))
+  : RegionPaymentService.US_TRADE_PRESETS.map((p, i) => ({
+      id: `us-p-${i + 1}`,
+      title: p.title,
+      priceCents: p.priceCents,
+      category: p.category as any,
+      unit: p.unit,
+    }));
 
 // Determine region-aware tax defaults based on detected currency
 const _getDefaultTaxForCurrency = (code: string): { label: string; basisPoints: number } => {
@@ -49,12 +59,14 @@ export const DEFAULT_PROFILE: ContractorProfile = {
   bankName: '',
   savedBankAccounts: [],
   savedUpiAccounts: [],
+  region: detectedMarket,
   defaultTaxBasisPoints: _defaultTax.basisPoints,
   taxEnabledByDefault: true,
   taxLabel: _defaultTax.label,
+  isGstSplitEnabled: detectedMarket === 'IN',
   isOnboardingCompleted: false,
   hasCustomBusinessName: false,
-  invoiceTemplate: 'modern',
+  invoiceTemplate: detectedMarket === 'IN' ? 'advanced_gst' : 'contractor',
   notificationPreferences: {
     outboxAlerts: true,
     sealConfirmations: true,
@@ -62,6 +74,7 @@ export const DEFAULT_PROFILE: ContractorProfile = {
   },
   currencySymbol: detectedCurrency.symbol,
   currencyCode: detectedCurrency.code,
+  defaultInvoiceType: 'ESTIMATE',
 };
 
 interface QuoteStore {
@@ -77,6 +90,7 @@ interface QuoteStore {
   addQuote: (quote: Quote) => Promise<void>;
   deleteQuote: (id: string) => Promise<void>;
   updateProfile: (profile: Partial<ContractorProfile>) => void;
+  setRegionMode: (region: 'IN' | 'US') => void;
   addPreset: (preset: Omit<ItemPreset, 'id'>) => void;
   removePreset: (id: string) => void;
   setProStatus: (status: boolean) => void;
@@ -127,6 +141,56 @@ export const useQuoteStore = create<QuoteStore>()(
 
       updateProfile: (updates) => {
         set((state) => ({ profile: { ...state.profile, ...updates } }));
+      },
+
+      setRegionMode: (region: 'IN' | 'US') => {
+        if (region === 'US') {
+          set((state) => ({
+            profile: {
+              ...state.profile,
+              region: 'US',
+              currencySymbol: '$',
+              currencyCode: 'USD',
+              taxLabel: 'Sales Tax',
+              defaultTaxBasisPoints: 825,
+              taxEnabledByDefault: true,
+              isGstSplitEnabled: false,
+              invoiceTemplate: 'contractor',
+              defaultInvoiceType: 'ESTIMATE',
+              stateCode: undefined,
+            },
+            presets: RegionPaymentService.US_TRADE_PRESETS.map((p, i) => ({
+              id: `us-p-${i + 1}`,
+              title: p.title,
+              priceCents: p.priceCents,
+              category: p.category as any,
+              unit: p.unit,
+            })),
+          }));
+        } else {
+          set((state) => ({
+            profile: {
+              ...state.profile,
+              region: 'IN',
+              currencySymbol: '₹',
+              currencyCode: 'INR',
+              taxLabel: 'GST',
+              defaultTaxBasisPoints: 1800,
+              taxEnabledByDefault: true,
+              isGstSplitEnabled: true,
+              invoiceTemplate: 'advanced_gst',
+              defaultInvoiceType: 'ESTIMATE',
+            },
+            presets: RegionPaymentService.INDIAN_TRADE_PRESETS.map((p, i) => ({
+              id: `in-p-${i + 1}`,
+              title: p.title,
+              priceCents: p.priceCents,
+              category: p.category as any,
+              hsnSac: p.hsnSac,
+              unit: p.unit,
+            })),
+          }));
+        }
       },
 
       addPreset: (newPreset) => {

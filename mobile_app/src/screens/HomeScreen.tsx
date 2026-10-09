@@ -460,8 +460,33 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
 
   const handleShareWhatsApp = (quote: Quote) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    const isPaid = quote.status === 'PAID';
+    const depositCents = quote.depositAmountCents || 0;
+    const balanceDueCents = Math.max(0, quote.totalAmountCents - depositCents);
+    const docTypeLabel =
+      quote.documentType === 'TAX_INVOICE' || quote.status === 'INVOICED'
+        ? 'Tax Invoice'
+        : quote.documentType === 'BILL_OF_SUPPLY'
+        ? 'Bill of Supply'
+        : quote.documentType === 'DELIVERY_CHALLAN'
+        ? 'Delivery Challan'
+        : 'Quotation / Estimate';
     const amountStr = `${curSymbol}${(quote.totalAmountCents / 100).toFixed(2)}`;
-    const msg = `Hello ${quote.clientName}, regarding Agreement #${quote.quoteNumber} for ${amountStr} from ${profile.businessName || 'our company'}. You can find your official document details and payment instructions here.`;
+    const balStr = `${curSymbol}${(balanceDueCents / 100).toFixed(2)}`;
+    const dueText = quote.dueDateTimestamp
+      ? `\n📅 Due Date: ${new Date(quote.dueDateTimestamp).toLocaleDateString()}`
+      : '';
+    const balanceText = isPaid
+      ? '\n✅ Status: Paid in Full'
+      : depositCents > 0
+      ? `\n💰 Advance Paid: ${curSymbol}${(depositCents / 100).toFixed(2)}\n⚠️ Balance Due: ${balStr}`
+      : `\n⚠️ Total Due: ${balStr}`;
+    const upiDetails = profile.upiId ? `\n💳 Pay via UPI: ${profile.upiId}` : '';
+    const bankDetails = profile.bankAccountNumber
+      ? `\n🏦 Bank: ${profile.bankName || ''} A/C: ${profile.bankAccountNumber} (IFSC: ${profile.bankIfsc || ''})`
+      : '';
+
+    const msg = `Dear ${quote.clientName},\n\nPlease find your ${docTypeLabel} #${quote.quoteNumber} for ${amountStr} from ${profile.businessName || 'our business'}.${balanceText}${dueText}${upiDetails}${bankDetails}\n\nThank you for choosing our services!`;
     const cleanPhone = (quote.clientPhone || '').replace(/[^0-9]/g, '');
     const waUrl = cleanPhone
       ? `whatsapp://send?phone=${cleanPhone}&text=${encodeURIComponent(msg)}`

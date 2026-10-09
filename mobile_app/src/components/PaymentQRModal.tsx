@@ -42,13 +42,13 @@ export const PaymentQRModal: React.FC<{ quote: Quote; onClose: () => void }> = (
   const insets = useAppSafeArea();
 
   const curSymbol = quote.currencySymbol || profile?.currencySymbol || '$';
-  const isIndia = curSymbol === '₹' || profile?.currencyCode === 'INR';
+  const isIndia = (profile?.region === 'IN') || (profile?.region !== 'US' && (curSymbol === '₹' || profile?.currencyCode === 'INR'));
 
   type RailType = 'UPI' | 'ZELLE' | 'VENMO' | 'CASHAPP' | 'BANK';
 
   const regionConfig = useMemo(() => {
-    return RegionPaymentService.getConfig(profile?.currencyCode, curSymbol);
-  }, [profile?.currencyCode, curSymbol]);
+    return RegionPaymentService.getConfig(profile?.currencyCode, curSymbol, profile?.region);
+  }, [profile?.currencyCode, curSymbol, profile?.region]);
 
   const availableRails = useMemo(() => {
     if (regionConfig.region === 'IN') {

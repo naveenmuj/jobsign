@@ -72,7 +72,7 @@ export class PDFService {
   public static async generateInvoiceHTML(quote: Quote, profile?: ContractorProfile): Promise<string> {
     const hash = quote.pdfSha256Hash || (await this.computeHash(quote));
     const curSymbol = quote.currencySymbol || profile?.currencySymbol || '$';
-    const regionConfig = RegionPaymentService.getConfig(profile?.currencyCode, curSymbol);
+    const regionConfig = RegionPaymentService.getConfig(profile?.currencyCode, curSymbol, profile?.region);
 
     const formattedDate = new Date(quote.createdAt).toLocaleDateString(regionConfig.locale, {
       year: 'numeric',
@@ -187,15 +187,15 @@ export class PDFService {
       stateDisplay,
     ].filter(Boolean);
 
-    // Compute document title according to Indian / Global standards
-    const isIndia = regionConfig.region === 'IN' || profile?.currencyCode === 'INR' || curSymbol === '₹';
+    // Compute document title according to Indian / US / Global standards
+    const isIndia = (profile?.region === 'IN') || (profile?.region !== 'US' && (regionConfig.region === 'IN' || profile?.currencyCode === 'INR' || curSymbol === '₹'));
     let computedDocTitle = isInvoiced ? regionConfig.invoiceTitle : regionConfig.estimateTitle;
     if (quote.documentType === 'TAX_INVOICE') {
-      computedDocTitle = isIndia ? 'TAX INVOICE / कर इनवॉइस' : 'TAX INVOICE';
+      computedDocTitle = isIndia ? 'TAX INVOICE / कर इनवॉइस' : 'INVOICE';
     } else if (quote.documentType === 'BILL_OF_SUPPLY') {
       computedDocTitle = isIndia ? 'BILL OF SUPPLY / आपूर्ति बिल' : 'BILL OF SUPPLY';
     } else if (quote.documentType === 'ESTIMATE') {
-      computedDocTitle = isIndia ? 'ESTIMATE & QUOTATION / कोटेशन' : 'ESTIMATE / QUOTATION';
+      computedDocTitle = isIndia ? 'ESTIMATE & QUOTATION / कोटेशन' : 'ESTIMATE & PROPOSAL';
     } else if (quote.documentType === 'DELIVERY_CHALLAN') {
       computedDocTitle = isIndia ? 'DELIVERY CHALLAN / डिलीवरी चालान' : 'DELIVERY CHALLAN';
     } else if (isIndia) {
@@ -203,6 +203,12 @@ export class PDFService {
         computedDocTitle = taxIdVal ? 'TAX INVOICE / कर इनवॉइस' : 'BILL OF SUPPLY / आपूर्ति बिल';
       } else {
         computedDocTitle = 'ESTIMATE & QUOTATION / कोटेशन';
+      }
+    } else {
+      if (isInvoiced || isPaid) {
+        computedDocTitle = 'INVOICE';
+      } else {
+        computedDocTitle = 'ESTIMATE & PROPOSAL';
       }
     }
 
@@ -767,7 +773,7 @@ export class PDFService {
 
             <!-- ── AMOUNT IN WORDS (RULE 46 COMPLIANT) ── -->
             <div style="margin-top: 14px; padding: 10px 14px; background: #F8FAFC; border: 1px solid #E2E8F0; border-left: 4px solid #2563EB; border-radius: 6px;">
-              <div style="font-size: 10px; font-weight: 800; color: #475569; text-transform: uppercase; letter-spacing: 0.6px;">Amount in Words (शब्दों में राशि):</div>
+              <div style="font-size: 10px; font-weight: 800; color: #475569; text-transform: uppercase; letter-spacing: 0.6px;">${isIndia ? 'Amount in Words (शब्दों में राशि):' : 'Amount in Words:'}</div>
               <div style="font-size: 12.5px; font-weight: 800; color: #0F172A; margin-top: 2px;">${escapeHtml(totalAmountInWords)}</div>
               ${
                 (quote.depositAmountCents || 0) > 0 && !isPaid

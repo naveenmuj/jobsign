@@ -173,6 +173,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onBack }) => {
     profile,
     quotes,
     updateProfile,
+    setRegionMode,
     presets,
     addPreset,
     deleteQuote,
@@ -231,9 +232,13 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onBack }) => {
   const [zelle, setZelle] = useState(profile.zelleAccount || '');
   const [venmo, setVenmo] = useState(profile.venmoAccount || '');
   const [cashApp, setCashApp] = useState(profile.cashAppAccount || '');
+  const [checkPayableTo, setCheckPayableTo] = useState(profile.checkPayableTo || '');
   const [customPaymentLabel, setCustomPaymentLabel] = useState(profile.customPaymentLabel || '');
   const [customPaymentNote, setCustomPaymentNote] = useState(profile.customPaymentNote || '');
   const [showOtherRails, setShowOtherRails] = useState(false);
+
+  // Active Region calculation
+  const activeRegion = profile.region || RegionPaymentService.detectRegion(currencyCode, currencySymbol);
 
   // Templates
   const [selectedTemplate, setSelectedTemplate] = useState<InvoiceTemplateId>(
@@ -272,8 +277,56 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onBack }) => {
     .join('') || 'JS';
 
   const regionConfig = useMemo(() => {
-    return RegionPaymentService.getConfig(currencyCode, currencySymbol);
-  }, [currencyCode, currencySymbol]);
+    return RegionPaymentService.getConfig(currencyCode, currencySymbol, activeRegion);
+  }, [currencyCode, currencySymbol, activeRegion]);
+
+  const handleSwitchRegion = (targetRegion: 'IN' | 'US') => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setRegionMode(targetRegion);
+    if (targetRegion === 'US') {
+      setCurrencySymbol('$');
+      setCurrencyCode('USD');
+      setTaxLabel('Sales Tax');
+      setDefaultTaxRate('8.25');
+      setIsGstSplitEnabled(false);
+      setSelectedTemplate('contractor');
+      setDefaultInvoiceType('ESTIMATE');
+      AlertService.alert({
+        title: '🇺🇸 US Contractor Mode Active',
+        message: 'Configured for USD ($), State Sales Tax (8.25%), Zelle/ACH, and ESIGN Act compliance.',
+        type: 'SUCCESS',
+      });
+    } else {
+      setCurrencySymbol('₹');
+      setCurrencyCode('INR');
+      setTaxLabel('GST');
+      setDefaultTaxRate('18.00');
+      setIsGstSplitEnabled(true);
+      setSelectedTemplate('advanced_gst');
+      setDefaultInvoiceType('TAX_INVOICE');
+      AlertService.alert({
+        title: '🇮🇳 India MSME Mode Active',
+        message: 'Configured for INR (₹), GST Rule 46 (CGST/SGST 50/50 split), UPI QR, and IT Act compliance.',
+        type: 'SUCCESS',
+      });
+    }
+  };
+
+  const handleAutoDetectMarket = async () => {
+    setIsDetectingCurrency(true);
+    try {
+      const detectedMarket = await CurrencyService.detectMarketFromLocationOrDevice();
+      handleSwitchRegion(detectedMarket);
+    } catch {
+      AlertService.alert({
+        title: 'Detection Notice',
+        message: 'Using device locale for market detection.',
+        type: 'INFO',
+      });
+    } finally {
+      setIsDetectingCurrency(false);
+    }
+  };
 
   // Save changes to store
   const handleSaveAll = (showToast = true) => {
@@ -303,6 +356,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onBack }) => {
     }
 
     const updatedProfile: Partial<ContractorProfile> = {
+      region: activeRegion,
       businessName: businessName.trim() || 'My Contracting Co.',
       ownerName: ownerName.trim(),
       phone: phone.trim(),
@@ -322,6 +376,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onBack }) => {
       zelleAccount: zelle.trim() || undefined,
       venmoAccount: venmo.trim() || undefined,
       cashAppAccount: cashApp.trim() || undefined,
+      checkPayableTo: checkPayableTo.trim() || undefined,
       upiId: upiId.trim().toLowerCase() || undefined,
       upiPayeeName: upiPayeeName.trim() || undefined,
       bankAccountNumber: bankAccountNumber.trim() || undefined,
@@ -593,6 +648,98 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onBack }) => {
         contentContainerStyle={[styles.scrollContent, { paddingBottom: 100 + insets.bottom }]}
         showsVerticalScrollIndicator={false}
       >
+        {/* ── Market Mode Selector Card ────────────────────────────────────────── */}
+        <View style={styles.marketCard}>
+          <View style={styles.marketHeaderRow}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <Globe size={16} color={colors.primary} />
+              <Text style={styles.marketCardTitle}>MARKET & REGION MODE</Text>
+            </View>
+            <TouchableOpacity
+              style={styles.marketAutoDetectBtn}
+              onPress={handleAutoDetectMarket}
+              disabled={isDetectingCurrency}
+            >
+              <MapPin size={12} color={colors.primary} />
+              <Text style={styles.marketAutoDetectText}>
+                {isDetectingCurrency ? 'Detecting...' : 'Auto-Detect (GPS)'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+          <Text style={styles.marketCardSub}>
+            Seamlessly adapts currencies, tax rules, invoice types, legal frameworks & payment rails.
+          </Text>
+          <View style={styles.marketPillRow}>
+            <TouchableOpacity
+              style={[
+                styles.marketPill,
+                activeRegion === 'US' && styles.marketPillActive,
+              ]}
+              onPress={() => handleSwitchRegion('US')}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.marketPillFlag}>🇺🇸</Text>
+              <View style={{ flex: 1 }}>
+                <Text
+                  style={[
+                    styles.marketPillTitle,
+                    activeRegion === 'US' && styles.marketPillTitleActive,
+                  ]}
+                >
+                  US Contractors (Joist / Jobber)
+                </Text>
+                <Text
+                  style={[
+                    styles.marketPillDesc,
+                    activeRegion === 'US' && styles.marketPillDescActive,
+                  ]}
+                >
+                  USD ($) • State Sales Tax • Zelle / ACH • ESIGN Act
+                </Text>
+              </View>
+              {activeRegion === 'US' && (
+                <View style={styles.marketActiveCheck}>
+                  <Check size={12} color="#FFFFFF" />
+                </View>
+              )}
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[
+                styles.marketPill,
+                activeRegion === 'IN' && styles.marketPillActive,
+              ]}
+              onPress={() => handleSwitchRegion('IN')}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.marketPillFlag}>🇮🇳</Text>
+              <View style={{ flex: 1 }}>
+                <Text
+                  style={[
+                    styles.marketPillTitle,
+                    activeRegion === 'IN' && styles.marketPillTitleActive,
+                  ]}
+                >
+                  India MSME (myBillBook Mode)
+                </Text>
+                <Text
+                  style={[
+                    styles.marketPillDesc,
+                    activeRegion === 'IN' && styles.marketPillDescActive,
+                  ]}
+                >
+                  INR (₹) • GST Rule 46 • Instant UPI QR • IT Act 2000
+                </Text>
+              </View>
+              {activeRegion === 'IN' && (
+                <View style={styles.marketActiveCheck}>
+                  <Check size={12} color="#FFFFFF" />
+                </View>
+              )}
+            </TouchableOpacity>
+          </View>
+        </View>
+
         {/* ── Profile Summary Hero Card ─────────────────────────────────────── */}
         <TouchableOpacity
           style={styles.profileHeroCard}
@@ -646,7 +793,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onBack }) => {
           <SettingsRow
             icon={<Palette size={18} color="#EC4899" />}
             title="Invoice Design & Templates"
-            subtitle={`Current: ${activeTemplateName} (4 executive styles)`}
+            subtitle={`Current: ${activeTemplateName} (${INVOICE_TEMPLATES.length} trade & GST styles)`}
             badge="Customizable"
             badgeColor="#EC4899"
             colors={colors}
@@ -995,206 +1142,353 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onBack }) => {
       {/* ── MODAL 4: DIRECT PAYMENT & SETTLEMENT ────────────────────────────── */}
       <SettingsSubModal
         visible={activeModal === 'PAYMENT'}
-        title="Instant QR & Bank Transfer"
-        subtitle="Pre-fills amount when homeowner scans QR code (0% middleman fees)"
+        title={activeRegion === 'US' ? 'US Payment Rails (Joist Standard)' : 'Instant QR & Bank Transfer'}
+        subtitle={
+          activeRegion === 'US'
+            ? 'Accept Zelle, Venmo, Cash App, Direct Deposit (ACH), and Checks with 0% middleman fees'
+            : 'Pre-fills amount when homeowner scans QR code (0% middleman fees)'
+        }
         colors={colors}
         insets={insets}
         onClose={() => setActiveModal(null)}
       >
-        {profile?.savedUpiAccounts && profile.savedUpiAccounts.length > 1 && (
-          <View style={{ marginBottom: 10 }}>
-            <Text style={{ fontSize: 11, fontWeight: '700', color: colors.textMuted, marginBottom: 4 }}>
-              SAVED PAYMENT IDS (TAP TO SWITCH):
-            </Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ flexDirection: 'row', gap: 6 }}>
-              {profile.savedUpiAccounts.map((acc) => {
-                const isSelected = upiId.toLowerCase() === acc.upiId.toLowerCase();
-                return (
-                  <TouchableOpacity
-                    key={acc.id || acc.upiId}
-                    style={{
-                      paddingHorizontal: 10,
-                      paddingVertical: 5,
-                      borderRadius: 14,
-                      backgroundColor: isSelected ? colors.primary + '15' : colors.backgroundSecondary,
-                      borderWidth: 1,
-                      borderColor: isSelected ? colors.primary : colors.border,
-                    }}
-                    onPress={() => {
-                      setUpiId(acc.upiId);
-                      if (acc.payeeName) setUpiPayeeName(acc.payeeName);
-                    }}
-                  >
-                    <Text style={{ fontSize: 11, fontWeight: '700', color: isSelected ? colors.primary : colors.textSecondary }}>
-                      ⚡ {acc.upiId} {isSelected ? '✓' : ''}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </ScrollView>
-          </View>
-        )}
-
-        <Text style={styles.inputLabel}>{regionConfig.instantIdLabel}</Text>
-        <TextInput
-          style={styles.input}
-          placeholder={regionConfig.instantIdPlaceholder}
-          placeholderTextColor={colors.textMuted}
-          value={upiId}
-          onChangeText={setUpiId}
-          autoCapitalize="none"
-          autoCorrect={false}
-        />
-        <Text style={styles.inputHelp}>
-          {regionConfig.region === 'IN'
-            ? 'When client scans with GPay, PhonePe, Paytm or BHIM, funds transfer directly to your bank account.'
-            : 'Pre-filled automatically when homeowner scans the QR code.'}
-        </Text>
-
-        <Text style={[styles.inputLabel, { marginTop: 12 }]}>Registered Payee / Business Name</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Name displayed on client's payment screen"
-          placeholderTextColor={colors.textMuted}
-          value={upiPayeeName}
-          onChangeText={setUpiPayeeName}
-        />
-
-        {profile?.savedBankAccounts && profile.savedBankAccounts.length > 1 && (
-          <View style={{ marginTop: 12, marginBottom: 6 }}>
-            <Text style={{ fontSize: 11, fontWeight: '700', color: colors.textMuted, marginBottom: 4 }}>
-              SAVED BANK ACCOUNTS (TAP TO SWITCH):
-            </Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ flexDirection: 'row', gap: 6 }}>
-              {profile.savedBankAccounts.map((acc) => {
-                const isSelected = bankAccountNumber === acc.accountNumber;
-                const shortAcc = acc.accountNumber.length > 4 ? `••••${acc.accountNumber.slice(-4)}` : acc.accountNumber;
-                return (
-                  <TouchableOpacity
-                    key={acc.id || acc.accountNumber}
-                    style={{
-                      paddingHorizontal: 10,
-                      paddingVertical: 5,
-                      borderRadius: 14,
-                      backgroundColor: isSelected ? colors.primary + '15' : colors.backgroundSecondary,
-                      borderWidth: 1,
-                      borderColor: isSelected ? colors.primary : colors.border,
-                    }}
-                    onPress={() => {
-                      setBankAccountNumber(acc.accountNumber);
-                      setBankIfsc(acc.ifscOrRouting || '');
-                      setBankName(acc.bankName || '');
-                      if (acc.beneficiaryName) setUpiPayeeName(acc.beneficiaryName);
-                    }}
-                  >
-                    <Text style={{ fontSize: 11, fontWeight: '700', color: isSelected ? colors.primary : colors.textSecondary }}>
-                      🏛️ {acc.bankName ? `${acc.bankName} (${shortAcc})` : shortAcc} {isSelected ? '✓' : ''}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </ScrollView>
-          </View>
-        )}
-
-        <Text style={[styles.inputLabel, { marginTop: 12 }]}>{regionConfig.bankAccountLabel}</Text>
-        <TextInput
-          style={styles.input}
-          placeholder={regionConfig.bankAccountPlaceholder}
-          placeholderTextColor={colors.textMuted}
-          value={bankAccountNumber}
-          onChangeText={setBankAccountNumber}
-          keyboardType="numeric"
-        />
-
-        <Text style={[styles.inputLabel, { marginTop: 12 }]}>{regionConfig.bankCodeLabel}</Text>
-        <TextInput
-          style={styles.input}
-          placeholder={regionConfig.bankCodePlaceholder}
-          placeholderTextColor={colors.textMuted}
-          value={bankIfsc}
-          onChangeText={setBankIfsc}
-          autoCapitalize="characters"
-        />
-
-        <Text style={[styles.inputLabel, { marginTop: 12 }]}>Bank Name (Optional)</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="e.g. Chase, HDFC Bank, Barclays, RBC"
-          placeholderTextColor={colors.textMuted}
-          value={bankName}
-          onChangeText={setBankName}
-        />
-
-        {/* Custom Flexibility & Invoice Instructions */}
-        <View style={{ marginTop: 14, paddingTop: 12, borderTopWidth: 1, borderColor: colors.border }}>
-          <Text style={[styles.inputLabel, { color: colors.primary }]}>Custom Payment Label (Optional)</Text>
-          <TextInput
-            style={styles.input}
-            placeholder={`Overrides default "${regionConfig.instantRailName}" on invoices`}
-            placeholderTextColor={colors.textMuted}
-            value={customPaymentLabel}
-            onChangeText={setCustomPaymentLabel}
-          />
-          <Text style={styles.inputHelp}>
-            Customize what clients see on their contract (e.g. "Direct Bank Settlement", "Company Pay").
-          </Text>
-
-          <Text style={[styles.inputLabel, { marginTop: 12, color: colors.primary }]}>
-            Invoice Payment Instructions / Note (Optional)
-          </Text>
-          <TextInput
-            style={[styles.input, { minHeight: 60, textAlignVertical: 'top' }]}
-            placeholder="e.g. Please put Quote # in transfer notes. Payment due within 7 days."
-            placeholderTextColor={colors.textMuted}
-            value={customPaymentNote}
-            onChangeText={setCustomPaymentNote}
-            multiline
-          />
-          <Text style={styles.inputHelp}>
-            Printed directly onto the invoice & PDF contracts for client instructions.
-          </Text>
-        </View>
-
-        {/* International Rails Toggle */}
-        <TouchableOpacity
-          style={{ marginTop: 14, alignSelf: 'flex-start' }}
-          onPress={() => setShowOtherRails(!showOtherRails)}
-        >
-          <Text style={{ fontSize: 12, color: colors.primary, fontWeight: '700' }}>
-            {showOtherRails ? 'Hide US Rails (Zelle/Venmo) ▲' : 'Show US Rails (Zelle, Venmo, Cash App) ▼'}
-          </Text>
-        </TouchableOpacity>
-
-        {showOtherRails && (
-          <View style={{ marginTop: 10, paddingTop: 10, borderTopWidth: 1, borderColor: colors.border }}>
+        {activeRegion === 'US' ? (
+          <>
             <Text style={styles.inputLabel}>Zelle Phone or Email</Text>
             <TextInput
               style={styles.input}
-              placeholder="e.g. contractor@mybusiness.com or (555) 234-5678"
+              placeholder="e.g. billing@mycontracting.com or (512) 555-0199"
               placeholderTextColor={colors.textMuted}
               value={zelle}
               onChangeText={setZelle}
+              autoCapitalize="none"
+              autoCorrect={false}
             />
+            <Text style={styles.inputHelp}>
+              Direct bank-to-bank instantaneous transfers for US clients with 0% processing fees.
+            </Text>
 
-            <Text style={[styles.inputLabel, { marginTop: 10 }]}>Venmo Username</Text>
+            <Text style={[styles.inputLabel, { marginTop: 12 }]}>Venmo Username (Optional)</Text>
             <TextInput
               style={styles.input}
               placeholder="e.g. @ContractorHandle"
               placeholderTextColor={colors.textMuted}
               value={venmo}
               onChangeText={setVenmo}
+              autoCapitalize="none"
+              autoCorrect={false}
             />
 
-            <Text style={[styles.inputLabel, { marginTop: 10 }]}>Cash App Cashtag</Text>
+            <Text style={[styles.inputLabel, { marginTop: 12 }]}>Cash App Cashtag (Optional)</Text>
             <TextInput
               style={styles.input}
               placeholder="e.g. $ContractorCashtag"
               placeholderTextColor={colors.textMuted}
               value={cashApp}
               onChangeText={setCashApp}
+              autoCapitalize="none"
+              autoCorrect={false}
             />
-          </View>
+
+            <Text style={[styles.inputLabel, { marginTop: 12 }]}>Checks Payable To</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="e.g. Apex Electrical LLC"
+              placeholderTextColor={colors.textMuted}
+              value={checkPayableTo}
+              onChangeText={setCheckPayableTo}
+            />
+            <Text style={styles.inputHelp}>
+              Printed on invoice as: "Check: Make payable to [Name]".
+            </Text>
+
+            <View style={{ marginTop: 14, paddingTop: 12, borderTopWidth: 1, borderColor: colors.border }}>
+              <Text style={[styles.inputLabel, { color: colors.primary }]}>Direct Deposit / ACH Transfer</Text>
+
+              <Text style={[styles.inputLabel, { marginTop: 8 }]}>9-Digit ABA Routing Number</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="e.g. 111000025 (Chase / BoA / Wells Fargo)"
+                placeholderTextColor={colors.textMuted}
+                value={bankIfsc}
+                onChangeText={setBankIfsc}
+                keyboardType="numeric"
+              />
+
+              <Text style={[styles.inputLabel, { marginTop: 10 }]}>Bank Account Number</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="e.g. 9876543210"
+                placeholderTextColor={colors.textMuted}
+                value={bankAccountNumber}
+                onChangeText={setBankAccountNumber}
+                keyboardType="numeric"
+              />
+
+              <Text style={[styles.inputLabel, { marginTop: 10 }]}>Bank Name (e.g. JPMorgan Chase)</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="e.g. Chase, Wells Fargo, Bank of America"
+                placeholderTextColor={colors.textMuted}
+                value={bankName}
+                onChangeText={setBankName}
+              />
+            </View>
+
+            {/* Custom Payment Flexibility */}
+            <View style={{ marginTop: 14, paddingTop: 12, borderTopWidth: 1, borderColor: colors.border }}>
+              <Text style={[styles.inputLabel, { color: colors.primary }]}>Custom Payment Label (Optional)</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="Overrides default payment header on invoices"
+                placeholderTextColor={colors.textMuted}
+                value={customPaymentLabel}
+                onChangeText={setCustomPaymentLabel}
+              />
+
+              <Text style={[styles.inputLabel, { marginTop: 12, color: colors.primary }]}>
+                Invoice Payment Instructions / Note (Optional)
+              </Text>
+              <TextInput
+                style={[styles.input, { minHeight: 60, textAlignVertical: 'top' }]}
+                placeholder="e.g. Please put Invoice # in check or wire memo. Payment due Net 30."
+                placeholderTextColor={colors.textMuted}
+                value={customPaymentNote}
+                onChangeText={setCustomPaymentNote}
+                multiline
+              />
+            </View>
+
+            {/* Expandable India Rails Toggle */}
+            <TouchableOpacity
+              style={{ marginTop: 14, alignSelf: 'flex-start' }}
+              onPress={() => setShowOtherRails(!showOtherRails)}
+            >
+              <Text style={{ fontSize: 12, color: colors.primary, fontWeight: '700' }}>
+                {showOtherRails ? 'Hide India Rails (UPI/IFSC) ▲' : 'Show India Rails (UPI, IFSC) ▼'}
+              </Text>
+            </TouchableOpacity>
+
+            {showOtherRails && (
+              <View style={{ marginTop: 10, paddingTop: 10, borderTopWidth: 1, borderColor: colors.border }}>
+                <Text style={styles.inputLabel}>UPI ID (GPay / PhonePe / Paytm)</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="e.g. business@okaxis"
+                  placeholderTextColor={colors.textMuted}
+                  value={upiId}
+                  onChangeText={setUpiId}
+                  autoCapitalize="none"
+                />
+              </View>
+            )}
+          </>
+        ) : (
+          /* Indian MSME Mode */
+          <>
+            {profile?.savedUpiAccounts && profile.savedUpiAccounts.length > 1 && (
+              <View style={{ marginBottom: 10 }}>
+                <Text style={{ fontSize: 11, fontWeight: '700', color: colors.textMuted, marginBottom: 4 }}>
+                  SAVED PAYMENT IDS (TAP TO SWITCH):
+                </Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ flexDirection: 'row', gap: 6 }}>
+                  {profile.savedUpiAccounts.map((acc) => {
+                    const isSelected = upiId.toLowerCase() === acc.upiId.toLowerCase();
+                    return (
+                      <TouchableOpacity
+                        key={acc.id || acc.upiId}
+                        style={{
+                          paddingHorizontal: 10,
+                          paddingVertical: 5,
+                          borderRadius: 14,
+                          backgroundColor: isSelected ? colors.primary + '15' : colors.backgroundSecondary,
+                          borderWidth: 1,
+                          borderColor: isSelected ? colors.primary : colors.border,
+                        }}
+                        onPress={() => {
+                          setUpiId(acc.upiId);
+                          if (acc.payeeName) setUpiPayeeName(acc.payeeName);
+                        }}
+                      >
+                        <Text style={{ fontSize: 11, fontWeight: '700', color: isSelected ? colors.primary : colors.textSecondary }}>
+                          ⚡ {acc.upiId} {isSelected ? '✓' : ''}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </ScrollView>
+              </View>
+            )}
+
+            <Text style={styles.inputLabel}>{regionConfig.instantIdLabel}</Text>
+            <TextInput
+              style={styles.input}
+              placeholder={regionConfig.instantIdPlaceholder}
+              placeholderTextColor={colors.textMuted}
+              value={upiId}
+              onChangeText={setUpiId}
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+            <Text style={styles.inputHelp}>
+              When client scans with GPay, PhonePe, Paytm or BHIM, funds transfer directly to your bank account.
+            </Text>
+
+            <Text style={[styles.inputLabel, { marginTop: 12 }]}>Registered Payee / Business Name</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Name displayed on client's payment screen"
+              placeholderTextColor={colors.textMuted}
+              value={upiPayeeName}
+              onChangeText={setUpiPayeeName}
+            />
+
+            {profile?.savedBankAccounts && profile.savedBankAccounts.length > 1 && (
+              <View style={{ marginTop: 12, marginBottom: 6 }}>
+                <Text style={{ fontSize: 11, fontWeight: '700', color: colors.textMuted, marginBottom: 4 }}>
+                  SAVED BANK ACCOUNTS (TAP TO SWITCH):
+                </Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ flexDirection: 'row', gap: 6 }}>
+                  {profile.savedBankAccounts.map((acc) => {
+                    const isSelected = bankAccountNumber === acc.accountNumber;
+                    const shortAcc = acc.accountNumber.length > 4 ? `••••${acc.accountNumber.slice(-4)}` : acc.accountNumber;
+                    return (
+                      <TouchableOpacity
+                        key={acc.id || acc.accountNumber}
+                        style={{
+                          paddingHorizontal: 10,
+                          paddingVertical: 5,
+                          borderRadius: 14,
+                          backgroundColor: isSelected ? colors.primary + '15' : colors.backgroundSecondary,
+                          borderWidth: 1,
+                          borderColor: isSelected ? colors.primary : colors.border,
+                        }}
+                        onPress={() => {
+                          setBankAccountNumber(acc.accountNumber);
+                          setBankIfsc(acc.ifscOrRouting || '');
+                          setBankName(acc.bankName || '');
+                          if (acc.beneficiaryName) setUpiPayeeName(acc.beneficiaryName);
+                        }}
+                      >
+                        <Text style={{ fontSize: 11, fontWeight: '700', color: isSelected ? colors.primary : colors.textSecondary }}>
+                          🏛️ {acc.bankName ? `${acc.bankName} (${shortAcc})` : shortAcc} {isSelected ? '✓' : ''}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </ScrollView>
+              </View>
+            )}
+
+            <Text style={[styles.inputLabel, { marginTop: 12 }]}>{regionConfig.bankAccountLabel}</Text>
+            <TextInput
+              style={styles.input}
+              placeholder={regionConfig.bankAccountPlaceholder}
+              placeholderTextColor={colors.textMuted}
+              value={bankAccountNumber}
+              onChangeText={setBankAccountNumber}
+              keyboardType="numeric"
+            />
+
+            <Text style={[styles.inputLabel, { marginTop: 12 }]}>{regionConfig.bankCodeLabel}</Text>
+            <TextInput
+              style={styles.input}
+              placeholder={regionConfig.bankCodePlaceholder}
+              placeholderTextColor={colors.textMuted}
+              value={bankIfsc}
+              onChangeText={setBankIfsc}
+              autoCapitalize="characters"
+            />
+
+            <Text style={[styles.inputLabel, { marginTop: 12 }]}>Bank Name (Optional)</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="e.g. Chase, HDFC Bank, Barclays, RBC"
+              placeholderTextColor={colors.textMuted}
+              value={bankName}
+              onChangeText={setBankName}
+            />
+
+            {/* Custom Flexibility & Invoice Instructions */}
+            <View style={{ marginTop: 14, paddingTop: 12, borderTopWidth: 1, borderColor: colors.border }}>
+              <Text style={[styles.inputLabel, { color: colors.primary }]}>Custom Payment Label (Optional)</Text>
+              <TextInput
+                style={styles.input}
+                placeholder={`Overrides default "${regionConfig.instantRailName}" on invoices`}
+                placeholderTextColor={colors.textMuted}
+                value={customPaymentLabel}
+                onChangeText={setCustomPaymentLabel}
+              />
+              <Text style={styles.inputHelp}>
+                Customize what clients see on their contract (e.g. "Direct Bank Settlement", "Company Pay").
+              </Text>
+
+              <Text style={[styles.inputLabel, { marginTop: 12, color: colors.primary }]}>
+                Invoice Payment Instructions / Note (Optional)
+              </Text>
+              <TextInput
+                style={[styles.input, { minHeight: 60, textAlignVertical: 'top' }]}
+                placeholder="e.g. Please put Quote # in transfer notes. Payment due within 7 days."
+                placeholderTextColor={colors.textMuted}
+                value={customPaymentNote}
+                onChangeText={setCustomPaymentNote}
+                multiline
+              />
+              <Text style={styles.inputHelp}>
+                Printed directly onto the invoice & PDF contracts for client instructions.
+              </Text>
+            </View>
+
+            {/* International Rails Toggle */}
+            <TouchableOpacity
+              style={{ marginTop: 14, alignSelf: 'flex-start' }}
+              onPress={() => setShowOtherRails(!showOtherRails)}
+            >
+              <Text style={{ fontSize: 12, color: colors.primary, fontWeight: '700' }}>
+                {showOtherRails ? 'Hide US Rails (Zelle/Venmo/Check) ▲' : 'Show US Rails (Zelle, Venmo, Cash App, Check) ▼'}
+              </Text>
+            </TouchableOpacity>
+
+            {showOtherRails && (
+              <View style={{ marginTop: 10, paddingTop: 10, borderTopWidth: 1, borderColor: colors.border }}>
+                <Text style={styles.inputLabel}>Zelle Phone or Email</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="e.g. contractor@mybusiness.com or (555) 234-5678"
+                  placeholderTextColor={colors.textMuted}
+                  value={zelle}
+                  onChangeText={setZelle}
+                />
+
+                <Text style={[styles.inputLabel, { marginTop: 10 }]}>Venmo Username</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="e.g. @ContractorHandle"
+                  placeholderTextColor={colors.textMuted}
+                  value={venmo}
+                  onChangeText={setVenmo}
+                />
+
+                <Text style={[styles.inputLabel, { marginTop: 10 }]}>Cash App Cashtag</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="e.g. $ContractorCashtag"
+                  placeholderTextColor={colors.textMuted}
+                  value={cashApp}
+                  onChangeText={setCashApp}
+                />
+
+                <Text style={[styles.inputLabel, { marginTop: 10 }]}>Checks Payable To</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="e.g. My Contracting Co."
+                  placeholderTextColor={colors.textMuted}
+                  value={checkPayableTo}
+                  onChangeText={setCheckPayableTo}
+                />
+              </View>
+            )}
+          </>
         )}
 
         <TouchableOpacity
@@ -2355,5 +2649,91 @@ const makeStyles = (colors: ThemeColors) =>
       fontSize: 11,
       color: colors.textSecondary,
       fontWeight: '600',
+    },
+    // Market Selector Card
+    marketCard: {
+      backgroundColor: colors.surface,
+      borderRadius: 14,
+      borderWidth: 1,
+      borderColor: colors.border,
+      padding: 14,
+      marginBottom: 14,
+    },
+    marketHeaderRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: 4,
+    },
+    marketCardTitle: {
+      fontSize: 12,
+      fontWeight: '800',
+      color: colors.primary,
+      letterSpacing: 0.6,
+    },
+    marketAutoDetectBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+      paddingHorizontal: 8,
+      paddingVertical: 4,
+      borderRadius: 12,
+      backgroundColor: colors.primary + '15',
+    },
+    marketAutoDetectText: {
+      fontSize: 10.5,
+      fontWeight: '700',
+      color: colors.primary,
+    },
+    marketCardSub: {
+      fontSize: 11.5,
+      color: colors.textSecondary,
+      marginBottom: 10,
+      lineHeight: 16,
+    },
+    marketPillRow: {
+      gap: 8,
+    },
+    marketPill: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      padding: 10,
+      borderRadius: 10,
+      backgroundColor: colors.backgroundSecondary,
+      borderWidth: 1.5,
+      borderColor: colors.border,
+      gap: 10,
+    },
+    marketPillActive: {
+      backgroundColor: colors.primary + '0D',
+      borderColor: colors.primary,
+    },
+    marketPillFlag: {
+      fontSize: 22,
+    },
+    marketPillTitle: {
+      fontSize: 13,
+      fontWeight: '700',
+      color: colors.textPrimary,
+    },
+    marketPillTitleActive: {
+      color: colors.primary,
+      fontWeight: '800',
+    },
+    marketPillDesc: {
+      fontSize: 11,
+      color: colors.textSecondary,
+      marginTop: 2,
+    },
+    marketPillDescActive: {
+      color: colors.textPrimary,
+    },
+    marketActiveCheck: {
+      width: 20,
+      height: 20,
+      borderRadius: 10,
+      backgroundColor: colors.primary,
+      alignItems: 'center',
+      justifyContent: 'center',
     },
   });

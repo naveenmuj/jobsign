@@ -272,9 +272,12 @@ const REGION_CONFIGS: Record<PaymentRegion, RegionPaymentConfig> = {
 
 export class RegionPaymentService {
   /**
-   * Identifies the payment region based on currency code and symbol.
+   * Identifies the payment region based on currency code, symbol, or explicit profile region.
    */
-  public static detectRegion(currencyCode?: string, currencySymbol?: string): PaymentRegion {
+  public static detectRegion(currencyCode?: string, currencySymbol?: string, explicitRegion?: string): PaymentRegion {
+    if (explicitRegion === 'IN' || explicitRegion === 'US' || explicitRegion === 'GB' || explicitRegion === 'EU' || explicitRegion === 'CA' || explicitRegion === 'AU') {
+      return explicitRegion as PaymentRegion;
+    }
     const code = (currencyCode || '').trim().toUpperCase();
     const symbol = (currencySymbol || '').trim();
 
@@ -291,8 +294,8 @@ export class RegionPaymentService {
   /**
    * Retrieves the comprehensive regional configuration.
    */
-  public static getConfig(currencyCode?: string, currencySymbol?: string): RegionPaymentConfig {
-    const region = this.detectRegion(currencyCode, currencySymbol);
+  public static getConfig(currencyCode?: string, currencySymbol?: string, explicitRegion?: string): RegionPaymentConfig {
+    const region = this.detectRegion(currencyCode, currencySymbol, explicitRegion);
     return REGION_CONFIGS[region] || REGION_CONFIGS.GLOBAL;
   }
 
@@ -304,7 +307,7 @@ export class RegionPaymentService {
     currencySymbol?: string,
     currencyCode?: string
   ): string {
-    const config = this.getConfig(currencyCode || profile.currencyCode, currencySymbol || profile.currencySymbol);
+    const config = this.getConfig(currencyCode || profile.currencyCode, currencySymbol || profile.currencySymbol, profile.region);
 
     // If contractor set custom label override
     const instantLabel = profile.customPaymentLabel || config.invoiceInstantLabel;
@@ -339,6 +342,9 @@ export class RegionPaymentService {
     }
     if (profile.cashAppAccount && config.region !== 'IN') {
       parts.push(`CashApp: ${escapeHtml(profile.cashAppAccount)}`);
+    }
+    if (profile.checkPayableTo && config.region !== 'IN') {
+      parts.push(`Check: Make payable to ${escapeHtml(profile.checkPayableTo)}`);
     }
 
     return parts.filter(Boolean).join('  •  ');
@@ -417,6 +423,95 @@ export class RegionPaymentService {
 4. Interest @ 18% per annum will be charged on all delayed dues beyond agreed credit period.
 5. Material warranty is governed directly by original manufacturer policies.
 6. All disputes subject to local jurisdiction only.`;
+
+  /**
+   * Top trade contractor service presets for the US market in USD ($).
+   * Modeled after top field service contractor applications (Joist / Jobber).
+   */
+  public static readonly US_TRADE_PRESETS = [
+    { title: 'Diagnostic & Service Call', priceCents: 9500, category: 'Diagnostic', unit: 'trip' },
+    { title: 'Master Electrician Hourly Labor', priceCents: 12500, category: 'Labor', unit: 'hrs' },
+    { title: '200-Amp Main Service Panel Upgrade', priceCents: 285000, category: 'Parts', unit: 'ea' },
+    { title: 'Type 2 Whole-Home Surge Protector (SPD)', priceCents: 42500, category: 'Parts', unit: 'ea' },
+    { title: 'Dedicated 240V EV Charger Circuit (50A)', priceCents: 85000, category: 'Labor', unit: 'ea' },
+    { title: 'GFCI Receptacle Installation', priceCents: 15000, category: 'Parts', unit: 'ea' },
+    { title: 'Plumbing Diagnostic & Leak Repair', priceCents: 22500, category: 'Diagnostic', unit: 'ea' },
+    { title: 'Water Heater Replacement (50 Gallon)', priceCents: 195000, category: 'Parts', unit: 'ea' },
+    { title: 'Garbage Disposal Replacement', priceCents: 32500, category: 'Parts', unit: 'ea' },
+    { title: 'HVAC Seasonal Inspection & Tune-Up', priceCents: 14900, category: 'Diagnostic', unit: 'system' },
+    { title: 'A/C Capacitor & Contactor Replacement', priceCents: 28500, category: 'Parts', unit: 'ea' },
+    { title: 'Drywall Patch & Texture Matching', priceCents: 27500, category: 'Labor', unit: 'sq ft' },
+    { title: 'Interior Paint & Trim Prep (Per Sq.Ft)', priceCents: 350, category: 'Labor', unit: 'sq ft' },
+    { title: 'Hardwood / LVP Flooring Installation', priceCents: 450, category: 'Labor', unit: 'sq ft' },
+    { title: 'Rough-In Framing & Structural Repair', priceCents: 8500, category: 'Labor', unit: 'linear ft' },
+  ];
+
+  /**
+   * Standard US Trade Contractor Agreement & Legal Terms (Joist / UETA / Mechanics Lien Standard).
+   */
+  public static readonly US_STANDARD_TERMS = `1. Payment Schedule: Balance is due upon completion or per agreed Net terms. A late charge of 1.5% per month (18% per annum) applies to overdue balances.
+2. Scope & Change Orders: Any alteration or deviation from specified scope involving extra labor or materials will be executed only upon written change order agreement.
+3. Mechanics Lien Notice: Under applicable state mechanics' lien laws, contractor reserves all statutory lien rights on improved property until full and final payment is cleared.
+4. Conditional Lien Waiver: Contractor shall furnish a formal Conditional/Unconditional Lien Waiver and Release upon receipt and clearance of final payment.
+5. 1-Year Workmanship Warranty: All labor performed is warrantied for twelve (12) months from completion date. Manufacturer warranties apply directly to all materials and fixtures.
+6. Homeowner Right of Rescission: Homeowner acknowledges receiving notice of the right to cancel within three (3) business days where required by state home solicitation laws.
+7. Permits & Site Access: Homeowner supplies unobstructed access to jobsite, electricity, and water. Contractor coordinates required municipal permits and inspections.`;
+
+  /**
+   * Major US States with standard State Sales Tax rates.
+   */
+  public static readonly US_STATES: { code: string; name: string; standardTaxRate: string }[] = [
+    { code: 'AL', name: 'Alabama', standardTaxRate: '4.00' },
+    { code: 'AK', name: 'Alaska', standardTaxRate: '0.00' },
+    { code: 'AZ', name: 'Arizona', standardTaxRate: '5.60' },
+    { code: 'AR', name: 'Arkansas', standardTaxRate: '6.50' },
+    { code: 'CA', name: 'California', standardTaxRate: '7.25' },
+    { code: 'CO', name: 'Colorado', standardTaxRate: '2.90' },
+    { code: 'CT', name: 'Connecticut', standardTaxRate: '6.35' },
+    { code: 'DE', name: 'Delaware', standardTaxRate: '0.00' },
+    { code: 'FL', name: 'Florida', standardTaxRate: '6.00' },
+    { code: 'GA', name: 'Georgia', standardTaxRate: '4.00' },
+    { code: 'HI', name: 'Hawaii', standardTaxRate: '4.00' },
+    { code: 'ID', name: 'Idaho', standardTaxRate: '6.00' },
+    { code: 'IL', name: 'Illinois', standardTaxRate: '6.25' },
+    { code: 'IN', name: 'Indiana', standardTaxRate: '7.00' },
+    { code: 'IA', name: 'Iowa', standardTaxRate: '6.00' },
+    { code: 'KS', name: 'Kansas', standardTaxRate: '6.50' },
+    { code: 'KY', name: 'Kentucky', standardTaxRate: '6.00' },
+    { code: 'LA', name: 'Louisiana', standardTaxRate: '4.45' },
+    { code: 'ME', name: 'Maine', standardTaxRate: '5.50' },
+    { code: 'MD', name: 'Maryland', standardTaxRate: '6.00' },
+    { code: 'MA', name: 'Massachusetts', standardTaxRate: '6.25' },
+    { code: 'MI', name: 'Michigan', standardTaxRate: '6.00' },
+    { code: 'MN', name: 'Minnesota', standardTaxRate: '6.875' },
+    { code: 'MS', name: 'Mississippi', standardTaxRate: '7.00' },
+    { code: 'MO', name: 'Missouri', standardTaxRate: '4.225' },
+    { code: 'MT', name: 'Montana', standardTaxRate: '0.00' },
+    { code: 'NE', name: 'Nebraska', standardTaxRate: '5.50' },
+    { code: 'NV', name: 'Nevada', standardTaxRate: '6.85' },
+    { code: 'NH', name: 'New Hampshire', standardTaxRate: '0.00' },
+    { code: 'NJ', name: 'New Jersey', standardTaxRate: '6.625' },
+    { code: 'NM', name: 'New Mexico', standardTaxRate: '5.125' },
+    { code: 'NY', name: 'New York', standardTaxRate: '8.875' },
+    { code: 'NC', name: 'North Carolina', standardTaxRate: '4.75' },
+    { code: 'ND', name: 'North Dakota', standardTaxRate: '5.00' },
+    { code: 'OH', name: 'Ohio', standardTaxRate: '5.75' },
+    { code: 'OK', name: 'Oklahoma', standardTaxRate: '4.50' },
+    { code: 'OR', name: 'Oregon', standardTaxRate: '0.00' },
+    { code: 'PA', name: 'Pennsylvania', standardTaxRate: '6.00' },
+    { code: 'RI', name: 'Rhode Island', standardTaxRate: '7.00' },
+    { code: 'SC', name: 'South Carolina', standardTaxRate: '6.00' },
+    { code: 'SD', name: 'South Dakota', standardTaxRate: '4.50' },
+    { code: 'TN', name: 'Tennessee', standardTaxRate: '7.00' },
+    { code: 'TX', name: 'Texas', standardTaxRate: '8.25' },
+    { code: 'UT', name: 'Utah', standardTaxRate: '6.10' },
+    { code: 'VT', name: 'Vermont', standardTaxRate: '6.00' },
+    { code: 'VA', name: 'Virginia', standardTaxRate: '5.30' },
+    { code: 'WA', name: 'Washington', standardTaxRate: '6.50' },
+    { code: 'WV', name: 'West Virginia', standardTaxRate: '6.00' },
+    { code: 'WI', name: 'Wisconsin', standardTaxRate: '5.00' },
+    { code: 'WY', name: 'Wyoming', standardTaxRate: '4.00' },
+  ];
 }
 
 function escapeHtml(str: string): string {

@@ -404,7 +404,8 @@ export const QuoteDetailScreen: React.FC<QuoteDetailScreenProps> = ({
   const styles = React.useMemo(() => makeStyles(colors), [colors]);
   const insets = useAppSafeArea();
   const curSymbol = quote.currencySymbol || profile?.currencySymbol || '$';
-  const regionConfig = RegionPaymentService.getConfig(profile?.currencyCode, curSymbol);
+  const regionConfig = RegionPaymentService.getConfig(profile?.currencyCode, curSymbol, profile?.region);
+  const isIndia = (profile?.region === 'IN') || (profile?.region !== 'US' && (curSymbol === '₹' || profile?.currencyCode === 'INR'));
   const depositCents = quote.depositAmountCents || 0;
   const balanceDueCents = Math.max(0, quote.totalAmountCents - depositCents);
 
@@ -418,14 +419,14 @@ export const QuoteDetailScreen: React.FC<QuoteDetailScreenProps> = ({
   const isLocked = quote.status === 'SIGNED_LOCKED';
   const docTypeLabel =
     quote.documentType === 'TAX_INVOICE'
-      ? 'Tax Invoice'
+      ? (isIndia ? 'Tax Invoice' : 'Invoice')
       : quote.documentType === 'BILL_OF_SUPPLY'
       ? 'Bill of Supply'
       : quote.documentType === 'DELIVERY_CHALLAN'
       ? 'Delivery Challan'
       : isInvoiced
-      ? 'Tax Invoice'
-      : 'Quotation';
+      ? (isIndia ? 'Tax Invoice' : 'Invoice')
+      : (isIndia ? 'Quotation' : 'Estimate');
 
   const [pendingPdfAction, setPendingPdfAction] = useState<'VIEW' | 'SHARE'>('VIEW');
   const [includePhoto, setIncludePhoto] = useState<boolean>(quote.includePhotoInPdf !== false);
@@ -507,18 +508,25 @@ export const QuoteDetailScreen: React.FC<QuoteDetailScreenProps> = ({
 
   const handleShareWhatsApp = async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    const docTypeLabel = quote.documentType === 'TAX_INVOICE' ? 'Tax Invoice'
-      : quote.documentType === 'BILL_OF_SUPPLY' ? 'Bill of Supply'
-      : quote.documentType === 'DELIVERY_CHALLAN' ? 'Delivery Challan'
-      : isInvoiced ? 'Tax Invoice'
-      : 'Quotation / Estimate';
     const amountStr = `${curSymbol}${(quote.totalAmountCents / 100).toFixed(2)}`;
     const balStr = `${curSymbol}${(balanceDueCents / 100).toFixed(2)}`;
-    const dueText = quote.dueDateTimestamp ? `\n📅 Due Date: ${new Date(quote.dueDateTimestamp).toLocaleDateString()}` : '';
-    const upiDetails = profile.upiId ? `\n💳 Pay via UPI: ${profile.upiId}` : '';
-    const bankDetails = profile.bankAccountNumber ? `\n🏦 Bank: ${profile.bankName || ''} A/C: ${profile.bankAccountNumber} (IFSC: ${profile.bankIfsc || ''})` : '';
+    const dueText = quote.dueDateTimestamp ? `\n📅 Due Date: ${new Date(quote.dueDateTimestamp).toLocaleDateString(regionConfig.locale)}` : '';
 
-    const msg = `Dear ${quote.clientName},\n\nPlease find your ${docTypeLabel} #${quote.quoteNumber} for ${amountStr} from ${profile.businessName || 'our business'}.\nBalance Due: ${balStr}${dueText}${upiDetails}${bankDetails}\n\nThank you for choosing our services!`;
+    let paymentDetails = '';
+    if (isIndia) {
+      const upiDetails = profile.upiId ? `\n💳 Pay via UPI: ${profile.upiId}` : '';
+      const bankDetails = profile.bankAccountNumber ? `\n🏦 Bank: ${profile.bankName || ''} A/C: ${profile.bankAccountNumber} (IFSC: ${profile.bankIfsc || ''})` : '';
+      paymentDetails = `${upiDetails}${bankDetails}`;
+    } else {
+      const zelleDetails = profile.zelleAccount ? `\n⚡ Zelle: ${profile.zelleAccount}` : '';
+      const venmoDetails = profile.venmoAccount ? `\n📱 Venmo: ${profile.venmoAccount}` : '';
+      const cashAppDetails = profile.cashAppAccount ? `\n💵 Cash App: ${profile.cashAppAccount}` : '';
+      const checkDetails = profile.checkPayableTo ? `\n📝 Check Payable: ${profile.checkPayableTo}` : '';
+      const achDetails = profile.bankAccountNumber ? `\n🏛️ Direct Deposit: Routing ${profile.bankIfsc || ''} • Acct ${profile.bankAccountNumber}` : '';
+      paymentDetails = `${zelleDetails}${venmoDetails}${cashAppDetails}${checkDetails}${achDetails}`;
+    }
+
+    const msg = `Dear ${quote.clientName},\n\nPlease find your ${docTypeLabel} #${quote.quoteNumber} for ${amountStr} from ${profile.businessName || 'our business'}.\nBalance Due: ${balStr}${dueText}${paymentDetails}\n\nThank you for choosing our services!`;
     const cleanPhone = (quote.clientPhone || '').replace(/[^0-9]/g, '');
     const waUrl = cleanPhone
       ? `whatsapp://send?phone=${cleanPhone}&text=${encodeURIComponent(msg)}`
@@ -535,8 +543,8 @@ export const QuoteDetailScreen: React.FC<QuoteDetailScreenProps> = ({
 
   const handleConvertToInvoice = () => {
     AlertService.alert({
-      title: 'Issue Formal Invoice?',
-      message: `Convert Agreement #${quote.quoteNumber} into a Formal Tax Invoice for ${quote.clientName}? The document will be updated with invoice headers and payment instructions.`,
+      title: isIndia ? 'Issue Formal Tax Invoice?' : 'Issue Formal Invoice?',
+      message: `Convert ${isIndia ? 'Agreement' : 'Estimate'} #${quote.quoteNumber} into a Formal ${isIndia ? 'Tax Invoice' : 'Invoice'} for ${quote.clientName}? The document will be updated with invoice headers and payment instructions.`,
       type: 'INFO',
       buttons: [
         { text: 'Cancel', style: 'cancel' },
@@ -552,7 +560,7 @@ export const QuoteDetailScreen: React.FC<QuoteDetailScreenProps> = ({
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
             AlertService.alert(
               'Invoice Issued',
-              `Agreement #${quote.quoteNumber} is now marked as an active Tax Invoice. You can share it with ${quote.clientName} or collect payment.`,
+              `${isIndia ? 'Agreement' : 'Estimate'} #${quote.quoteNumber} is now marked as an active ${isIndia ? 'Tax Invoice' : 'Invoice'}. You can share it with ${quote.clientName} or collect payment.`,
               undefined,
               'SUCCESS'
             );
