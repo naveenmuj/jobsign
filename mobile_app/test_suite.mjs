@@ -405,6 +405,56 @@ const quoteBuilderCurrentRaw = fs.readFileSync(path.resolve('./src/screens/Quote
 assert(quoteBuilderCurrentRaw.includes('recentClients'), 'QuoteBuilderScreen extracts recent client list');
 assert(quoteBuilderCurrentRaw.includes('Quick Autofill'), 'QuoteBuilderScreen renders Quick Autofill chips for repeat customers');
 
+// -----------------------------------------------------------------
+// 13. [INDIA & US LOCALIZATION] ADVANCE / DEPOSIT, TERMS, DUE DATES & BOOKKEEPING CSV EXPORT
+// -----------------------------------------------------------------
+console.log('\n13. [INDIA & US LOCALIZATION] Advance / Deposit, Terms, Due Dates & Bookkeeping Export');
+
+// 1. Types & Models
+assert(typesRaw.includes('depositAmountCents?: number'), 'types/index.ts supports depositAmountCents field on Quote');
+assert(typesRaw.includes('paymentTerms?: string'), 'types/index.ts supports paymentTerms field on Quote');
+assert(typesRaw.includes('dueDateTimestamp?: number'), 'types/index.ts supports dueDateTimestamp field on Quote');
+assert(typesRaw.includes('taxIdNumber?: string'), 'types/index.ts supports taxIdNumber on ContractorProfile');
+
+// 2. Database migrations & persistence
+assert(dbServiceCurrentRaw.includes('deposit_amount_cents INTEGER DEFAULT 0'), 'DatabaseService migrates deposit_amount_cents column');
+assert(dbServiceCurrentRaw.includes('payment_terms TEXT'), 'DatabaseService migrates payment_terms column');
+assert(dbServiceCurrentRaw.includes('due_date_timestamp INTEGER'), 'DatabaseService migrates due_date_timestamp column');
+assert(dbServiceCurrentRaw.includes('depositAmountCents: r.deposit_amount_cents'), 'DatabaseService maps depositAmountCents in getAllQuotes');
+
+// 3. RegionPaymentService localized labels
+const regionServiceLatestRaw = fs.readFileSync(path.resolve('./src/services/RegionPaymentService.ts'), 'utf8');
+assert(regionServiceLatestRaw.includes('businessIdLabel'), 'RegionPaymentService defines businessIdLabel in config');
+assert(regionServiceLatestRaw.includes('depositLabel'), 'RegionPaymentService defines depositLabel in config');
+assert(regionServiceLatestRaw.includes('balanceDueLabel'), 'RegionPaymentService defines balanceDueLabel in config');
+assert(regionServiceLatestRaw.includes('Advance Received (बयाना)'), 'RegionPaymentService localizes Indian advance payment label');
+assert(regionServiceLatestRaw.includes('GSTIN / PAN Number'), 'RegionPaymentService localizes Indian GSTIN / PAN label');
+assert(regionServiceLatestRaw.includes('Deposit Paid'), 'RegionPaymentService localizes US deposit paid label');
+assert(regionServiceLatestRaw.includes('Contractor License # / EIN'), 'RegionPaymentService localizes US License / EIN label');
+
+// 4. PDFService financial breakdown & due dates
+const pdfUpdatedRaw = fs.readFileSync(path.resolve('./src/services/PDFService.ts'), 'utf8');
+assert(pdfUpdatedRaw.includes('regionConfig.depositLabel'), 'PDFService formats localized deposit deduction row');
+assert(pdfUpdatedRaw.includes('regionConfig.balanceDueLabel'), 'PDFService formats localized balance due row');
+assert(pdfUpdatedRaw.includes('Due Date:'), 'PDFService renders due date badge in document meta');
+
+// 5. QuoteBuilderScreen deposit and terms UI
+const quoteBuilderUpdatedRaw = fs.readFileSync(path.resolve('./src/screens/QuoteBuilderScreen.tsx'), 'utf8');
+assert(quoteBuilderUpdatedRaw.includes('paymentTerms'), 'QuoteBuilderScreen manages paymentTerms state');
+assert(quoteBuilderUpdatedRaw.includes('depositInput'), 'QuoteBuilderScreen manages depositInput state');
+assert(quoteBuilderUpdatedRaw.includes('Payment Schedule & Terms'), 'QuoteBuilderScreen renders payment schedule selector');
+
+// 6. ExportService CSV spreadsheet export
+const exportServiceRaw = fs.readFileSync(path.resolve('./src/services/ExportService.ts'), 'utf8');
+assert(exportServiceRaw.includes('exportQuotesToCSV'), 'ExportService implements exportQuotesToCSV method');
+assert(exportServiceRaw.includes('JobSign_Bookkeeping_'), 'ExportService formats standard bookkeeping export filename');
+assert(exportServiceRaw.includes('escapeCell'), 'ExportService implements RFC 4180 CSV cell escaping');
+
+// 7. SettingsScreen Bookkeeping action
+const settingsUpdatedRaw = fs.readFileSync(path.resolve('./src/screens/SettingsScreen.tsx'), 'utf8');
+assert(settingsUpdatedRaw.includes('handleExportCSV'), 'SettingsScreen implements handleExportCSV');
+assert(settingsUpdatedRaw.includes('Bookkeeping Export (CSV / Excel)'), 'SettingsScreen renders Bookkeeping Export row');
+
 console.log('\n======================================================');
 console.log(`TOTAL TESTS: ${passedCount + failedCount} | PASSED: ${passedCount} | FAILED: ${failedCount}`);
 console.log('======================================================');

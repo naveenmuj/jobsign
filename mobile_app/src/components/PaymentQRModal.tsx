@@ -129,8 +129,13 @@ export const PaymentQRModal: React.FC<{ quote: Quote; onClose: () => void }> = (
   );
   const [bankError, setBankError] = useState('');
 
-  const amountDecimal = (quote.totalAmountCents / 100).toFixed(2);
-  const amountFormatted = `${curSymbol}${amountDecimal}`;
+  const depositCents = quote.depositAmountCents || 0;
+  const balanceDueCents = Math.max(0, quote.totalAmountCents - depositCents);
+  const amountToCollectCents = depositCents > 0 && balanceDueCents > 0 ? balanceDueCents : quote.totalAmountCents;
+  const amountDecimal = (amountToCollectCents / 100).toFixed(2);
+  const amountFormatted = depositCents > 0 && balanceDueCents > 0
+    ? `${curSymbol}${amountDecimal} (${regionConfig.balanceDueLabel})`
+    : `${curSymbol}${amountDecimal}`;
 
   const handleSelectUpi = (acc: SavedUpiAccount) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);

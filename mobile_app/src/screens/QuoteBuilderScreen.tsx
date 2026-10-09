@@ -30,6 +30,7 @@ import { FEATURE_FLAGS } from '../config/featureFlags';
 import { useAppSafeArea } from '../utils/safeArea';
 import { useKeyboard } from '../utils/useKeyboard';
 import { AlertService } from '../services/AlertService';
+import { RegionPaymentService } from '../services/RegionPaymentService';
 import { ChevronLeft, Camera, Image as ImageIcon, Plus, X, PenLine, Check } from 'lucide-react-native';
 
 const makeStyles = (colors: ThemeColors) =>
@@ -477,6 +478,8 @@ export const QuoteBuilderScreen: React.FC<{ onBack: () => void }> = ({ onBack })
   const [taxLabelInput, setTaxLabelInput] = useState<string>(
     profile.taxLabel || 'Sales Tax'
   );
+  const [paymentTerms, setPaymentTerms] = useState<'DUE_ON_RECEIPT' | 'NET_7' | 'NET_15' | 'NET_30'>('DUE_ON_RECEIPT');
+  const [depositInput, setDepositInput] = useState<string>('');
   const [isSigning, setIsSigning] = useState(false);
   const [showPaywall, setShowPaywall] = useState(false);
   const [pendingPdfQuote, setPendingPdfQuote] = useState<Quote | null>(null);
@@ -638,6 +641,11 @@ export const QuoteBuilderScreen: React.FC<{ onBack: () => void }> = ({ onBack })
     : 0;
   const totalAmountCents = subtotalCents + taxAmountCents;
 
+  const regionConfig = RegionPaymentService.getConfig(profile.currencyCode, profile.currencySymbol);
+  const parsedDeposit = parseFloat(depositInput) || 0;
+  const depositAmountCents = Math.min(totalAmountCents, Math.round(parsedDeposit * 100));
+  const balanceDueCents = Math.max(0, totalAmountCents - depositAmountCents);
+
   const currencySymbol = profile.currencySymbol || '$';
   const totalFormatted = `${currencySymbol}${(totalAmountCents / 100).toFixed(2)}`;
 
@@ -707,6 +715,16 @@ export const QuoteBuilderScreen: React.FC<{ onBack: () => void }> = ({ onBack })
       taxLabel: isTaxEnabled ? (taxLabelInput.trim() || 'Sales Tax') : undefined,
       totalAmountCents,
       currencySymbol,
+      depositAmountCents: depositAmountCents > 0 ? depositAmountCents : undefined,
+      paymentTerms,
+      dueDateTimestamp:
+        paymentTerms === 'NET_7'
+          ? Date.now() + 7 * 86400000
+          : paymentTerms === 'NET_15'
+          ? Date.now() + 15 * 86400000
+          : paymentTerms === 'NET_30'
+          ? Date.now() + 30 * 86400000
+          : Date.now(),
       signatureSvg: svgPath,
       signatureTimestamp: Date.now(),
       signatureGpsLat: gpsLat,
@@ -1092,6 +1110,85 @@ export const QuoteBuilderScreen: React.FC<{ onBack: () => void }> = ({ onBack })
           <View style={[styles.summaryRow, styles.totalRow]}>
             <Text style={styles.totalLabel}>TOTAL</Text>
             <Text style={styles.totalVal}>{totalFormatted}</Text>
+          </View>
+
+          {depositAmountCents > 0 && (
+            <View style={{ marginTop: 8, paddingTop: 8, borderTopWidth: 1, borderColor: colors.border, borderStyle: 'dashed' }}>
+              <View style={styles.summaryRow}>
+                <Text style={[styles.summaryLabel, { color: colors.emerald, fontWeight: '700' }]}>
+                  Less: {regionConfig.depositLabel}
+                </Text>
+                <Text style={[styles.summaryVal, { color: colors.emerald, fontWeight: '700' }]}>
+                  -{currencySymbol}{(depositAmountCents / 100).toFixed(2)}
+                </Text>
+              </View>
+              <View style={[styles.summaryRow, { marginTop: 4 }]}>
+                <Text style={[styles.totalLabel, { fontSize: 14, color: colors.amber }]}>
+                  {regionConfig.balanceDueLabel.toUpperCase()}
+                </Text>
+                <Text style={[styles.totalVal, { fontSize: 17, color: colors.amber }]}>
+                  {currencySymbol}{(balanceDueCents / 100).toFixed(2)}
+                </Text>
+              </View>
+            </View>
+          )}
+        </View>
+
+        {/* Payment Terms & Advance / Deposit Configuration */}
+        <View style={styles.card}>
+          <Text style={styles.label}>Payment Terms & Advance / Deposit</Text>
+
+          <Text style={{ fontSize: 12, fontWeight: '700', color: colors.textSecondary, marginBottom: 6 }}>
+            Payment Schedule & Terms
+          </Text>
+          <View style={{ flexDirection: 'row', gap: 6, marginBottom: 12 }}>
+            {(['DUE_ON_RECEIPT', 'NET_7', 'NET_15', 'NET_30'] as const).map((t) => (
+              <TouchableOpacity
+                key={t}
+                style={[
+                  styles.termChip,
+                  paymentTerms === t && { backgroundColor: colors.primaryLight, borderColor: colors.primary },
+                  { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 8, paddingHorizontal: 2 },
+                ]}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  setPaymentTerms(t);
+                }}
+              >
+                <Text
+                  style={[
+                    styles.termChipText,
+                    paymentTerms === t && { color: colors.primary, fontWeight: '800' },
+                    { fontSize: 11 },
+                  ]}
+                  numberOfLines={1}
+                >
+                  {t === 'DUE_ON_RECEIPT' ? 'On Receipt' : t === 'NET_7' ? 'Net 7' : t === 'NET_15' ? 'Net 15' : 'Net 30'}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+            <View style={{ flex: 1, marginRight: 10 }}>
+              <Text style={{ fontSize: 13, fontWeight: '700', color: colors.textPrimary }}>
+                {regionConfig.depositLabel}
+              </Text>
+              <Text style={{ fontSize: 11, color: colors.textSecondary, marginTop: 1 }}>
+                Optional upfront advance collected
+              </Text>
+            </View>
+            <View style={[styles.taxRateBox, { minWidth: 110, paddingVertical: 6, paddingHorizontal: 10 }]}>
+              <Text style={{ fontSize: 14, fontWeight: '800', color: colors.textSecondary, marginRight: 2 }}>{currencySymbol}</Text>
+              <TextInput
+                style={{ fontSize: 14, fontWeight: '800', color: colors.textPrimary, flex: 1, textAlign: 'right' }}
+                value={depositInput}
+                onChangeText={setDepositInput}
+                keyboardType="decimal-pad"
+                placeholder="0.00"
+                placeholderTextColor={colors.textMuted}
+              />
+            </View>
           </View>
         </View>
 

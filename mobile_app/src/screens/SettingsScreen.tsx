@@ -27,6 +27,7 @@ import { TelemetryService } from '../services/TelemetryService';
 import { FEATURE_FLAGS } from '../config/featureFlags';
 import { useAppSafeArea } from '../utils/safeArea';
 import { runSelfDiagnostics } from '../services/DiagnosticService';
+import { ExportService } from '../services/ExportService';
 import { Quote, ContractorProfile } from '../types';
 import { INVOICE_TEMPLATES, InvoiceTemplateId } from '../constants/invoiceTemplates';
 import {
@@ -51,6 +52,7 @@ import {
   Activity,
   MapPin,
   Lock,
+  FileSpreadsheet,
 } from 'lucide-react-native';
 
 // Sample quote used for live instant preview of invoice templates
@@ -108,6 +110,7 @@ interface SettingsScreenProps {
 export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onBack }) => {
   const {
     profile,
+    quotes,
     updateProfile,
     presets,
     addPreset,
@@ -140,6 +143,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onBack }) => {
   const [email, setEmail] = useState(profile.email || '');
   const [address, setAddress] = useState(profile.address || '');
   const [license, setLicense] = useState(profile.licenseNumber || '');
+  const [taxIdNumber, setTaxIdNumber] = useState(profile.taxIdNumber || profile.licenseNumber || '');
   const [logoUri, setLogoUri] = useState<string | null>(profile.logoUri || null);
 
   const [defaultTaxRate, setDefaultTaxRate] = useState(
@@ -241,7 +245,8 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onBack }) => {
       email: email.trim(),
       address: address.trim(),
       logoUri: logoUri || undefined,
-      licenseNumber: license.trim() || undefined,
+      licenseNumber: license.trim() || taxIdNumber.trim() || undefined,
+      taxIdNumber: taxIdNumber.trim() || undefined,
       currencySymbol: currencySymbol.trim() || '$',
       currencyCode: currencyCode.trim() || 'USD',
       defaultTaxBasisPoints: taxBasisPoints,
@@ -413,6 +418,18 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onBack }) => {
       });
     } finally {
       setIsBackingUp(false);
+    }
+  };
+
+  const [isExportingCSV, setIsExportingCSV] = useState(false);
+  const handleExportCSV = async () => {
+    if (isExportingCSV) return;
+    setIsExportingCSV(true);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    try {
+      await ExportService.exportQuotesToCSV(quotes, profile);
+    } finally {
+      setIsExportingCSV(false);
     }
   };
 
@@ -625,6 +642,16 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onBack }) => {
           <Text style={styles.groupHeader}>DATA & LEGAL COMPLIANCE</Text>
 
           <SettingsRow
+            icon={<FileSpreadsheet size={18} color="#10B981" />}
+            title="Bookkeeping Export (CSV / Excel)"
+            subtitle="1-tap export for CA, CPA, or tax filing"
+            badge="Excel / CSV"
+            badgeColor={colors.emerald}
+            colors={colors}
+            onPress={handleExportCSV}
+          />
+
+          <SettingsRow
             icon={<Download size={18} color="#3B82F6" />}
             title="Data Backup & Export"
             subtitle="Export SQLite encrypted database backup"
@@ -728,13 +755,13 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onBack }) => {
           onChangeText={setAddress}
         />
 
-        <Text style={styles.inputLabel}>Trade License / Registration #</Text>
+        <Text style={styles.inputLabel}>{regionConfig.businessIdLabel}</Text>
         <TextInput
           style={styles.input}
-          placeholder="e.g. TX-EL-92841"
+          placeholder={regionConfig.businessIdPlaceholder}
           placeholderTextColor={colors.textMuted}
-          value={license}
-          onChangeText={setLicense}
+          value={taxIdNumber}
+          onChangeText={setTaxIdNumber}
         />
 
         <TouchableOpacity

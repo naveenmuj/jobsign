@@ -87,7 +87,8 @@ export class PDFService {
     const phone = profile?.phone?.trim() || '';
     const email = profile?.email?.trim() || '';
     const address = profile?.address?.trim() || '';
-    const license = profile?.licenseNumber?.trim() ? `Lic: ${profile.licenseNumber.trim()}` : '';
+    const taxIdVal = (profile?.taxIdNumber?.trim() || profile?.licenseNumber?.trim()) || '';
+    const taxIdDisplay = taxIdVal ? `${regionConfig.businessIdLabel.split(' ')[0]}: ${taxIdVal}` : '';
     const isPaid = quote.status === 'PAID';
     const isInvoiced = quote.status === 'INVOICED' || isPaid;
 
@@ -179,7 +180,7 @@ export class PDFService {
     const contactParts = [
       phone ? `📞 ${phone}` : '',
       email ? `✉️ ${email}` : '',
-      license
+      taxIdDisplay,
     ].filter(Boolean);
     const templateId: InvoiceTemplateId = (profile?.invoiceTemplate as InvoiceTemplateId) || 'modern';
 
@@ -442,6 +443,13 @@ export class PDFService {
                 <div class="doc-title">${isInvoiced ? regionConfig.invoiceTitle : regionConfig.estimateTitle}</div>
                 <div class="meta-line"><strong>Reference:</strong> #${quote.quoteNumber}</div>
                 <div class="meta-line"><strong>Date:</strong> ${formattedDate}</div>
+                ${
+                  quote.dueDateTimestamp
+                    ? `<div class="meta-line"><strong>Due Date:</strong> <span style="color: #DC2626; font-weight: 700;">${new Date(quote.dueDateTimestamp).toLocaleDateString(regionConfig.locale, { month: 'short', day: 'numeric', year: 'numeric' })}</span></div>`
+                    : quote.paymentTerms
+                    ? `<div class="meta-line"><strong>Terms:</strong> ${escapeHtml(quote.paymentTerms === 'DUE_ON_RECEIPT' ? 'Due on Receipt' : quote.paymentTerms === 'NET_7' ? 'Net 7 Days' : quote.paymentTerms === 'NET_15' ? 'Net 15 Days' : quote.paymentTerms === 'NET_30' ? 'Net 30 Days' : quote.paymentTerms)}</div>`
+                    : ''
+                }
                 <div class="meta-line"><strong>Status:</strong> <span style="color: #059669; font-weight: 700;">${regionConfig.legalSealedBadge}</span></div>
               </td>
             </tr>
@@ -533,9 +541,23 @@ export class PDFService {
                     </tr>`
               }
               <tr class="total-row">
-                <td class="label-col">${isPaid ? 'PAID IN FULL:' : 'TOTAL APPROVED:'}</td>
+                <td class="label-col">${isPaid ? 'TOTAL PAID:' : 'TOTAL AMOUNT:'}</td>
                 <td class="val-col">${curSymbol}${(quote.totalAmountCents / 100).toFixed(2)}</td>
               </tr>
+              ${
+                (quote.depositAmountCents || 0) > 0
+                  ? `
+                <tr>
+                  <td class="label-col" style="color: #059669; font-weight: 700;">Less: ${escapeHtml(regionConfig.depositLabel)}:</td>
+                  <td class="val-col" style="color: #059669; font-weight: 700;">-${curSymbol}${((quote.depositAmountCents || 0) / 100).toFixed(2)}</td>
+                </tr>
+                <tr class="total-row" style="background-color: ${isPaid ? '#F0FDF4' : '#FFFBEB'}; border-top: 2px solid ${isPaid ? '#10B981' : '#F59E0B'};">
+                  <td class="label-col" style="color: ${isPaid ? '#15803D' : '#B45309'}; font-size: 14px; font-weight: 900;">${isPaid ? 'PAID IN FULL (0.00 DUE):' : `${escapeHtml(regionConfig.balanceDueLabel).toUpperCase()}:`}</td>
+                  <td class="val-col" style="color: ${isPaid ? '#15803D' : '#B45309'}; font-size: 17px; font-weight: 900;">${isPaid ? `${curSymbol}0.00` : `${curSymbol}${Math.max(0, (quote.totalAmountCents - (quote.depositAmountCents || 0)) / 100).toFixed(2)}`}</td>
+                </tr>
+              `
+                  : ''
+              }
             </table>
             <div style="clear: both;"></div>
           </div>

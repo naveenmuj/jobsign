@@ -13,6 +13,7 @@ import { Theme, getThemeColors, ThemeColors } from '../theme';
 import { Quote } from '../types';
 import { PDFService } from '../services/PDFService';
 import { AlertService } from '../services/AlertService';
+import { RegionPaymentService } from '../services/RegionPaymentService';
 import { ChangeOrderModal } from '../components/ChangeOrderModal';
 import { PaymentQRModal } from '../components/PaymentQRModal';
 import { CompanyNamePromptModal } from '../components/CompanyNamePromptModal';
@@ -395,6 +396,9 @@ export const QuoteDetailScreen: React.FC<QuoteDetailScreenProps> = ({ quote: ini
   const styles = React.useMemo(() => makeStyles(colors), [colors]);
   const insets = useAppSafeArea();
   const curSymbol = quote.currencySymbol || profile?.currencySymbol || '$';
+  const regionConfig = RegionPaymentService.getConfig(profile?.currencyCode, curSymbol);
+  const depositCents = quote.depositAmountCents || 0;
+  const balanceDueCents = Math.max(0, quote.totalAmountCents - depositCents);
 
   const [showChangeOrder, setShowChangeOrder] = useState(false);
   const [showPayment, setShowPayment] = useState(false);
@@ -1067,14 +1071,48 @@ export const QuoteDetailScreen: React.FC<QuoteDetailScreenProps> = ({ quote: ini
           </View>
           <View style={styles.summaryRow}>
             <Text style={styles.sumLabel}>
-              Sales Tax ({((quote.taxRateBasisPoints ?? 825) / 100).toFixed(2)}%)
+              {quote.taxLabel || regionConfig.defaultTaxLabel} ({((quote.taxRateBasisPoints ?? 825) / 100).toFixed(2)}%)
             </Text>
             <Text style={styles.sumVal}>{curSymbol}{(quote.taxAmountCents / 100).toFixed(2)}</Text>
           </View>
           <View style={[styles.summaryRow, styles.totalRow]}>
-            <Text style={styles.totalLabel}>TOTAL AMOUNT DUE</Text>
+            <Text style={styles.totalLabel}>TOTAL CONTRACT</Text>
             <Text style={styles.totalVal}>{curSymbol}{(quote.totalAmountCents / 100).toFixed(2)}</Text>
           </View>
+
+          {depositCents > 0 && (
+            <View style={{ marginTop: 8, paddingTop: 8, borderTopWidth: 1, borderColor: colors.border, borderStyle: 'dashed' }}>
+              <View style={styles.summaryRow}>
+                <Text style={[styles.sumLabel, { color: colors.emerald, fontWeight: '700' }]}>
+                  Less: {regionConfig.depositLabel}
+                </Text>
+                <Text style={[styles.sumVal, { color: colors.emerald, fontWeight: '700' }]}>
+                  -{curSymbol}{(depositCents / 100).toFixed(2)}
+                </Text>
+              </View>
+              <View style={[styles.summaryRow, { marginTop: 4 }]}>
+                <Text style={[styles.totalLabel, { color: isPaid ? colors.emerald : colors.amber, fontSize: 14 }]}>
+                  {isPaid ? 'PAID IN FULL (0.00 DUE)' : `${regionConfig.balanceDueLabel.toUpperCase()}:`}
+                </Text>
+                <Text style={[styles.totalVal, { color: isPaid ? colors.emerald : colors.amber, fontSize: 17 }]}>
+                  {isPaid ? `${curSymbol}0.00` : `${curSymbol}${(balanceDueCents / 100).toFixed(2)}`}
+                </Text>
+              </View>
+            </View>
+          )}
+
+          {(quote.dueDateTimestamp || quote.paymentTerms) && (
+            <View style={{ marginTop: 8, paddingTop: 6, borderTopWidth: 1, borderColor: colors.borderSubtle, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+              <Text style={{ fontSize: 12, color: colors.textSecondary }}>Payment Terms / Due Date:</Text>
+              <Text style={{ fontSize: 12, fontWeight: '800', color: quote.dueDateTimestamp && !isPaid ? colors.rose : colors.textPrimary }}>
+                {quote.dueDateTimestamp
+                  ? new Date(quote.dueDateTimestamp).toLocaleDateString()
+                  : quote.paymentTerms === 'DUE_ON_RECEIPT'
+                  ? 'Due on Receipt'
+                  : quote.paymentTerms}
+              </Text>
+            </View>
+          )}
         </View>
 
         {/* Legal Terms & Work Conditions (If specified) */}

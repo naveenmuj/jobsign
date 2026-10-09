@@ -80,6 +80,7 @@ export interface ContractorProfile {
   currencyCode?: string;        // e.g. "INR", "USD", "GBP", "EUR"
   customPaymentLabel?: string;  // user-defined custom payment label (e.g. "Direct Transfer", "Bank Wire")
   customPaymentNote?: string;   // user-defined payment instructions printed on invoices
+  taxIdNumber?: string;         // Business Tax ID / GSTIN (India) / Contractor License & EIN (US)
 }
 
 export interface Quote {
@@ -102,6 +103,9 @@ export interface Quote {
   completedPhotoUri?: string; // Post-work proof / completion verification photo
   includePhotoInPdf?: boolean; // Whether worksite photo is attached as Exhibit A to PDF invoice
   invoiceIssuedTimestamp?: number; // Timestamp when estimate was converted to invoice
+  paymentTerms?: string;       // e.g. 'DUE_ON_RECEIPT', 'NET_7', 'NET_15', 'NET_30', 'CUSTOM'
+  dueDateTimestamp?: number;   // Expected payment due date timestamp
+  depositAmountCents?: number; // Advance / deposit already collected
   signatureSvg?: string;
   signatureTimestamp?: number;
   signatureGpsLat?: number;

@@ -30,6 +30,10 @@ export interface RegionPaymentConfig {
   waiverBodyText: string;
   auditCertificateTitle: string;
   auditGoverningStandard: string;
+  businessIdLabel: string;
+  businessIdPlaceholder: string;
+  depositLabel: string;
+  balanceDueLabel: string;
 }
 
 const REGION_CONFIGS: Record<PaymentRegion, RegionPaymentConfig> = {
@@ -61,6 +65,10 @@ const REGION_CONFIGS: Record<PaymentRegion, RegionPaymentConfig> = {
     waiverBodyText: 'Upon final clearance of settlement funds in the amount of {AMOUNT}, contractor certifies receipt in full, discharges this invoice, and releases all financial claims for labor and materials furnished through {DATE}.',
     auditCertificateTitle: 'LEGAL AUDIT CERTIFICATE OF AUTHENTICITY',
     auditGoverningStandard: 'Information Technology Act, 2000 (§ 10A - Validity of electronic contracts) and Section 65B of the Indian Evidence Act.',
+    businessIdLabel: 'GSTIN / PAN Number',
+    businessIdPlaceholder: 'e.g. 29ABCDE1234F1Z5 or PAN',
+    depositLabel: 'Advance Received (बयाना)',
+    balanceDueLabel: 'Balance Due (बकाया राशि)',
   },
   US: {
     region: 'US',
@@ -90,6 +98,10 @@ const REGION_CONFIGS: Record<PaymentRegion, RegionPaymentConfig> = {
     waiverBodyText: 'Upon final clearance of settlement funds in the amount of {AMOUNT}, contractor waives and releases any and all mechanic\'s lien, stop notice, or bond rights for labor and materials furnished through {DATE}.',
     auditCertificateTitle: 'UETA / ESIGN ACT COURTROOM AUDIT CERTIFICATE',
     auditGoverningStandard: '15 U.S. Code § 7001 (Electronic Signatures in Global and National Commerce Act) & Uniform Electronic Transactions Act (UETA § 7).',
+    businessIdLabel: 'Contractor License # / EIN',
+    businessIdPlaceholder: 'e.g. CA Lic #1049281 or EIN 12-3456789',
+    depositLabel: 'Deposit Paid',
+    balanceDueLabel: 'Balance Due',
   },
   GB: {
     region: 'GB',
@@ -119,6 +131,10 @@ const REGION_CONFIGS: Record<PaymentRegion, RegionPaymentConfig> = {
     waiverBodyText: 'Upon final clearance of settlement funds in the amount of {AMOUNT}, contractor discharges all liabilities under this contract and releases any and all claims, charges, or liens for labor and materials furnished through {DATE}.',
     auditCertificateTitle: 'ELECTRONIC SIGNATURE & AUDIT CERTIFICATE',
     auditGoverningStandard: 'UK Electronic Communications Act 2000 and Electronic Identification and Trust Services for Electronic Transactions (UK eIDAS).',
+    businessIdLabel: 'Company Reg / VAT No.',
+    businessIdPlaceholder: 'e.g. GB 123 4567 89',
+    depositLabel: 'Deposit Paid',
+    balanceDueLabel: 'Balance Due',
   },
   EU: {
     region: 'EU',
@@ -148,6 +164,10 @@ const REGION_CONFIGS: Record<PaymentRegion, RegionPaymentConfig> = {
     waiverBodyText: 'Upon final clearance of settlement funds in the amount of {AMOUNT}, contractor confirms receipt in full and releases all contractual claims and property charges for labor and materials furnished through {DATE}.',
     auditCertificateTitle: 'eIDAS COMPLIANCE AUDIT CERTIFICATE',
     auditGoverningStandard: 'Regulation (EU) No 910/2014 (eIDAS) of the European Parliament and of the Council on electronic transactions in the internal market.',
+    businessIdLabel: 'VAT / Tax ID Number',
+    businessIdPlaceholder: 'e.g. DE123456789',
+    depositLabel: 'Advance / Deposit Paid',
+    balanceDueLabel: 'Balance Due',
   },
   CA: {
     region: 'CA',
@@ -177,6 +197,10 @@ const REGION_CONFIGS: Record<PaymentRegion, RegionPaymentConfig> = {
     waiverBodyText: 'Upon final clearance of settlement funds in the amount of {AMOUNT}, contractor waives and releases any and all builder\'s lien, holdback, or bond claims for labor and materials furnished through {DATE}.',
     auditCertificateTitle: 'ELECTRONIC COMMERCE AUDIT CERTIFICATE',
     auditGoverningStandard: 'Personal Information Protection and Electronic Documents Act (PIPEDA) and Uniform Electronic Commerce Act (UECA).',
+    businessIdLabel: 'Business / GST/HST Number',
+    businessIdPlaceholder: 'e.g. 123456789 RT0001',
+    depositLabel: 'Deposit Paid',
+    balanceDueLabel: 'Balance Due',
   },
   AU: {
     region: 'AU',
@@ -206,6 +230,10 @@ const REGION_CONFIGS: Record<PaymentRegion, RegionPaymentConfig> = {
     waiverBodyText: 'Upon final clearance of settlement funds in the amount of {AMOUNT}, contractor acknowledges full payment and releases any rights under security of payment legislation, liens, or claims for labor and materials furnished through {DATE}.',
     auditCertificateTitle: 'ELECTRONIC TRANSACTIONS AUDIT CERTIFICATE',
     auditGoverningStandard: 'Electronic Transactions Act 1999 (Cth) and Electronic Transactions Regulations.',
+    businessIdLabel: 'ABN / ACN Number',
+    businessIdPlaceholder: 'e.g. ABN 12 345 678 901',
+    depositLabel: 'Deposit Paid',
+    balanceDueLabel: 'Balance Due',
   },
   GLOBAL: {
     region: 'GLOBAL',
@@ -235,6 +263,10 @@ const REGION_CONFIGS: Record<PaymentRegion, RegionPaymentConfig> = {
     waiverBodyText: 'Upon final clearance of settlement funds in the amount of {AMOUNT}, contractor acknowledges full satisfaction and releases any and all claims or liens for labor and materials furnished through {DATE}.',
     auditCertificateTitle: 'DIGITAL TRANSACTION AUDIT CERTIFICATE',
     auditGoverningStandard: 'UNCITRAL Model Law on Electronic Signatures and applicable international electronic transaction standards.',
+    businessIdLabel: 'Tax ID / Business Registration',
+    businessIdPlaceholder: 'e.g. Tax Registration ID',
+    depositLabel: 'Deposit / Advance Paid',
+    balanceDueLabel: 'Balance Due',
   },
 };
 
