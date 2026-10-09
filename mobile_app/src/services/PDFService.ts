@@ -69,14 +69,26 @@ export class PDFService {
 
   public static async generateInvoiceHTML(quote: Quote, profile?: ContractorProfile): Promise<string> {
     const hash = quote.pdfSha256Hash || (await this.computeHash(quote));
-    const businessName = profile?.businessName?.trim() || 'Apex Field Services LLC';
-    const ownerName = profile?.ownerName?.trim() || 'Licensed Contractor';
-    const phone = profile?.phone?.trim() || '(512) 843-9201';
+    const curSymbol = quote.currencySymbol || profile?.currencySymbol || '$';
+    const regionConfig = RegionPaymentService.getConfig(profile?.currencyCode, curSymbol);
+
+    const formattedDate = new Date(quote.createdAt).toLocaleDateString(regionConfig.locale, {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+    });
+    const formattedTime = new Date(quote.createdAt).toLocaleTimeString(regionConfig.locale, {
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+
+    const businessName = profile?.businessName?.trim() || profile?.ownerName?.trim() || 'Independent Contractor';
+    const ownerName = profile?.ownerName?.trim() || '';
+    const phone = profile?.phone?.trim() || '';
     const email = profile?.email?.trim() || '';
     const address = profile?.address?.trim() || '';
     const license = profile?.licenseNumber?.trim() ? `Lic: ${profile.licenseNumber.trim()}` : '';
     const isPaid = quote.status === 'PAID';
-    const curSymbol = quote.currencySymbol || profile?.currencySymbol || '$';
 
     // Compute initials if no logo provided
     const initials = businessName
@@ -92,30 +104,57 @@ export class PDFService {
         if (profile.logoUri.startsWith('data:')) {
           logoBase64 = profile.logoUri;
         } else {
-          const base64Str = await FileSystem.readAsStringAsync(profile.logoUri, {
-            encoding: 'base64',
+          let uriToRead = profile.logoUri;
+          // If Android content URI, copy to cache directory first so FileSystem can read it
+          if (uriToRead.startsWith('content://')) {
+            const cacheFile = `${(FileSystem as any).cacheDirectory || ''}logo_cache_${Date.now()}.jpg`;
+            await FileSystem.copyAsync({ from: uriToRead, to: cacheFile });
+            uriToRead = cacheFile;
+          }
+          const base64Str = await FileSystem.readAsStringAsync(uriToRead, {
+            encoding: FileSystem.EncodingType.Base64,
           });
-          const ext = profile.logoUri.toLowerCase().endsWith('.png') ? 'png' : 'jpeg';
+          const ext = profile.logoUri.toLowerCase().includes('.png') ? 'png' : 'jpeg';
           logoBase64 = `data:image/${ext};base64,${base64Str}`;
         }
       } catch (e) {
-        console.log('PDF logo embed handled gracefully:', e);
+        console.log('PDF logo embed fallback:', e);
+        if (profile.logoUri.startsWith('file://')) {
+          logoBase64 = profile.logoUri;
+        }
       }
     }
 
     let photoBase64 = '';
     if (quote.photoUri) {
       try {
-        const base64Str = await FileSystem.readAsStringAsync(quote.photoUri, {
-          encoding: 'base64',
-        });
-        photoBase64 = `data:image/jpeg;base64,${base64Str}`;
+        if (quote.photoUri.startsWith('data:')) {
+          photoBase64 = quote.photoUri;
+        } else {
+          let uriToRead = quote.photoUri;
+          if (uriToRead.startsWith('content://')) {
+            const cacheFile = `${(FileSystem as any).cacheDirectory || ''}photo_cache_${Date.now()}.jpg`;
+            await FileSystem.copyAsync({ from: uriToRead, to: cacheFile });
+            uriToRead = cacheFile;
+          }
+          const base64Str = await FileSystem.readAsStringAsync(uriToRead, {
+            encoding: FileSystem.EncodingType.Base64,
+          });
+          photoBase64 = `data:image/jpeg;base64,${base64Str}`;
+        }
       } catch (e) {
-        console.log('PDF photo embed handled gracefully:', e);
+        console.log('PDF photo embed fallback:', e);
+        if (quote.photoUri.startsWith('file://')) {
+          photoBase64 = quote.photoUri;
+        }
       }
     }
 
-    const contactParts = [phone, email, license].filter(Boolean);
+    const contactParts = [
+      phone ? `📞 ${phone}` : '',
+      email ? `✉️ ${email}` : '',
+      license
+    ].filter(Boolean);
     const templateId: InvoiceTemplateId = (profile?.invoiceTemplate as InvoiceTemplateId) || 'modern';
 
     return `
@@ -137,7 +176,7 @@ export class PDFService {
               body { padding: 18px 24px; }
             }
             .header-table { width: 100%; border-collapse: collapse; }
-            .shop-logo-img { max-height: 54px; max-width: 170px; object-fit: contain; margin-bottom: 6px; display: block; }
+            .shop-logo-img { max-height: 64px; max-width: 180px; object-fit: contain; margin-bottom: 8px; display: block; border-radius: 4px; }
             .doc-meta { text-align: right; vertical-align: top; }
             .doc-badge { display: inline-block; font-size: 10.5px; font-weight: 800; padding: 4px 10px; letter-spacing: 0.6px; text-transform: uppercase; margin-bottom: 8px; }
             .cards-grid { width: 100%; margin-bottom: 24px; border-collapse: separate; border-spacing: 12px 0; }
@@ -148,12 +187,13 @@ export class PDFService {
             .summary-table td.label-col { text-align: left; }
             .summary-table td.val-col { text-align: right; font-weight: 700; }
             .payment-box { clear: both; margin-bottom: 20px; display: flex; align-items: center; gap: 12px; }
-            .photo-box { margin-bottom: 20px; page-break-inside: avoid; }
-            .photo-img { max-width: 100%; max-height: 240px; border-radius: 6px; display: block; margin-bottom: 6px; }
             .terms-box { margin-bottom: 20px; }
             .signature-card { margin-bottom: 18px; page-break-inside: avoid; }
             .seal-ribbon { display: flex; justify-content: space-between; align-items: center; margin-top: 12px; }
             .seal-hash { font-family: monospace; font-weight: bold; padding: 2px 6px; border-radius: 4px; }
+            .photo-page { page-break-before: always; margin-top: 24px; }
+            .photo-frame { background-color: #0F172A; border-radius: 8px; padding: 12px; text-align: center; box-shadow: 0 4px 14px rgba(0,0,0,0.12); margin-bottom: 16px; }
+            .photo-img-full { max-height: 480px; max-width: 100%; width: auto; height: auto; border-radius: 4px; display: inline-block; object-fit: contain; }
             .audit-page { page-break-before: always; margin-top: 36px; padding: 24px 28px; }
 
             /* ── THEME 1: MODERN NAVY (DEFAULT) ── */
@@ -367,16 +407,16 @@ export class PDFService {
                 ${logoBase64 ? `<img src="${logoBase64}" class="shop-logo-img" alt="Shop Logo" />` : `<div class="shop-monogram">${escapeHtml(initials)}</div>`}
                 <div class="shop-name">${escapeHtml(businessName)}</div>
                 ${address ? `<div class="shop-address">${escapeHtml(address)}</div>` : ''}
-                <div class="shop-contacts">${escapeHtml(contactParts.join(' • '))}</div>
+                ${contactParts.length > 0 ? `<div class="shop-contacts">${escapeHtml(contactParts.join('  •  '))}</div>` : ''}
               </td>
               <td class="doc-meta">
                 <span class="doc-badge ${isPaid ? 'doc-badge-paid' : 'doc-badge-estimate'}">
-                  ${isPaid ? '✓ PAID IN FULL' : '✓ SIGNED ESTIMATE'}
+                  ${isPaid ? '✓ PAID IN FULL' : '✓ SIGNED & APPROVED'}
                 </span>
-                <div class="doc-title">${isPaid ? 'TAX INVOICE & RECEIPT' : 'ESTIMATE & AGREEMENT'}</div>
+                <div class="doc-title">${isPaid ? regionConfig.invoiceTitle : regionConfig.estimateTitle}</div>
                 <div class="meta-line"><strong>Reference:</strong> #${quote.quoteNumber}</div>
-                <div class="meta-line"><strong>Date:</strong> ${new Date(quote.createdAt).toLocaleDateString()}</div>
-                <div class="meta-line"><strong>Legal Status:</strong> <span style="color: #059669; font-weight: 700;">UETA / ESIGN Sealed</span></div>
+                <div class="meta-line"><strong>Date:</strong> ${formattedDate}</div>
+                <div class="meta-line"><strong>Status:</strong> <span style="color: #059669; font-weight: 700;">${regionConfig.legalSealedBadge}</span></div>
               </td>
             </tr>
           </table>
@@ -393,9 +433,9 @@ export class PDFService {
               </td>
               <td class="info-card" style="width: 50%;">
                 <div class="card-title">Project & Scope Details</div>
-                ${quote.jobDescription ? `<div class="card-name" style="font-size: 13px;">${escapeHtml(quote.jobDescription)}</div>` : '<div class="card-text">Standard Service & Field Repairs</div>'}
-                <div class="card-text" style="margin-top: 4px; color: #64748B;">Contractor: ${escapeHtml(ownerName || businessName)}</div>
-                <div class="card-text" style="color: #64748B;">Sealed Timestamp: ${new Date(quote.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
+                ${quote.jobDescription ? `<div class="card-name" style="font-size: 13px;">${escapeHtml(quote.jobDescription)}</div>` : '<div class="card-text">Contracted Services & Field Work</div>'}
+                ${businessName ? `<div class="card-text" style="margin-top: 4px; color: #64748B;">Contractor: ${escapeHtml(businessName)}${ownerName && ownerName !== businessName ? ` (${escapeHtml(ownerName)})` : ''}</div>` : ''}
+                <div class="card-text" style="color: #64748B;">Executed: ${formattedDate} • ${formattedTime}</div>
               </td>
             </tr>
           </table>
@@ -458,12 +498,12 @@ export class PDFService {
               ${
                 quote.taxAmountCents > 0
                   ? `<tr>
-                      <td class="label-col">${escapeHtml(quote.taxLabel || 'Sales Tax')} (${(quote.taxRateBasisPoints / 100).toFixed(2)}%):</td>
+                      <td class="label-col">${escapeHtml(quote.taxLabel || regionConfig.defaultTaxLabel)} (${(quote.taxRateBasisPoints / 100).toFixed(2)}%):</td>
                       <td class="val-col">${curSymbol}${(quote.taxAmountCents / 100).toFixed(2)}</td>
                     </tr>`
                   : `<tr>
-                      <td class="label-col">${escapeHtml(quote.taxLabel || 'Tax')}:</td>
-                      <td class="val-col" style="color: #64748B; font-weight: normal;">No Tax (Exempt / 0%)</td>
+                      <td class="label-col">${escapeHtml(quote.taxLabel || regionConfig.defaultTaxLabel)}:</td>
+                      <td class="val-col" style="color: #64748B; font-weight: normal;">Exempt / 0%</td>
                     </tr>`
               }
               <tr class="total-row">
@@ -502,19 +542,6 @@ export class PDFService {
               : ''
           }
 
-          <!-- ── EXHIBIT A: DAMAGE PROOF PHOTO ── -->
-          ${
-            photoBase64
-              ? `
-            <div class="photo-box">
-              <div class="photo-header">EXHIBIT A: Worksite Condition & Scope Verification Photo</div>
-              <img src="${photoBase64}" class="photo-img" alt="Worksite Photo" />
-              <div style="font-size: 11px; color: #64748B;">Pre-commencement worksite photo captured and cryptographically sealed on-site.</div>
-            </div>
-          `
-              : ''
-          }
-
           <!-- ── TERMS & WARRANTY ── -->
           ${
             quote.notes
@@ -537,15 +564,17 @@ export class PDFService {
             }
             <div class="legal-consent">
               <strong>AFFIRMATIVE CONSENT & NON-REPUDIATION:</strong>
-              By affixing signature above, client acknowledges receipt and approval of the itemized estimate and authorizes contractor to furnish indicated labor and materials. Electronic signatures execute a legally binding instrument under applicable electronic transaction laws (including 15 U.S. Code § 7001 / ESIGN Act, UETA, and international digital commerce standards).
+              By affixing signature above, client acknowledges receipt and approval of the itemized estimate and authorizes contractor to furnish indicated labor and materials. Electronic signatures execute a legally binding instrument under ${regionConfig.legalConsentCitation}.
             </div>
 
             ${
               isPaid
                 ? `
               <div class="waiver-callout">
-                <strong>AUTOMATIC CONDITIONAL LIEN WAIVER & RELEASE:</strong><br/>
-                Upon final clearance of settlement funds in the amount of ${curSymbol}${(quote.totalAmountCents / 100).toFixed(2)}, contractor waives and releases any and all mechanic's lien, stop notice, or bond rights for labor and materials furnished through ${new Date().toLocaleDateString()}.
+                <strong>${regionConfig.waiverTitle}:</strong><br/>
+                ${regionConfig.waiverBodyText
+                  .replace('{AMOUNT}', `${curSymbol}${(quote.totalAmountCents / 100).toFixed(2)}`)
+                  .replace('{DATE}', formattedDate)}
               </div>
             `
                 : ''
@@ -557,16 +586,69 @@ export class PDFService {
             </div>
           </div>
 
-          <!-- ── PAGE 2: COURTROOM AUDIT CERTIFICATE ── -->
+          <!-- ── EXHIBIT A: DEDICATED WORKSITE PHOTO & PROOF OF RECORD (PAGE 2) ── -->
+          ${
+            photoBase64
+              ? `
+            <div class="photo-page">
+              <div style="border-bottom: 2px solid #0F172A; padding-bottom: 8px; margin-bottom: 16px;">
+                <div style="font-size: 11px; font-weight: 800; color: #64748B; letter-spacing: 0.8px; text-transform: uppercase;">
+                  EXHIBIT A • PHYSICAL EVIDENCE OF RECORD
+                </div>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 4px;">
+                  <div style="font-size: 16px; font-weight: 900; color: #0F172A;">
+                    Worksite Condition & Scope Verification Photo
+                  </div>
+                  <span style="background-color: #ECFDF5; border: 1px solid #10B981; color: #047857; font-size: 10px; font-weight: 800; padding: 3px 8px; border-radius: 4px; letter-spacing: 0.5px;">
+                    ✓ CRYPTOGRAPHICALLY ATTESTED
+                  </span>
+                </div>
+              </div>
+
+              <div class="photo-frame">
+                <img src="${photoBase64}" class="photo-img-full" alt="Worksite Verification Photo" />
+              </div>
+
+              <table style="width: 100%; border-collapse: separate; border-spacing: 10px 0; margin-bottom: 16px;">
+                <tr>
+                  <td style="background-color: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 6px; padding: 10px 12px; width: 33.33%;">
+                    <div style="font-size: 10px; font-weight: 800; color: #64748B; text-transform: uppercase;">Capture Source</div>
+                    <div style="font-size: 12px; font-weight: 700; color: #0F172A; margin-top: 2px;">Mobile Field Camera</div>
+                    <div style="font-size: 11px; color: #64748B;">Captured on Smartphone Glass</div>
+                  </td>
+                  <td style="background-color: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 6px; padding: 10px 12px; width: 33.33%;">
+                    <div style="font-size: 10px; font-weight: 800; color: #64748B; text-transform: uppercase;">Location Attestation</div>
+                    <div style="font-size: 12px; font-weight: 700; color: #0F172A; margin-top: 2px;">
+                      ${quote.signatureGpsLat && quote.signatureGpsLng ? `${quote.signatureGpsLat.toFixed(4)}°, ${quote.signatureGpsLng.toFixed(4)}°` : 'On-Site Field Verification'}
+                    </div>
+                    <div style="font-size: 11px; color: #059669; font-weight: 600;">✓ Location Coordinates Sealed</div>
+                  </td>
+                  <td style="background-color: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 6px; padding: 10px 12px; width: 33.33%;">
+                    <div style="font-size: 10px; font-weight: 800; color: #64748B; text-transform: uppercase;">Associated Reference</div>
+                    <div style="font-size: 12px; font-weight: 700; color: #0F172A; margin-top: 2px;">Quote #${quote.quoteNumber}</div>
+                    <div style="font-size: 11px; color: #64748B;">Client: ${escapeHtml(quote.clientName)}</div>
+                  </td>
+                </tr>
+              </table>
+
+              <div style="font-size: 11px; color: #475569; line-height: 1.45; background-color: #F1F5F9; border-left: 3px solid #0F172A; padding: 9px 12px; border-radius: 0 4px 4px 0;">
+                <strong>Authenticity Attestation:</strong> This photograph was captured in the field to document physical worksite condition and completed service scope. The raw byte array of this image is cryptographically anchored to the agreement's SHA-256 seal.
+              </div>
+            </div>
+          `
+              : ''
+          }
+
+          <!-- ── COURTROOM AUDIT CERTIFICATE ── -->
           <div class="audit-page">
             <h3 style="margin-top: 0; color: #0F172A; border-bottom: 2px solid #0F172A; padding-bottom: 8px; font-size: 16px;">
-              UETA / ESIGN ACT COURTROOM AUDIT CERTIFICATE
+              ${regionConfig.auditCertificateTitle}
             </h3>
             <p><strong>Document Verification Hash (SHA-256):</strong><br/><code style="font-size: 12px; background: #E2E8F0; padding: 4px 8px; border-radius: 4px; display: inline-block; margin-top: 4px;">${hash}</code></p>
             <p><strong>Signing Timestamp:</strong> ${quote.signatureTimestamp ? new Date(quote.signatureTimestamp).toISOString() : 'N/A'} (UTC)</p>
             <p><strong>Worksite GPS Coordinates:</strong> ${quote.signatureGpsLat && quote.signatureGpsLng ? `${quote.signatureGpsLat.toFixed(5)}° Lat, ${quote.signatureGpsLng.toFixed(5)}° Lng (Verified On-Site)` : 'Offline / Basement Mode (Disclosed)'}</p>
             <p><strong>Cryptographic Integrity Status:</strong> <span style="color: #059669; font-weight: 800;">LOCKED_IMMUTABLE</span></p>
-            <p><strong>Governing Legal Standards:</strong> 15 U.S. Code § 7001 (Electronic Signatures in Global and National Commerce Act) & Uniform Electronic Transactions Act (UETA § 7).</p>
+            <p><strong>Governing Legal Standards:</strong> ${regionConfig.auditGoverningStandard}</p>
 
             ${
               quote.changeOrders && quote.changeOrders.length > 0

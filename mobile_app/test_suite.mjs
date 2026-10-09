@@ -331,6 +331,17 @@ const settingsRaw = fs.readFileSync(path.resolve('./src/screens/SettingsScreen.t
 assert(settingsRaw.includes('customPaymentLabel'), 'SettingsScreen allows editing customPaymentLabel');
 assert(settingsRaw.includes('customPaymentNote'), 'SettingsScreen allows editing customPaymentNote');
 assert(settingsRaw.includes('regionConfig.bankCodeLabel'), 'SettingsScreen dynamically localizes bank code label by country');
+assert(settingsRaw.includes('base64: true'), 'SettingsScreen requests base64 from image picker for immune offline logo embedding');
+
+// Verify PDFService country-specific and photo exhibit enhancements
+assert(pdfPaymentRaw.includes('photo-page'), 'PDFService formats worksite photo on dedicated Exhibit A record page');
+assert(pdfPaymentRaw.includes('photo-frame'), 'PDFService surrounds worksite photo with executive architectural framing');
+assert(pdfPaymentRaw.includes('regionConfig.legalConsentCitation'), 'PDFService localizes affirmative legal consent citations by country');
+assert(pdfPaymentRaw.includes('regionConfig.waiverTitle'), 'PDFService localizes conditional lien / discharge waivers by country');
+assert(pdfPaymentRaw.includes('regionConfig.auditCertificateTitle'), 'PDFService localizes Courtroom Audit Certificate titles by country');
+assert(pdfPaymentRaw.includes('regionConfig.auditGoverningStandard'), 'PDFService cites country-specific electronic signature governing acts');
+assert(!pdfPaymentRaw.includes('(512) 843-9201'), 'PDFService eliminated hardcoded foreign phone numbers');
+assert(!pdfPaymentRaw.includes('Apex Field Services LLC'), 'PDFService eliminated hardcoded foreign company names');
 
 console.log('\n======================================================');
 console.log(`TOTAL TESTS: ${passedCount + failedCount} | PASSED: ${passedCount} | FAILED: ${failedCount}`);

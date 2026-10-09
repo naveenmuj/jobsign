@@ -5,6 +5,7 @@ export type PaymentRegion = 'IN' | 'US' | 'GB' | 'EU' | 'CA' | 'AU' | 'GLOBAL';
 export interface RegionPaymentConfig {
   region: PaymentRegion;
   regionName: string;
+  locale: string;
   instantRailLabel: string;
   instantRailName: string;
   instantIdLabel: string;
@@ -20,12 +21,22 @@ export interface RegionPaymentConfig {
   invoiceInstantLabel: string;
   invoiceBankLabel: string;
   invoiceBankCodePrefix: string;
+  defaultTaxLabel: string;
+  invoiceTitle: string;
+  estimateTitle: string;
+  legalSealedBadge: string;
+  legalConsentCitation: string;
+  waiverTitle: string;
+  waiverBodyText: string;
+  auditCertificateTitle: string;
+  auditGoverningStandard: string;
 }
 
 const REGION_CONFIGS: Record<PaymentRegion, RegionPaymentConfig> = {
   IN: {
     region: 'IN',
     regionName: 'India',
+    locale: 'en-IN',
     instantRailLabel: '⚡ UPI (GPay • PhonePe • Paytm)',
     instantRailName: 'UPI',
     instantIdLabel: 'UPI ID / VPA *',
@@ -41,10 +52,20 @@ const REGION_CONFIGS: Record<PaymentRegion, RegionPaymentConfig> = {
     invoiceInstantLabel: 'UPI (GPay/PhonePe/Paytm)',
     invoiceBankLabel: 'Bank (IMPS/NEFT)',
     invoiceBankCodePrefix: 'IFSC',
+    defaultTaxLabel: 'GST',
+    invoiceTitle: 'TAX INVOICE & RECEIPT',
+    estimateTitle: 'QUOTATION & WORK AGREEMENT',
+    legalSealedBadge: 'IT Act 2000 Certified',
+    legalConsentCitation: 'the Information Technology Act, 2000 (Section 10A) and the Indian Contract Act, 1872',
+    waiverTitle: 'FULL SATISFACTION & DISCHARGE OF ACCOUNT',
+    waiverBodyText: 'Upon final clearance of settlement funds in the amount of {AMOUNT}, contractor certifies receipt in full, discharges this invoice, and releases all financial claims for labor and materials furnished through {DATE}.',
+    auditCertificateTitle: 'LEGAL AUDIT CERTIFICATE OF AUTHENTICITY',
+    auditGoverningStandard: 'Information Technology Act, 2000 (§ 10A - Validity of electronic contracts) and Section 65B of the Indian Evidence Act.',
   },
   US: {
     region: 'US',
     regionName: 'United States',
+    locale: 'en-US',
     instantRailLabel: '⚡ Instant Pay (Zelle / Venmo)',
     instantRailName: 'Instant Pay',
     instantIdLabel: 'Zelle / Payment Email or Mobile *',
@@ -60,10 +81,20 @@ const REGION_CONFIGS: Record<PaymentRegion, RegionPaymentConfig> = {
     invoiceInstantLabel: 'Zelle / Instant Pay',
     invoiceBankLabel: 'Bank Deposit (ACH/Wire)',
     invoiceBankCodePrefix: 'Routing',
+    defaultTaxLabel: 'Sales Tax',
+    invoiceTitle: 'TAX INVOICE & RECEIPT',
+    estimateTitle: 'ESTIMATE & AGREEMENT',
+    legalSealedBadge: 'UETA / ESIGN Sealed',
+    legalConsentCitation: '15 U.S. Code § 7001 (ESIGN Act), the Uniform Electronic Transactions Act (UETA), and applicable state commercial laws',
+    waiverTitle: 'AUTOMATIC CONDITIONAL LIEN WAIVER & RELEASE',
+    waiverBodyText: 'Upon final clearance of settlement funds in the amount of {AMOUNT}, contractor waives and releases any and all mechanic\'s lien, stop notice, or bond rights for labor and materials furnished through {DATE}.',
+    auditCertificateTitle: 'UETA / ESIGN ACT COURTROOM AUDIT CERTIFICATE',
+    auditGoverningStandard: '15 U.S. Code § 7001 (Electronic Signatures in Global and National Commerce Act) & Uniform Electronic Transactions Act (UETA § 7).',
   },
   GB: {
     region: 'GB',
     regionName: 'United Kingdom',
+    locale: 'en-GB',
     instantRailLabel: '⚡ Faster Payments',
     instantRailName: 'Faster Payments',
     instantIdLabel: 'Instant Pay Reference / Link *',
@@ -79,10 +110,20 @@ const REGION_CONFIGS: Record<PaymentRegion, RegionPaymentConfig> = {
     invoiceInstantLabel: 'Faster Payments',
     invoiceBankLabel: 'Bank Transfer (Faster Payments)',
     invoiceBankCodePrefix: 'Sort Code',
+    defaultTaxLabel: 'VAT',
+    invoiceTitle: 'VAT INVOICE & RECEIPT',
+    estimateTitle: 'QUOTATION & CONTRACT AGREEMENT',
+    legalSealedBadge: 'UK eIDAS Sealed',
+    legalConsentCitation: 'the UK Electronic Communications Act 2000, Electronic Signatures Regulations 2002, and UK eIDAS Regulations',
+    waiverTitle: 'FULL & FINAL SETTLEMENT DISCHARGE & RELEASE',
+    waiverBodyText: 'Upon final clearance of settlement funds in the amount of {AMOUNT}, contractor discharges all liabilities under this contract and releases any and all claims, charges, or liens for labor and materials furnished through {DATE}.',
+    auditCertificateTitle: 'ELECTRONIC SIGNATURE & AUDIT CERTIFICATE',
+    auditGoverningStandard: 'UK Electronic Communications Act 2000 and Electronic Identification and Trust Services for Electronic Transactions (UK eIDAS).',
   },
   EU: {
     region: 'EU',
     regionName: 'Europe / Eurozone',
+    locale: 'en-IE',
     instantRailLabel: '⚡ SEPA Instant Pay',
     instantRailName: 'SEPA Instant',
     instantIdLabel: 'Payee Reference / Virtual IBAN *',
@@ -98,10 +139,20 @@ const REGION_CONFIGS: Record<PaymentRegion, RegionPaymentConfig> = {
     invoiceInstantLabel: 'SEPA Instant',
     invoiceBankLabel: 'SEPA Bank Transfer',
     invoiceBankCodePrefix: 'BIC/SWIFT',
+    defaultTaxLabel: 'VAT',
+    invoiceTitle: 'TAX INVOICE & PAYMENT RECEIPT',
+    estimateTitle: 'PROPOSAL & WORK AGREEMENT',
+    legalSealedBadge: 'eIDAS Regulation Compliant',
+    legalConsentCitation: 'EU Regulation No 910/2014 (eIDAS) on electronic identification and trust services for electronic transactions in the internal market',
+    waiverTitle: 'CERTIFICATE OF DISCHARGE & FULL SETTLEMENT',
+    waiverBodyText: 'Upon final clearance of settlement funds in the amount of {AMOUNT}, contractor confirms receipt in full and releases all contractual claims and property charges for labor and materials furnished through {DATE}.',
+    auditCertificateTitle: 'eIDAS COMPLIANCE AUDIT CERTIFICATE',
+    auditGoverningStandard: 'Regulation (EU) No 910/2014 (eIDAS) of the European Parliament and of the Council on electronic transactions in the internal market.',
   },
   CA: {
     region: 'CA',
     regionName: 'Canada',
+    locale: 'en-CA',
     instantRailLabel: '⚡ Interac e-Transfer',
     instantRailName: 'Interac',
     instantIdLabel: 'Interac e-Transfer Email or Mobile *',
@@ -117,10 +168,20 @@ const REGION_CONFIGS: Record<PaymentRegion, RegionPaymentConfig> = {
     invoiceInstantLabel: 'Interac e-Transfer',
     invoiceBankLabel: 'Direct Deposit',
     invoiceBankCodePrefix: 'Transit',
+    defaultTaxLabel: 'HST/GST',
+    invoiceTitle: 'TAX INVOICE & RECEIPT',
+    estimateTitle: 'ESTIMATE & SERVICE AGREEMENT',
+    legalSealedBadge: 'PIPEDA / UECA Sealed',
+    legalConsentCitation: 'the Personal Information Protection and Electronic Documents Act (PIPEDA) and Provincial Electronic Commerce Acts',
+    waiverTitle: 'CONDITIONAL BUILDER\'S LIEN WAIVER & RELEASE',
+    waiverBodyText: 'Upon final clearance of settlement funds in the amount of {AMOUNT}, contractor waives and releases any and all builder\'s lien, holdback, or bond claims for labor and materials furnished through {DATE}.',
+    auditCertificateTitle: 'ELECTRONIC COMMERCE AUDIT CERTIFICATE',
+    auditGoverningStandard: 'Personal Information Protection and Electronic Documents Act (PIPEDA) and Uniform Electronic Commerce Act (UECA).',
   },
   AU: {
     region: 'AU',
     regionName: 'Australia',
+    locale: 'en-AU',
     instantRailLabel: '⚡ PayID Instant Pay',
     instantRailName: 'PayID',
     instantIdLabel: 'PayID (Mobile, Email, or ABN) *',
@@ -136,10 +197,20 @@ const REGION_CONFIGS: Record<PaymentRegion, RegionPaymentConfig> = {
     invoiceInstantLabel: 'PayID',
     invoiceBankLabel: 'Bank Transfer (BSB)',
     invoiceBankCodePrefix: 'BSB',
+    defaultTaxLabel: 'GST',
+    invoiceTitle: 'TAX INVOICE & RECEIPT',
+    estimateTitle: 'QUOTATION & TRADE CONTRACT',
+    legalSealedBadge: 'ETA 1999 Sealed',
+    legalConsentCitation: 'the Electronic Transactions Act 1999 (Cth) and relevant state Electronic Transactions legislation',
+    waiverTitle: 'FINAL PAYMENT DISCHARGE & CLAIM RELEASE',
+    waiverBodyText: 'Upon final clearance of settlement funds in the amount of {AMOUNT}, contractor acknowledges full payment and releases any rights under security of payment legislation, liens, or claims for labor and materials furnished through {DATE}.',
+    auditCertificateTitle: 'ELECTRONIC TRANSACTIONS AUDIT CERTIFICATE',
+    auditGoverningStandard: 'Electronic Transactions Act 1999 (Cth) and Electronic Transactions Regulations.',
   },
   GLOBAL: {
     region: 'GLOBAL',
     regionName: 'International',
+    locale: 'en-US',
     instantRailLabel: '⚡ Instant QR Pay',
     instantRailName: 'Instant Pay',
     instantIdLabel: 'Receiving Payment ID / Virtual Address *',
@@ -155,6 +226,15 @@ const REGION_CONFIGS: Record<PaymentRegion, RegionPaymentConfig> = {
     invoiceInstantLabel: 'Instant QR Pay',
     invoiceBankLabel: 'Bank Transfer',
     invoiceBankCodePrefix: 'Code',
+    defaultTaxLabel: 'Tax',
+    invoiceTitle: 'INVOICE & RECEIPT',
+    estimateTitle: 'ESTIMATE & AGREEMENT',
+    legalSealedBadge: 'Digitally Sealed & Certified',
+    legalConsentCitation: 'applicable electronic commerce, contract, and digital transaction laws',
+    waiverTitle: 'FULL SATISFACTION & RELEASE OF CLAIMS',
+    waiverBodyText: 'Upon final clearance of settlement funds in the amount of {AMOUNT}, contractor acknowledges full satisfaction and releases any and all claims or liens for labor and materials furnished through {DATE}.',
+    auditCertificateTitle: 'DIGITAL TRANSACTION AUDIT CERTIFICATE',
+    auditGoverningStandard: 'UNCITRAL Model Law on Electronic Signatures and applicable international electronic transaction standards.',
   },
 };
 

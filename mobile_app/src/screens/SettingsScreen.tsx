@@ -301,12 +301,18 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onBack }) => {
       }
 
       const result = fromCamera
-        ? await ImagePicker.launchCameraAsync({ allowsEditing: true, aspect: [1, 1], quality: 0.8 })
-        : await ImagePicker.launchImageLibraryAsync({ allowsEditing: true, aspect: [1, 1], quality: 0.8 });
+        ? await ImagePicker.launchCameraAsync({ allowsEditing: true, aspect: [1, 1], quality: 0.8, base64: true })
+        : await ImagePicker.launchImageLibraryAsync({ allowsEditing: true, aspect: [1, 1], quality: 0.8, base64: true });
 
-      if (!result.canceled && result.assets[0]?.uri) {
-        setLogoUri(result.assets[0].uri);
-        updateProfile({ logoUri: result.assets[0].uri });
+      if (!result.canceled && result.assets[0]) {
+        const asset = result.assets[0];
+        let uriToStore = asset.uri;
+        if (asset.base64) {
+          const mime = asset.mimeType || 'image/png';
+          uriToStore = `data:${mime};base64,${asset.base64}`;
+        }
+        setLogoUri(uriToStore);
+        updateProfile({ logoUri: uriToStore });
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       }
     } catch (err: any) {
