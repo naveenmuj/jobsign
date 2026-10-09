@@ -89,6 +89,7 @@ export class PDFService {
     const address = profile?.address?.trim() || '';
     const license = profile?.licenseNumber?.trim() ? `Lic: ${profile.licenseNumber.trim()}` : '';
     const isPaid = quote.status === 'PAID';
+    const isInvoiced = quote.status === 'INVOICED' || isPaid;
 
     // Compute initials if no logo provided
     const initials = businessName
@@ -146,6 +147,31 @@ export class PDFService {
         console.log('PDF photo embed fallback:', e);
         if (quote.photoUri.startsWith('file://')) {
           photoBase64 = quote.photoUri;
+        }
+      }
+    }
+
+    let completedPhotoBase64 = '';
+    if (quote.completedPhotoUri && quote.includePhotoInPdf !== false) {
+      try {
+        if (quote.completedPhotoUri.startsWith('data:')) {
+          completedPhotoBase64 = quote.completedPhotoUri;
+        } else {
+          let uriToRead = quote.completedPhotoUri;
+          if (uriToRead.startsWith('content://')) {
+            const cacheFile = `${(FileSystem as any).cacheDirectory || ''}photo_cache_completed_${Date.now()}.jpg`;
+            await FileSystem.copyAsync({ from: uriToRead, to: cacheFile });
+            uriToRead = cacheFile;
+          }
+          const base64Str = await FileSystem.readAsStringAsync(uriToRead, {
+            encoding: FileSystem.EncodingType.Base64,
+          });
+          completedPhotoBase64 = `data:image/jpeg;base64,${base64Str}`;
+        }
+      } catch (e) {
+        console.log('PDF completed photo embed fallback:', e);
+        if (quote.completedPhotoUri.startsWith('file://')) {
+          completedPhotoBase64 = quote.completedPhotoUri;
         }
       }
     }
@@ -410,10 +436,10 @@ export class PDFService {
                 ${contactParts.length > 0 ? `<div class="shop-contacts">${escapeHtml(contactParts.join('  •  '))}</div>` : ''}
               </td>
               <td class="doc-meta">
-                <span class="doc-badge ${isPaid ? 'doc-badge-paid' : 'doc-badge-estimate'}">
-                  ${isPaid ? '✓ PAID IN FULL' : '✓ SIGNED & APPROVED'}
+                <span class="doc-badge ${isPaid ? 'doc-badge-paid' : isInvoiced ? 'doc-badge-paid' : 'doc-badge-estimate'}">
+                  ${isPaid ? '✓ PAID IN FULL' : isInvoiced ? '✓ INVOICE ISSUED • PAYMENT DUE' : '✓ SIGNED & APPROVED'}
                 </span>
-                <div class="doc-title">${isPaid ? regionConfig.invoiceTitle : regionConfig.estimateTitle}</div>
+                <div class="doc-title">${isInvoiced ? regionConfig.invoiceTitle : regionConfig.estimateTitle}</div>
                 <div class="meta-line"><strong>Reference:</strong> #${quote.quoteNumber}</div>
                 <div class="meta-line"><strong>Date:</strong> ${formattedDate}</div>
                 <div class="meta-line"><strong>Status:</strong> <span style="color: #059669; font-weight: 700;">${regionConfig.legalSealedBadge}</span></div>
@@ -588,7 +614,7 @@ export class PDFService {
 
           <!-- ── EXHIBIT A: DEDICATED WORKSITE PHOTO & PROOF OF RECORD (PAGE 2) ── -->
           ${
-            photoBase64
+            photoBase64 || completedPhotoBase64
               ? `
             <div class="photo-page">
               <div style="border-bottom: 2px solid #0F172A; padding-bottom: 8px; margin-bottom: 16px;">
@@ -597,7 +623,7 @@ export class PDFService {
                 </div>
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 4px;">
                   <div style="font-size: 16px; font-weight: 900; color: #0F172A;">
-                    Worksite Condition & Scope Verification Photo
+                    ${photoBase64 && completedPhotoBase64 ? 'Before & After Worksite Condition Comparison' : completedPhotoBase64 ? 'Completed Work Scope Verification' : 'Worksite Condition & Scope Verification Photo'}
                   </div>
                   <span style="background-color: #ECFDF5; border: 1px solid #10B981; color: #047857; font-size: 10px; font-weight: 800; padding: 3px 8px; border-radius: 4px; letter-spacing: 0.5px;">
                     ✓ CRYPTOGRAPHICALLY ATTESTED
@@ -605,9 +631,42 @@ export class PDFService {
                 </div>
               </div>
 
-              <div class="photo-frame">
-                <img src="${photoBase64}" class="photo-img-full" alt="Worksite Verification Photo" />
-              </div>
+              ${
+                photoBase64 && completedPhotoBase64
+                  ? `
+                <table style="width: 100%; border-collapse: separate; border-spacing: 12px 0; margin-bottom: 16px;">
+                  <tr>
+                    <td style="width: 50%; vertical-align: top;">
+                      <div style="font-size: 11px; font-weight: 800; color: #B45309; text-transform: uppercase; margin-bottom: 6px; letter-spacing: 0.5px;">
+                        • BEFORE WORK (INITIAL CONDITION)
+                      </div>
+                      <div class="photo-frame" style="height: 320px; display: flex; align-items: center; justify-content: center; overflow: hidden; background: #000;">
+                        <img src="${photoBase64}" style="max-height: 100%; max-width: 100%; object-fit: contain;" alt="Before Work Condition" />
+                      </div>
+                      <div style="font-size: 10.5px; color: #64748B; margin-top: 4px; font-style: italic;">
+                        Captured prior to commencement of work.
+                      </div>
+                    </td>
+                    <td style="width: 50%; vertical-align: top;">
+                      <div style="font-size: 11px; font-weight: 800; color: #047857; text-transform: uppercase; margin-bottom: 6px; letter-spacing: 0.5px;">
+                        • AFTER COMPLETION (VERIFIED EXECUTION)
+                      </div>
+                      <div class="photo-frame" style="height: 320px; display: flex; align-items: center; justify-content: center; overflow: hidden; background: #000;">
+                        <img src="${completedPhotoBase64}" style="max-height: 100%; max-width: 100%; object-fit: contain;" alt="Completed Work Proof" />
+                      </div>
+                      <div style="font-size: 10.5px; color: #047857; margin-top: 4px; font-weight: 600;">
+                        Verified completed scope upon job sign-off.
+                      </div>
+                    </td>
+                  </tr>
+                </table>
+              `
+                  : `
+                <div class="photo-frame">
+                  <img src="${photoBase64 || completedPhotoBase64}" class="photo-img-full" alt="Worksite Verification Photo" />
+                </div>
+              `
+              }
 
               <table style="width: 100%; border-collapse: separate; border-spacing: 10px 0; margin-bottom: 16px;">
                 <tr>
@@ -632,7 +691,7 @@ export class PDFService {
               </table>
 
               <div style="font-size: 11px; color: #475569; line-height: 1.45; background-color: #F1F5F9; border-left: 3px solid #0F172A; padding: 9px 12px; border-radius: 0 4px 4px 0;">
-                <strong>Authenticity Attestation:</strong> This photograph was captured in the field to document physical worksite condition and completed service scope. The raw byte array of this image is cryptographically anchored to the agreement's SHA-256 seal.
+                <strong>Authenticity Attestation:</strong> This physical evidence documentation verifies on-site scope conditions. The raw cryptographic signature of all worksite records is anchored to Agreement #${quote.quoteNumber}.
               </div>
             </div>
           `

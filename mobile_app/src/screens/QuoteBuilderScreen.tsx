@@ -482,6 +482,23 @@ export const QuoteBuilderScreen: React.FC<{ onBack: () => void }> = ({ onBack })
   const [pendingPdfQuote, setPendingPdfQuote] = useState<Quote | null>(null);
   const [showCompanyModal, setShowCompanyModal] = useState(false);
 
+  const recentClients = React.useMemo(() => {
+    const seen = new Set<string>();
+    const list: { name: string; phone?: string; desc?: string }[] = [];
+    for (const q of quotes) {
+      if (q.clientName && q.clientName.trim() && !seen.has(q.clientName.trim().toLowerCase())) {
+        seen.add(q.clientName.trim().toLowerCase());
+        list.push({
+          name: q.clientName.trim(),
+          phone: q.clientPhone,
+          desc: q.jobDescription,
+        });
+        if (list.length >= 6) break;
+      }
+    }
+    return list;
+  }, [quotes]);
+
   const handleInitiateSendPDF = (targetQuote: Quote) => {
     const needsCompanyName =
       !profile.hasCustomBusinessName &&
@@ -804,7 +821,47 @@ export const QuoteBuilderScreen: React.FC<{ onBack: () => void }> = ({ onBack })
       >
         {/* Client Input */}
         <View style={styles.card}>
-          <Text style={styles.label}>Client Details</Text>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+            <Text style={styles.label}>Client Details</Text>
+            {recentClients.length > 0 && (
+              <Text style={{ fontSize: 10, color: colors.textMuted, fontWeight: '700', textTransform: 'uppercase', marginBottom: 10 }}>
+                Quick Autofill
+              </Text>
+            )}
+          </View>
+
+          {recentClients.length > 0 && !clientName && (
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={{ gap: 8, paddingBottom: 10 }}
+            >
+              {recentClients.map((c, idx) => (
+                <TouchableOpacity
+                  key={`client-${idx}`}
+                  style={{
+                    backgroundColor: colors.primaryLight,
+                    borderWidth: 1,
+                    borderColor: colors.primary + '40',
+                    paddingHorizontal: 10,
+                    paddingVertical: 5,
+                    borderRadius: Theme.borderRadius.full,
+                  }}
+                  onPress={() => {
+                    Haptics.selectionAsync();
+                    setClientName(c.name);
+                    if (c.phone) setClientPhone(c.phone);
+                    if (c.desc && !jobDescription) setJobDescription(c.desc);
+                  }}
+                >
+                  <Text style={{ color: colors.primary, fontSize: 11, fontWeight: '700' }}>
+                    + {c.name}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          )}
+
           <TextInput
             style={styles.input}
             placeholder="Client Name (e.g. Sarah Jenkins)"

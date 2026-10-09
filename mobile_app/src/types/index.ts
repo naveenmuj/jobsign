@@ -1,4 +1,4 @@
-export type QuoteStatus = 'DRAFT' | 'SIGNED_LOCKED' | 'PAID' | 'CANCELLED';
+export type QuoteStatus = 'DRAFT' | 'SIGNED_LOCKED' | 'INVOICED' | 'PAID' | 'CANCELLED';
 
 export interface LineItem {
   id: string;
@@ -98,8 +98,10 @@ export interface Quote {
   totalAmountCents: number;
   taxLabel?: string;          // e.g. "Sales Tax", "VAT", "GST"
   currencySymbol?: string;    // Currency symbol used when created (e.g. "₹", "$")
-  photoUri?: string;          // On-site damage proof photo
+  photoUri?: string;          // On-site damage proof / initial condition photo
+  completedPhotoUri?: string; // Post-work proof / completion verification photo
   includePhotoInPdf?: boolean; // Whether worksite photo is attached as Exhibit A to PDF invoice
+  invoiceIssuedTimestamp?: number; // Timestamp when estimate was converted to invoice
   signatureSvg?: string;
   signatureTimestamp?: number;
   signatureGpsLat?: number;

@@ -369,8 +369,41 @@ assert(quoteBuilderRaw.includes('includePhotoInPdf: photoUri ? includePhotoInPdf
 // 5. QuoteDetailScreen check
 assert(quoteDetailRaw.includes('includePhoto'), 'QuoteDetailScreen manages includePhoto state');
 assert(quoteDetailRaw.includes('handleToggleIncludePhoto'), 'QuoteDetailScreen handles photo inclusion toggle');
-assert(quoteDetailRaw.includes('Exhibit A: Worksite Photo Page'), 'QuoteDetailScreen renders Exhibit A quick toggle in PDF actions card');
+assert(quoteDetailRaw.includes('Exhibit A: Worksite Photo'), 'QuoteDetailScreen renders Exhibit A quick toggle in PDF actions card');
 assert(quoteDetailRaw.includes('Attached in PDF'), 'QuoteDetailScreen renders toggle inside Worksite Photo card');
+
+// -----------------------------------------------------------------
+// 12. ADVANCED INDUSTRY WORKFLOWS: WHATSAPP, INVOICE CONVERSION & BEFORE/AFTER EXHIBIT A
+// -----------------------------------------------------------------
+console.log('\n12. [ADVANCED WORKFLOWS] WhatsApp Share, Invoice Conversion & Before/After Proof');
+
+// 1. Types & Models
+assert(typesRaw.includes("'INVOICED'"), 'types/index.ts supports INVOICED quote lifecycle status');
+assert(typesRaw.includes('completedPhotoUri?: string'), 'types/index.ts supports completedPhotoUri for post-work proof');
+assert(typesRaw.includes('invoiceIssuedTimestamp?: number'), 'types/index.ts supports invoiceIssuedTimestamp');
+
+// 2. DatabaseService migrations and persistence
+assert(dbServiceCurrentRaw.includes('completed_photo_uri'), 'DatabaseService migrates completed_photo_uri column');
+assert(dbServiceCurrentRaw.includes('invoice_issued_timestamp'), 'DatabaseService migrates invoice_issued_timestamp column');
+assert(dbServiceCurrentRaw.includes('completedPhotoUri: r.completed_photo_uri'), 'DatabaseService maps completedPhotoUri in getAllQuotes');
+assert(dbServiceCurrentRaw.includes('invoiceIssuedTimestamp: r.invoice_issued_timestamp'), 'DatabaseService maps invoiceIssuedTimestamp in getAllQuotes');
+
+// 3. PDFService Dual Before & After Exhibit A and Invoiced badges
+const pdfCurrentRaw = fs.readFileSync(path.resolve('./src/services/PDFService.ts'), 'utf8');
+assert(pdfCurrentRaw.includes('completedPhotoBase64'), 'PDFService loads and encodes completed work photo');
+assert(pdfCurrentRaw.includes('Before & After Worksite Condition Comparison'), 'PDFService renders dual Before & After comparison on Exhibit A');
+assert(pdfCurrentRaw.includes('INVOICE ISSUED • PAYMENT DUE'), 'PDFService displays formal invoice badge when invoiced');
+
+// 4. QuoteDetailScreen WhatsApp & Invoice Conversion
+const quoteDetailCurrentRaw = fs.readFileSync(path.resolve('./src/screens/QuoteDetailScreen.tsx'), 'utf8');
+assert(quoteDetailCurrentRaw.includes('handleShareWhatsApp'), 'QuoteDetailScreen implements 1-tap WhatsApp direct sharing');
+assert(quoteDetailCurrentRaw.includes('handleConvertToInvoice'), 'QuoteDetailScreen implements 1-tap Convert to Final Invoice');
+assert(quoteDetailCurrentRaw.includes('handleCaptureCompletedPhoto'), 'QuoteDetailScreen allows capturing After-Work completion photo');
+
+// 5. QuoteBuilderScreen Repeat Client Autofill
+const quoteBuilderCurrentRaw = fs.readFileSync(path.resolve('./src/screens/QuoteBuilderScreen.tsx'), 'utf8');
+assert(quoteBuilderCurrentRaw.includes('recentClients'), 'QuoteBuilderScreen extracts recent client list');
+assert(quoteBuilderCurrentRaw.includes('Quick Autofill'), 'QuoteBuilderScreen renders Quick Autofill chips for repeat customers');
 
 console.log('\n======================================================');
 console.log(`TOTAL TESTS: ${passedCount + failedCount} | PASSED: ${passedCount} | FAILED: ${failedCount}`);

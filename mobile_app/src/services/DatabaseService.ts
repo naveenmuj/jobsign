@@ -115,6 +115,18 @@ export class DatabaseService {
     } catch {
       // Column already exists or freshly created
     }
+
+    try {
+      await db.execAsync('ALTER TABLE quotes ADD COLUMN completed_photo_uri TEXT;');
+    } catch {
+      // Column already exists or freshly created
+    }
+
+    try {
+      await db.execAsync('ALTER TABLE quotes ADD COLUMN invoice_issued_timestamp INTEGER;');
+    } catch {
+      // Column already exists or freshly created
+    }
   }
 
   public static async getNextQuoteNumber(): Promise<number> {
@@ -163,6 +175,8 @@ export class DatabaseService {
         taxLabel: r.tax_label || undefined,
         currencySymbol: r.currency_symbol || undefined,
         includePhotoInPdf: r.include_photo_in_pdf === 0 ? false : true,
+        completedPhotoUri: r.completed_photo_uri || undefined,
+        invoiceIssuedTimestamp: r.invoice_issued_timestamp || undefined,
         createdAt: r.created_at,
         updatedAt: r.updated_at,
         lineItems: items.map((i) => ({
@@ -197,8 +211,8 @@ export class DatabaseService {
           job_description, status, subtotal_cents, tax_rate_basis_points, tax_amount_cents,
           total_amount_cents, notes, photo_uri, signature_svg, signature_timestamp,
           signature_gps_lat, signature_gps_lng, pdf_sha256_hash, created_at, updated_at,
-          tax_label, currency_symbol, include_photo_in_pdf
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          tax_label, currency_symbol, include_photo_in_pdf, completed_photo_uri, invoice_issued_timestamp
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           quote.id,
           quote.quoteNumber,
@@ -224,6 +238,8 @@ export class DatabaseService {
           quote.taxLabel || null,
           quote.currencySymbol || null,
           quote.includePhotoInPdf === false ? 0 : 1,
+          quote.completedPhotoUri || null,
+          quote.invoiceIssuedTimestamp || null,
         ]
       );
 

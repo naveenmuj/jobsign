@@ -16,9 +16,10 @@ import { AlertService } from '../services/AlertService';
 import { ChangeOrderModal } from '../components/ChangeOrderModal';
 import { PaymentQRModal } from '../components/PaymentQRModal';
 import { CompanyNamePromptModal } from '../components/CompanyNamePromptModal';
+import * as ImagePicker from 'expo-image-picker';
 import { useQuoteStore } from '../store/useQuoteStore';
 import { useAppSafeArea } from '../utils/safeArea';
-import { ChevronLeft, Trash2, FileText, Phone, MessageSquare, Plus, Check, Eye, Share2 } from 'lucide-react-native';
+import { ChevronLeft, Trash2, FileText, Phone, MessageSquare, Plus, Check, Eye, Share2, Camera, Image as ImageIcon, MessageCircle, FileCheck } from 'lucide-react-native';
 
 interface QuoteDetailScreenProps {
   quote: Quote;
@@ -401,6 +402,7 @@ export const QuoteDetailScreen: React.FC<QuoteDetailScreenProps> = ({ quote: ini
   const updateProfile = useQuoteStore((state) => state.updateProfile);
 
   const isPaid = quote.status === 'PAID';
+  const isInvoiced = quote.status === 'INVOICED';
   const isLocked = quote.status === 'SIGNED_LOCKED';
 
   const [pendingPdfAction, setPendingPdfAction] = useState<'VIEW' | 'SHARE'>('VIEW');
@@ -481,6 +483,149 @@ export const QuoteDetailScreen: React.FC<QuoteDetailScreenProps> = ({ quote: ini
     }
   };
 
+  const handleShareWhatsApp = async () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    const amountStr = `${curSymbol}${(quote.totalAmountCents / 100).toFixed(2)}`;
+    const msg = `Hello ${quote.clientName}, regarding Agreement #${quote.quoteNumber} for ${amountStr} from ${profile.businessName || 'our company'}. You can find your official document details and payment instructions here.`;
+    const cleanPhone = (quote.clientPhone || '').replace(/[^0-9]/g, '');
+    const waUrl = cleanPhone
+      ? `whatsapp://send?phone=${cleanPhone}&text=${encodeURIComponent(msg)}`
+      : `whatsapp://send?text=${encodeURIComponent(msg)}`;
+    const canOpen = await Linking.canOpenURL(waUrl).catch(() => false);
+    if (canOpen) {
+      await Linking.openURL(waUrl);
+    } else if (cleanPhone) {
+      await Linking.openURL(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(msg)}`);
+    } else {
+      await handleSharePDF();
+    }
+  };
+
+  const handleConvertToInvoice = () => {
+    AlertService.alert({
+      title: 'Issue Formal Invoice?',
+      message: `Convert Agreement #${quote.quoteNumber} into a Formal Tax Invoice for ${quote.clientName}? The document will be updated with invoice headers and payment instructions.`,
+      type: 'INFO',
+      buttons: [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Issue Invoice',
+          onPress: async () => {
+            const updated: Quote = {
+              ...quote,
+              status: 'INVOICED',
+              invoiceIssuedTimestamp: Date.now(),
+            };
+            await addQuote(updated);
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            AlertService.alert(
+              'Invoice Issued',
+              `Agreement #${quote.quoteNumber} is now marked as an active Tax Invoice. You can share it with ${quote.clientName} or collect payment.`,
+              undefined,
+              'SUCCESS'
+            );
+          },
+        },
+      ],
+    });
+  };
+
+  const handleCaptureCompletedPhoto = async () => {
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== 'granted') {
+      AlertService.alert('Camera Permission Required', 'Please enable camera access to take a completed work photo.', undefined, 'WARNING');
+      return;
+    }
+    const result = await ImagePicker.launchCameraAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      aspect: [4, 3],
+      quality: 0.7,
+    });
+    if (!result.canceled && result.assets[0]) {
+      const updated: Quote = {
+        ...quote,
+        completedPhotoUri: result.assets[0].uri,
+      };
+      await addQuote(updated);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    }
+  };
+
+  const handlePickCompletedPhoto = async () => {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      aspect: [4, 3],
+      quality: 0.7,
+    });
+    if (!result.canceled && result.assets[0]) {
+      const updated: Quote = {
+        ...quote,
+        completedPhotoUri: result.assets[0].uri,
+      };
+      await addQuote(updated);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    }
+  };
+
+  const handleRemoveCompletedPhoto = async () => {
+    const updated: Quote = {
+      ...quote,
+      completedPhotoUri: undefined,
+    };
+    await addQuote(updated);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+  };
+
+  const handleCaptureInitialPhoto = async () => {
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== 'granted') {
+      AlertService.alert('Camera Permission Required', 'Please enable camera access to take a worksite photo.', undefined, 'WARNING');
+      return;
+    }
+    const result = await ImagePicker.launchCameraAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      aspect: [4, 3],
+      quality: 0.7,
+    });
+    if (!result.canceled && result.assets[0]) {
+      const updated: Quote = {
+        ...quote,
+        photoUri: result.assets[0].uri,
+      };
+      await addQuote(updated);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    }
+  };
+
+  const handlePickInitialPhoto = async () => {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      aspect: [4, 3],
+      quality: 0.7,
+    });
+    if (!result.canceled && result.assets[0]) {
+      const updated: Quote = {
+        ...quote,
+        photoUri: result.assets[0].uri,
+      };
+      await addQuote(updated);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    }
+  };
+
+  const handleRemoveInitialPhoto = async () => {
+    const updated: Quote = {
+      ...quote,
+      photoUri: undefined,
+    };
+    await addQuote(updated);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+  };
+
   const handleDelete = () => {
     AlertService.alert({
       title: 'Delete Agreement?',
@@ -542,11 +687,34 @@ export const QuoteDetailScreen: React.FC<QuoteDetailScreenProps> = ({ quote: ini
 
       <ScrollView contentContainerStyle={[styles.scrollContent, { paddingBottom: 120 + insets.bottom }]}>
         {/* Status Security Banner */}
-        <View style={[styles.securityCard, isPaid ? styles.secPaid : styles.secLocked]}>
-          <Text style={styles.secShield}>{isPaid ? 'Paid in Full' : 'Digitally Sealed'}</Text>
+        <View style={[styles.securityCard, isPaid ? styles.secPaid : isInvoiced ? styles.secPaid : styles.secLocked]}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+            <Text style={styles.secShield}>
+              {isPaid ? '✓ Paid in Full' : isInvoiced ? '📄 Tax Invoice Active' : '🔒 Digitally Sealed'}
+            </Text>
+            {!isPaid && !isInvoiced && (
+              <TouchableOpacity
+                style={{
+                  backgroundColor: colors.primary,
+                  paddingHorizontal: 10,
+                  paddingVertical: 5,
+                  borderRadius: 6,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 4,
+                }}
+                onPress={handleConvertToInvoice}
+              >
+                <FileCheck size={12} color="#FFFFFF" />
+                <Text style={{ color: '#FFFFFF', fontSize: 11, fontWeight: '800' }}>Issue Invoice</Text>
+              </TouchableOpacity>
+            )}
+          </View>
           <Text style={styles.secDesc}>
             {isPaid
               ? 'This job has been paid in full and released.'
+              : isInvoiced
+              ? `Formal Tax Invoice issued for ${quote.clientName}. Ready for settlement.`
               : 'Affirmative client consent captured on glass. Tamper-evident SHA-256 seal active.'}
           </Text>
           {quote.pdfSha256Hash && (
@@ -600,7 +768,29 @@ export const QuoteDetailScreen: React.FC<QuoteDetailScreenProps> = ({ quote: ini
             </TouchableOpacity>
           </View>
 
-          {quote.photoUri && (
+          {/* WhatsApp Direct Share Action */}
+          <TouchableOpacity
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 8,
+              backgroundColor: '#25D366' + '18',
+              borderWidth: 1.5,
+              borderColor: '#25D366',
+              paddingVertical: 10,
+              borderRadius: 8,
+              marginTop: 10,
+            }}
+            onPress={handleShareWhatsApp}
+          >
+            <MessageCircle size={16} color="#25D366" />
+            <Text style={{ color: '#25D366', fontWeight: '800', fontSize: 13 }}>
+              Share via WhatsApp {quote.clientPhone ? `(${quote.clientPhone})` : ''}
+            </Text>
+          </TouchableOpacity>
+
+          {(quote.photoUri || quote.completedPhotoUri) && (
             <TouchableOpacity
               style={{
                 flexDirection: 'row',
@@ -632,7 +822,7 @@ export const QuoteDetailScreen: React.FC<QuoteDetailScreenProps> = ({ quote: ini
               </View>
               <View style={{ flex: 1, marginLeft: 10 }}>
                 <Text style={{ fontSize: 12, fontWeight: '700', color: colors.textPrimary }}>
-                  Exhibit A: Worksite Photo Page
+                  Exhibit A: Worksite Photo Proof {quote.photoUri && quote.completedPhotoUri ? '(Before & After)' : ''}
                 </Text>
                 <Text style={{ fontSize: 11, color: colors.textSecondary }}>
                   {includePhoto ? 'Attached to PDF invoice' : 'Excluded from PDF (internal record only)'}
@@ -691,11 +881,20 @@ export const QuoteDetailScreen: React.FC<QuoteDetailScreenProps> = ({ quote: ini
           <Text style={styles.clientDate}>Created: {new Date(quote.createdAt).toLocaleString()}</Text>
         </View>
 
-        {/* Worksite Evidence Photo (If captured) */}
-        {quote.photoUri && (
-          <View style={styles.card}>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-              <Text style={styles.cardLabel}>Worksite Photo</Text>
+        {/* Worksite Evidence Photos (Before & After) */}
+        <View style={styles.card}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+            <View>
+              <Text style={styles.cardLabel}>Worksite Photo Evidence (Exhibit A)</Text>
+              <Text style={{ fontSize: 11, color: colors.textSecondary }}>
+                {quote.photoUri && quote.completedPhotoUri
+                  ? 'Dual Before & After proof active'
+                  : quote.photoUri || quote.completedPhotoUri
+                  ? 'Physical record attached'
+                  : 'No photos captured yet'}
+              </Text>
+            </View>
+            {(quote.photoUri || quote.completedPhotoUri) && (
               <TouchableOpacity
                 style={{
                   flexDirection: 'row',
@@ -735,19 +934,98 @@ export const QuoteDetailScreen: React.FC<QuoteDetailScreenProps> = ({ quote: ini
                   {includePhoto ? 'Attached in PDF' : 'Excluded from PDF'}
                 </Text>
               </TouchableOpacity>
-            </View>
-            <Image
-              source={{ uri: quote.photoUri }}
-              style={styles.photoPreview}
-              resizeMode="cover"
-            />
-            <Text style={styles.photoCaption}>
-              {includePhoto
-                ? 'Captured before work started. Sealed inside PDF Exhibit A.'
-                : 'Captured before work started. Saved for internal records (excluded from PDF).'}
-            </Text>
+            )}
           </View>
-        )}
+
+          {/* Initial / Before Work Photo */}
+          {quote.photoUri ? (
+            <View style={{ marginBottom: 14 }}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                <Text style={{ fontSize: 11, fontWeight: '800', color: colors.amber, textTransform: 'uppercase' }}>
+                  • Initial Condition (Before Work)
+                </Text>
+                <View style={{ flexDirection: 'row', gap: 10 }}>
+                  <TouchableOpacity onPress={handleCaptureInitialPhoto}>
+                    <Text style={{ fontSize: 11, color: colors.primary, fontWeight: '700' }}>Retake</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={handlePickInitialPhoto}>
+                    <Text style={{ fontSize: 11, color: colors.primary, fontWeight: '700' }}>Gallery</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={handleRemoveInitialPhoto}>
+                    <Text style={{ fontSize: 11, color: colors.rose, fontWeight: '700' }}>Remove</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+              <Image source={{ uri: quote.photoUri }} style={styles.photoPreview} resizeMode="cover" />
+            </View>
+          ) : (
+            <TouchableOpacity
+              style={{
+                borderWidth: 1,
+                borderStyle: 'dashed',
+                borderColor: colors.border,
+                borderRadius: 8,
+                padding: 12,
+                alignItems: 'center',
+                backgroundColor: colors.backgroundSecondary,
+                marginBottom: 12,
+              }}
+              onPress={handleCaptureInitialPhoto}
+            >
+              <Camera size={18} color={colors.primary} />
+              <Text style={{ fontSize: 12, fontWeight: '700', color: colors.textPrimary, marginTop: 4 }}>
+                + Add "Before Work" Initial Photo
+              </Text>
+              <Text style={{ fontSize: 11, color: colors.textSecondary }}>
+                Documents pre-existing damage prior to starting work
+              </Text>
+            </TouchableOpacity>
+          )}
+
+          {/* Completed / After Work Photo */}
+          {quote.completedPhotoUri ? (
+            <View>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                <Text style={{ fontSize: 11, fontWeight: '800', color: colors.emerald, textTransform: 'uppercase' }}>
+                  • Completed Scope (After Work)
+                </Text>
+                <View style={{ flexDirection: 'row', gap: 10 }}>
+                  <TouchableOpacity onPress={handleCaptureCompletedPhoto}>
+                    <Text style={{ fontSize: 11, color: colors.primary, fontWeight: '700' }}>Retake</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={handlePickCompletedPhoto}>
+                    <Text style={{ fontSize: 11, color: colors.primary, fontWeight: '700' }}>Gallery</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={handleRemoveCompletedPhoto}>
+                    <Text style={{ fontSize: 11, color: colors.rose, fontWeight: '700' }}>Remove</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+              <Image source={{ uri: quote.completedPhotoUri }} style={styles.photoPreview} resizeMode="cover" />
+            </View>
+          ) : (
+            <TouchableOpacity
+              style={{
+                borderWidth: 1,
+                borderStyle: 'dashed',
+                borderColor: colors.emerald + '80',
+                borderRadius: 8,
+                padding: 12,
+                alignItems: 'center',
+                backgroundColor: colors.emerald + '0C',
+              }}
+              onPress={handleCaptureCompletedPhoto}
+            >
+              <Camera size={18} color={colors.emerald} />
+              <Text style={{ fontSize: 12, fontWeight: '700', color: colors.textPrimary, marginTop: 4 }}>
+                + Add "After Work" Completion Photo
+              </Text>
+              <Text style={{ fontSize: 11, color: colors.textSecondary }}>
+                Generates a side-by-side Before & After comparison on Exhibit A
+              </Text>
+            </TouchableOpacity>
+          )}
+        </View>
 
         {/* Line Items Card */}
         <View style={styles.card}>
