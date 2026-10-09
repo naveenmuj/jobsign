@@ -580,6 +580,11 @@ export const SettingsScreen: React.FC<{ onBack: () => void }> = ({ onBack }) => 
   const [zelle, setZelle] = useState(profile.zelleAccount || '');
   const [venmo, setVenmo] = useState(profile.venmoAccount || '');
   const [cashApp, setCashApp] = useState(profile.cashAppAccount || '');
+  const [upiId, setUpiId] = useState(profile.upiId || '');
+  const [upiPayeeName, setUpiPayeeName] = useState(profile.upiPayeeName || '');
+  const [bankAccountNumber, setBankAccountNumber] = useState(profile.bankAccountNumber || '');
+  const [bankIfsc, setBankIfsc] = useState(profile.bankIfsc || '');
+  const [bankName, setBankName] = useState(profile.bankName || '');
   const [currencySymbol, setCurrencySymbol] = useState(profile.currencySymbol || '$');
   const [currencyCode, setCurrencyCode] = useState(profile.currencyCode || 'USD');
   const [isDetectingCurrency, setIsDetectingCurrency] = useState(false);
@@ -597,6 +602,7 @@ export const SettingsScreen: React.FC<{ onBack: () => void }> = ({ onBack }) => 
   const [paymentReminders, setPaymentReminders] = useState(
     profile.notificationPreferences?.paymentReminders ?? true
   );
+  const [showOtherRails, setShowOtherRails] = useState(false);
 
   const handleDetectCurrency = async () => {
     setIsDetectingCurrency(true);
@@ -728,6 +734,11 @@ export const SettingsScreen: React.FC<{ onBack: () => void }> = ({ onBack }) => 
       zelleAccount: zelle.trim() || undefined,
       venmoAccount: venmo.trim() || undefined,
       cashAppAccount: cashApp.trim() || undefined,
+      upiId: upiId.trim().toLowerCase() || undefined,
+      upiPayeeName: upiPayeeName.trim() || undefined,
+      bankAccountNumber: bankAccountNumber.trim() || undefined,
+      bankIfsc: bankIfsc.trim().toUpperCase() || undefined,
+      bankName: bankName.trim() || undefined,
       hasCustomBusinessName: true,
       invoiceTemplate: selectedTemplate,
       notificationPreferences: {
@@ -1585,31 +1596,161 @@ export const SettingsScreen: React.FC<{ onBack: () => void }> = ({ onBack }) => 
 
         {/* ── Payment Accounts ──────────────────────────────────────────────── */}
         <View style={styles.card}>
-          <Text style={styles.cardLabel}>Payment Accounts</Text>
+          <Text style={styles.cardLabel}>Direct Payment & Payout Accounts</Text>
           <Text style={styles.cardHint}>
-            Used to generate on-screen QR codes for instant homeowner payment (0% fee).
+            Used to generate on-screen QR codes and PDF invoice settlement details (0% commission, direct to your bank).
           </Text>
-          <TextInput
-            style={styles.input}
-            placeholder="Zelle Phone or Email"
-            placeholderTextColor={colors.textMuted}
-            value={zelle}
-            onChangeText={setZelle}
-          />
-          <TextInput
-            style={[styles.input, { marginTop: 10 }]}
-            placeholder="Venmo Username (e.g. @ApexElectric)"
-            placeholderTextColor={colors.textMuted}
-            value={venmo}
-            onChangeText={setVenmo}
-          />
-          <TextInput
-            style={[styles.input, { marginTop: 10 }]}
-            placeholder="Cash App Cashtag (e.g. $ApexElectric)"
-            placeholderTextColor={colors.textMuted}
-            value={cashApp}
-            onChangeText={setCashApp}
-          />
+
+          {currencySymbol === '₹' || currencyCode === 'INR' ? (
+            <>
+              <Text style={{ fontSize: 12, fontWeight: '700', color: colors.textPrimary, marginTop: 10, marginBottom: 4 }}>
+                Your UPI ID / VPA (Required for Instant QR):
+              </Text>
+              <TextInput
+                style={styles.input}
+                placeholder="e.g. 9876543210@paytm, contractor@okhdfcbank"
+                placeholderTextColor={colors.textMuted}
+                value={upiId}
+                onChangeText={setUpiId}
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
+
+              <Text style={{ fontSize: 12, fontWeight: '700', color: colors.textPrimary, marginTop: 10, marginBottom: 4 }}>
+                Registered Payee / Business Name:
+              </Text>
+              <TextInput
+                style={styles.input}
+                placeholder="Name shown on client's UPI app (e.g. GPay / PhonePe)"
+                placeholderTextColor={colors.textMuted}
+                value={upiPayeeName}
+                onChangeText={setUpiPayeeName}
+              />
+
+              <Text style={{ fontSize: 12, fontWeight: '700', color: colors.textPrimary, marginTop: 10, marginBottom: 4 }}>
+                Bank Account Number (Optional):
+              </Text>
+              <TextInput
+                style={styles.input}
+                placeholder="For clients who prefer direct NEFT / IMPS"
+                placeholderTextColor={colors.textMuted}
+                value={bankAccountNumber}
+                onChangeText={setBankAccountNumber}
+                keyboardType="numeric"
+              />
+
+              <Text style={{ fontSize: 12, fontWeight: '700', color: colors.textPrimary, marginTop: 10, marginBottom: 4 }}>
+                Bank IFSC Code (Optional):
+              </Text>
+              <TextInput
+                style={styles.input}
+                placeholder="e.g. HDFC0001234, SBIN0000456"
+                placeholderTextColor={colors.textMuted}
+                value={bankIfsc}
+                onChangeText={setBankIfsc}
+                autoCapitalize="characters"
+              />
+
+              <Text style={{ fontSize: 12, fontWeight: '700', color: colors.textPrimary, marginTop: 10, marginBottom: 4 }}>
+                Bank Name (Optional):
+              </Text>
+              <TextInput
+                style={styles.input}
+                placeholder="e.g. HDFC Bank, State Bank of India"
+                placeholderTextColor={colors.textMuted}
+                value={bankName}
+                onChangeText={setBankName}
+              />
+
+              <TouchableOpacity
+                style={{ marginTop: 14, alignSelf: 'flex-start' }}
+                onPress={() => setShowOtherRails(!showOtherRails)}
+              >
+                <Text style={{ fontSize: 12, color: colors.primary, fontWeight: '700' }}>
+                  {showOtherRails ? 'Hide US Rails (Zelle, Venmo) ▲' : 'Show US Rails (Zelle, Venmo, CashApp) ▼'}
+                </Text>
+              </TouchableOpacity>
+
+              {showOtherRails && (
+                <View style={{ marginTop: 10, paddingTop: 10, borderTopWidth: 1, borderColor: colors.border }}>
+                  <TextInput
+                    style={styles.input}
+                    placeholder="Zelle Phone or Email"
+                    placeholderTextColor={colors.textMuted}
+                    value={zelle}
+                    onChangeText={setZelle}
+                  />
+                  <TextInput
+                    style={[styles.input, { marginTop: 10 }]}
+                    placeholder="Venmo Username (e.g. @ApexElectric)"
+                    placeholderTextColor={colors.textMuted}
+                    value={venmo}
+                    onChangeText={setVenmo}
+                  />
+                  <TextInput
+                    style={[styles.input, { marginTop: 10 }]}
+                    placeholder="Cash App Cashtag (e.g. $ApexElectric)"
+                    placeholderTextColor={colors.textMuted}
+                    value={cashApp}
+                    onChangeText={setCashApp}
+                  />
+                </View>
+              )}
+            </>
+          ) : (
+            <>
+              <TextInput
+                style={styles.input}
+                placeholder="Zelle Phone or Email"
+                placeholderTextColor={colors.textMuted}
+                value={zelle}
+                onChangeText={setZelle}
+              />
+              <TextInput
+                style={[styles.input, { marginTop: 10 }]}
+                placeholder="Venmo Username (e.g. @ApexElectric)"
+                placeholderTextColor={colors.textMuted}
+                value={venmo}
+                onChangeText={setVenmo}
+              />
+              <TextInput
+                style={[styles.input, { marginTop: 10 }]}
+                placeholder="Cash App Cashtag (e.g. $ApexElectric)"
+                placeholderTextColor={colors.textMuted}
+                value={cashApp}
+                onChangeText={setCashApp}
+              />
+
+              <TouchableOpacity
+                style={{ marginTop: 14, alignSelf: 'flex-start' }}
+                onPress={() => setShowOtherRails(!showOtherRails)}
+              >
+                <Text style={{ fontSize: 12, color: colors.primary, fontWeight: '700' }}>
+                  {showOtherRails ? 'Hide UPI (India) Rails ▲' : 'Show UPI (India) Rails (GPay, PhonePe) ▼'}
+                </Text>
+              </TouchableOpacity>
+
+              {showOtherRails && (
+                <View style={{ marginTop: 10, paddingTop: 10, borderTopWidth: 1, borderColor: colors.border }}>
+                  <TextInput
+                    style={styles.input}
+                    placeholder="UPI ID (e.g. 9876543210@paytm)"
+                    placeholderTextColor={colors.textMuted}
+                    value={upiId}
+                    onChangeText={setUpiId}
+                    autoCapitalize="none"
+                  />
+                  <TextInput
+                    style={[styles.input, { marginTop: 10 }]}
+                    placeholder="Registered Payee / Business Name"
+                    placeholderTextColor={colors.textMuted}
+                    value={upiPayeeName}
+                    onChangeText={setUpiPayeeName}
+                  />
+                </View>
+              )}
+            </>
+          )}
         </View>
 
         {/* ── Service Presets ───────────────────────────────────────────────── */}

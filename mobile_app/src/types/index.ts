@@ -48,6 +48,11 @@ export interface ContractorProfile {
   zelleAccount?: string;
   venmoAccount?: string;
   cashAppAccount?: string;
+  upiId?: string;               // e.g. "contractor@okhdfcbank" or "9876543210@paytm"
+  upiPayeeName?: string;        // e.g. "Apex Electricals" or owner name
+  bankAccountNumber?: string;   // Direct IMPS/NEFT bank account
+  bankIfsc?: string;            // Bank IFSC code (e.g. "HDFC0001234")
+  bankName?: string;            // Bank Name (e.g. "HDFC Bank", "SBI")
   defaultTaxBasisPoints: number; // e.g. 825 for 8.25%
   taxEnabledByDefault?: boolean; // whether tax is enabled by default on new quotes
   taxLabel?: string;             // e.g. "Sales Tax", "VAT", "GST", "HST"

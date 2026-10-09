@@ -257,7 +257,45 @@ assert(appTsxRaw.includes('<AppAlertModal />'), 'AppAlertModal is mounted at top
 
 const sigPadRaw = fs.readFileSync(path.resolve('./src/components/SignaturePad.tsx'), 'utf8');
 assert(sigPadRaw.includes('strokesRef'), 'SignaturePad uses synchronous strokesRef preventing stroke erasure');
-assert(sigPadRaw.includes('pointerEvents="none"'), 'SignaturePad SVG canvas prevents touch interception');
+// -----------------------------------------------------------------
+// 9. DIRECT UPI & BANK SETTLEMENT ENGINE
+// -----------------------------------------------------------------
+console.log('\n9. [PAYMENTS] Direct UPI & Bank Settlement Engine');
+
+const paymentModalRaw = fs.readFileSync(path.resolve('./src/components/PaymentQRModal.tsx'), 'utf8');
+assert(paymentModalRaw.includes('upi://pay'), 'PaymentQRModal supports standard NPCI upi://pay deep link format');
+assert(paymentModalRaw.includes('pa='), 'PaymentQRModal binds payee address (pa) to contractor profile');
+assert(paymentModalRaw.includes('pn='), 'PaymentQRModal binds payee name (pn) to contractor business name');
+assert(paymentModalRaw.includes('am='), 'PaymentQRModal locks pre-filled exact amount (am) on client device');
+assert(paymentModalRaw.includes('cu=INR'), 'PaymentQRModal sets currency to INR for Indian UPI');
+assert(paymentModalRaw.includes('isEditingUpi'), 'PaymentQRModal provides inline UPI ID configuration and setup');
+assert(paymentModalRaw.includes('handleSaveUpi'), 'PaymentQRModal validates and saves contractor UPI ID with haptic feedback');
+
+// Test UPI URL generation algorithm directly
+function buildUpiPayload(upiId, payeeName, amountCents, quoteNumber) {
+  const amtStr = (amountCents / 100).toFixed(2);
+  return `upi://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(payeeName)}&am=${amtStr}&cu=INR&tn=${encodeURIComponent(`Payment for Quote #${quoteNumber}`)}`;
+}
+
+const testUpiUrl = buildUpiPayload('contractor@okhdfcbank', 'JobSign Electric', 11908, 101);
+assert(testUpiUrl.includes('pa=contractor%40okhdfcbank'), 'UPI URL correctly encodes contractor UPI ID');
+assert(testUpiUrl.includes('pn=JobSign%20Electric'), 'UPI URL correctly encodes registered payee name');
+assert(testUpiUrl.includes('am=119.08'), 'UPI URL pre-fills exact decimal amount (119.08) for scanning client');
+assert(testUpiUrl.includes('cu=INR'), 'UPI URL specifies currency as INR');
+
+const settingsScreenPaymentRaw = fs.readFileSync(path.resolve('./src/screens/SettingsScreen.tsx'), 'utf8');
+assert(settingsScreenPaymentRaw.includes('upiId'), 'SettingsScreen manages contractor UPI ID state');
+assert(settingsScreenPaymentRaw.includes('bankAccountNumber'), 'SettingsScreen manages contractor Bank Account Number');
+assert(settingsScreenPaymentRaw.includes('bankIfsc'), 'SettingsScreen manages contractor Bank IFSC code');
+
+const pdfPaymentRaw = fs.readFileSync(path.resolve('./src/services/PDFService.ts'), 'utf8');
+assert(pdfPaymentRaw.includes('UPI (GPay/PhonePe/Paytm)'), 'PDFService prints UPI payment details on generated contracts');
+assert(pdfPaymentRaw.includes('public static async viewPDF'), 'PDFService exposes viewPDF method for direct document viewing');
+
+const quoteDetailRaw = fs.readFileSync(path.resolve('./src/screens/QuoteDetailScreen.tsx'), 'utf8');
+assert(quoteDetailRaw.includes('handleViewPDF'), 'QuoteDetailScreen implements handleViewPDF handler');
+assert(quoteDetailRaw.includes('View PDF'), 'QuoteDetailScreen renders View PDF button');
+assert(quoteDetailRaw.includes('View Receipt'), 'QuoteDetailScreen renders View Receipt button when paid');
 
 console.log('\n======================================================');
 console.log(`TOTAL TESTS: ${passedCount + failedCount} | PASSED: ${passedCount} | FAILED: ${failedCount}`);

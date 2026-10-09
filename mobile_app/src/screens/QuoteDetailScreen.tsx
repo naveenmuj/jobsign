@@ -18,7 +18,7 @@ import { PaymentQRModal } from '../components/PaymentQRModal';
 import { CompanyNamePromptModal } from '../components/CompanyNamePromptModal';
 import { useQuoteStore } from '../store/useQuoteStore';
 import { useAppSafeArea } from '../utils/safeArea';
-import { ChevronLeft, Trash2, FileText, Phone, MessageSquare, Plus, Check } from 'lucide-react-native';
+import { ChevronLeft, Trash2, FileText, Phone, MessageSquare, Plus, Check, Eye, Share2 } from 'lucide-react-native';
 
 interface QuoteDetailScreenProps {
   quote: Quote;
@@ -50,9 +50,30 @@ const makeStyles = (colors: ThemeColors) =>
       fontSize: 17,
       fontWeight: '800',
     },
+    headerRightActions: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+    },
+    viewBtn: {
+      backgroundColor: colors.primary + '18',
+      paddingHorizontal: 10,
+      paddingVertical: 6,
+      borderRadius: Theme.borderRadius.full,
+      borderWidth: 1,
+      borderColor: colors.primary + '35',
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+    },
+    viewText: {
+      color: colors.primary,
+      fontWeight: 'bold',
+      fontSize: 12,
+    },
     shareBtn: {
       backgroundColor: colors.backgroundSecondary,
-      paddingHorizontal: 12,
+      paddingHorizontal: 10,
       paddingVertical: 6,
       borderRadius: Theme.borderRadius.full,
       borderWidth: 1,
@@ -64,7 +85,7 @@ const makeStyles = (colors: ThemeColors) =>
     shareText: {
       color: colors.textPrimary,
       fontWeight: 'bold',
-      fontSize: 13,
+      fontSize: 12,
     },
     scrollContent: {
       padding: 16,
@@ -333,11 +354,6 @@ const makeStyles = (colors: ThemeColors) =>
       color: colors.textMuted,
       fontStyle: 'italic',
     },
-    headerRightActions: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 8,
-    },
     trashBtn: {
       padding: 8,
       borderRadius: Theme.borderRadius.full,
@@ -387,15 +403,31 @@ export const QuoteDetailScreen: React.FC<QuoteDetailScreenProps> = ({ quote: ini
   const isPaid = quote.status === 'PAID';
   const isLocked = quote.status === 'SIGNED_LOCKED';
 
+  const [pendingPdfAction, setPendingPdfAction] = useState<'VIEW' | 'SHARE'>('VIEW');
+
   const handleSharePDF = async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     const needsCompanyName =
       !profile.hasCustomBusinessName &&
       (!profile.businessName || profile.businessName.trim() === '' || profile.businessName === 'Apex Field Services LLC');
     if (needsCompanyName) {
+      setPendingPdfAction('SHARE');
       setShowCompanyModal(true);
     } else {
       await PDFService.generateAndSharePDF(quote, profile);
+    }
+  };
+
+  const handleViewPDF = async () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    const needsCompanyName =
+      !profile.hasCustomBusinessName &&
+      (!profile.businessName || profile.businessName.trim() === '' || profile.businessName === 'Apex Field Services LLC');
+    if (needsCompanyName) {
+      setPendingPdfAction('VIEW');
+      setShowCompanyModal(true);
+    } else {
+      await PDFService.viewPDF(quote, profile);
     }
   };
 
@@ -408,12 +440,20 @@ export const QuoteDetailScreen: React.FC<QuoteDetailScreenProps> = ({ quote: ini
       hasCustomBusinessName: true,
     };
     updateProfile(updated);
-    await PDFService.generateAndSharePDF(quote, updated);
+    if (pendingPdfAction === 'VIEW') {
+      await PDFService.viewPDF(quote, updated);
+    } else {
+      await PDFService.generateAndSharePDF(quote, updated);
+    }
   };
 
   const handleCompanySkip = async () => {
     setShowCompanyModal(false);
-    await PDFService.generateAndSharePDF(quote, profile);
+    if (pendingPdfAction === 'VIEW') {
+      await PDFService.viewPDF(quote, profile);
+    } else {
+      await PDFService.generateAndSharePDF(quote, profile);
+    }
   };
 
   const handleDelete = () => {
@@ -450,19 +490,27 @@ export const QuoteDetailScreen: React.FC<QuoteDetailScreenProps> = ({ quote: ini
         <Text style={styles.headerTitle}>Agreement #{quote.quoteNumber}</Text>
         <View style={styles.headerRightActions}>
           <TouchableOpacity
-            style={styles.trashBtn}
-            onPress={handleDelete}
+            style={styles.viewBtn}
+            onPress={handleViewPDF}
             hitSlop={{ top: 14, bottom: 14, left: 14, right: 14 }}
           >
-            <Trash2 size={18} color={colors.rose} />
+            <Eye size={13} color={colors.primary} />
+            <Text style={styles.viewText}>View PDF</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.shareBtn}
             onPress={handleSharePDF}
             hitSlop={{ top: 14, bottom: 14, left: 14, right: 14 }}
           >
-            <FileText size={14} color={colors.textPrimary} />
-            <Text style={styles.shareText}>Share PDF</Text>
+            <Share2 size={13} color={colors.textPrimary} />
+            <Text style={styles.shareText}>Share</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.trashBtn}
+            onPress={handleDelete}
+            hitSlop={{ top: 14, bottom: 14, left: 14, right: 14 }}
+          >
+            <Trash2 size={18} color={colors.rose} />
           </TouchableOpacity>
         </View>
       </View>
@@ -482,6 +530,50 @@ export const QuoteDetailScreen: React.FC<QuoteDetailScreenProps> = ({ quote: ini
               <Text style={styles.hashVal}>{quote.pdfSha256Hash}</Text>
             </View>
           )}
+
+          {/* Quick PDF Document Actions */}
+          <View style={{ flexDirection: 'row', gap: 10, marginTop: 14 }}>
+            <TouchableOpacity
+              style={{
+                flex: 1,
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 6,
+                backgroundColor: colors.primary + '18',
+                borderWidth: 1,
+                borderColor: colors.primary + '35',
+                paddingVertical: 10,
+                borderRadius: 8,
+              }}
+              onPress={handleViewPDF}
+            >
+              <Eye size={15} color={colors.primary} />
+              <Text style={{ color: colors.primary, fontWeight: '700', fontSize: 13 }}>
+                View PDF Contract
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={{
+                flex: 1,
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 6,
+                backgroundColor: colors.backgroundSecondary,
+                borderWidth: 1,
+                borderColor: colors.border,
+                paddingVertical: 10,
+                borderRadius: 8,
+              }}
+              onPress={handleSharePDF}
+            >
+              <Share2 size={15} color={colors.textPrimary} />
+              <Text style={{ color: colors.textPrimary, fontWeight: '700', fontSize: 13 }}>
+                Share Document
+              </Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* Client & Scope Card */}
@@ -648,10 +740,27 @@ export const QuoteDetailScreen: React.FC<QuoteDetailScreenProps> = ({ quote: ini
             <Text style={styles.payBtnText}>Collect Payment</Text>
           </TouchableOpacity>
         ) : (
-          <TouchableOpacity style={styles.receiptBtn} onPress={handleSharePDF}>
-            <Check size={16} color="#FFFFFF" />
-            <Text style={styles.receiptBtnText}>Send Receipt</Text>
-          </TouchableOpacity>
+          <View style={{ flex: 1, flexDirection: 'row', gap: 10 }}>
+            <TouchableOpacity
+              style={[
+                styles.receiptBtn,
+                {
+                  flex: 1,
+                  backgroundColor: colors.backgroundSecondary,
+                  borderWidth: 1,
+                  borderColor: colors.border,
+                },
+              ]}
+              onPress={handleViewPDF}
+            >
+              <Eye size={16} color={colors.primary} />
+              <Text style={[styles.receiptBtnText, { color: colors.textPrimary }]}>View Receipt</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={[styles.receiptBtn, { flex: 1 }]} onPress={handleSharePDF}>
+              <Share2 size={16} color="#FFFFFF" />
+              <Text style={styles.receiptBtnText}>Share Receipt</Text>
+            </TouchableOpacity>
+          </View>
         )}
       </View>
 

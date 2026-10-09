@@ -475,13 +475,27 @@ export class PDFService {
 
           <!-- ── PAYMENT SETTLEMENT DETAILS (IF CONFIGURED) ── -->
           ${
-            profile?.zelleAccount || profile?.venmoAccount || profile?.cashAppAccount
+            profile?.upiId ||
+            profile?.bankAccountNumber ||
+            profile?.zelleAccount ||
+            profile?.venmoAccount ||
+            profile?.cashAppAccount
               ? `
             <div class="payment-box">
               <div>
-                <div class="payment-title">Instant Payment Accounts (0% Fee)</div>
+                <div class="payment-title">Direct Payment & Settlement Details (0% Fee)</div>
                 <div class="payment-accounts">
                   ${[
+                    profile.upiId
+                      ? `UPI (GPay/PhonePe/Paytm): ${escapeHtml(profile.upiId)}${
+                          profile.upiPayeeName ? ` [${escapeHtml(profile.upiPayeeName)}]` : ''
+                        }`
+                      : '',
+                    profile.bankAccountNumber
+                      ? `Bank A/C: ${escapeHtml(profile.bankAccountNumber)}${
+                          profile.bankIfsc ? ` (IFSC: ${escapeHtml(profile.bankIfsc)})` : ''
+                        }${profile.bankName ? ` - ${escapeHtml(profile.bankName)}` : ''}`
+                      : '',
                     profile.zelleAccount ? `Zelle: ${escapeHtml(profile.zelleAccount)}` : '',
                     profile.venmoAccount ? `Venmo: ${escapeHtml(profile.venmoAccount)}` : '',
                     profile.cashAppAccount ? `CashApp: ${escapeHtml(profile.cashAppAccount)}` : '',
@@ -627,6 +641,28 @@ export class PDFService {
     } catch (err: any) {
       console.error('PDF generation or sharing error:', err);
       throw new Error(err?.message || 'Could not generate PDF');
+    }
+  }
+
+  public static async viewPDF(quote: Quote, profile?: ContractorProfile): Promise<void> {
+    try {
+      const html = await this.generateInvoiceHTML(quote, profile);
+      const isPaid = quote.status === 'PAID';
+
+      await TelemetryService.logPDF(
+        'PREVIEW',
+        profile?.invoiceTemplate || 'modern',
+        quote.id,
+        { isPaid, quoteNumber: quote.quoteNumber, clientName: quote.clientName }
+      );
+
+      // Print.printAsync opens native system print preview / PDF document viewer
+      // On Android: opens full-screen Print & PDF preview where user can view, zoom, and save as PDF.
+      // On iOS: opens the native AirPrint / PDF preview controller.
+      await Print.printAsync({ html });
+    } catch (err: any) {
+      console.error('PDF view error:', err);
+      throw new Error(err?.message || 'Could not view PDF');
     }
   }
 }

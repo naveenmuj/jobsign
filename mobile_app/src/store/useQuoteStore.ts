@@ -29,6 +29,11 @@ export const DEFAULT_PROFILE: ContractorProfile = {
   zelleAccount: 'mike@apexfieldservice.com',
   venmoAccount: '@ApexServices',
   cashAppAccount: '$ApexMike',
+  upiId: '',
+  upiPayeeName: '',
+  bankAccountNumber: '',
+  bankIfsc: '',
+  bankName: '',
   defaultTaxBasisPoints: 825, // 8.25%
   taxEnabledByDefault: true,  // Tax enabled by default on new quotes
   taxLabel: 'Sales Tax',      // Default tax naming
