@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   RefreshControl,
   TextInput,
+  Linking,
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { Settings, WifiOff, Search, X, Check } from 'lucide-react-native';
@@ -346,12 +347,29 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   const curSymbol = profile?.currencySymbol || '$';
 
   const totalUncollected = quotes
-    .filter((q) => q.status === 'SIGNED_LOCKED')
+    .filter((q) => q.status === 'SIGNED_LOCKED' || q.status === 'INVOICED')
     .reduce((sum, q) => sum + q.totalAmountCents, 0);
 
   const totalCollected = quotes
     .filter((q) => q.status === 'PAID')
     .reduce((sum, q) => sum + q.totalAmountCents, 0);
+
+  const handleShareWhatsApp = (quote: Quote) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    const amountStr = `${curSymbol}${(quote.totalAmountCents / 100).toFixed(2)}`;
+    const msg = `Hello ${quote.clientName}, regarding Agreement #${quote.quoteNumber} for ${amountStr} from ${profile.businessName || 'our company'}. You can find your official document details and payment instructions here.`;
+    const cleanPhone = (quote.clientPhone || '').replace(/[^0-9]/g, '');
+    const waUrl = cleanPhone
+      ? `whatsapp://send?phone=${cleanPhone}&text=${encodeURIComponent(msg)}`
+      : `whatsapp://send?text=${encodeURIComponent(msg)}`;
+    Linking.canOpenURL(waUrl)
+      .then((canOpen) => {
+        if (canOpen) return Linking.openURL(waUrl);
+        if (cleanPhone) return Linking.openURL(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(msg)}`);
+        return handleSharePDF(quote);
+      })
+      .catch(() => handleSharePDF(quote));
+  };
 
   const handleSharePDF = async (quote: Quote) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -517,7 +535,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
 
       {/* Segmented Filter Pills */}
       <View style={styles.filterRow}>
-        {(['ALL', 'SIGNED_LOCKED', 'PAID', 'DRAFT'] as const).map((tab) => (
+        {(['ALL', 'SIGNED_LOCKED', 'INVOICED', 'PAID', 'DRAFT'] as const).map((tab) => (
           <TouchableOpacity
             key={tab}
             style={[styles.filterChip, activeFilter === tab && styles.filterChipActive]}
@@ -527,7 +545,15 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
             }}
           >
             <Text style={[styles.filterChipText, activeFilter === tab && styles.filterChipTextActive]}>
-              {tab === 'SIGNED_LOCKED' ? 'Signed' : tab === 'PAID' ? 'Paid' : tab === 'DRAFT' ? 'Draft' : 'All'}
+              {tab === 'SIGNED_LOCKED'
+                ? 'Signed'
+                : tab === 'INVOICED'
+                ? 'Invoiced'
+                : tab === 'PAID'
+                ? 'Paid'
+                : tab === 'DRAFT'
+                ? 'Draft'
+                : 'All'}
             </Text>
           </TouchableOpacity>
         ))}
@@ -543,6 +569,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
             onPress={() => onSelectQuote(item)}
             onSharePDF={() => handleSharePDF(item)}
             onCollectPay={() => setSelectedPaymentQuote(item)}
+            onShareWhatsApp={() => handleShareWhatsApp(item)}
           />
         )}
         contentContainerStyle={[styles.listContent, { paddingBottom: 110 + insets.bottom }]}

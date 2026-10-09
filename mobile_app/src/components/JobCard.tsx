@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import * as Haptics from 'expo-haptics';
-import { FileText, CreditCard, ChevronRight } from 'lucide-react-native';
+import { FileText, CreditCard, ChevronRight, MessageCircle } from 'lucide-react-native';
 import { Theme, getThemeColors } from '../theme';
 import { Quote } from '../types';
 import { useQuoteStore } from '../store/useQuoteStore';
@@ -12,6 +12,7 @@ interface JobCardProps {
   onPress: () => void;
   onSharePDF: () => void;
   onCollectPay: () => void;
+  onShareWhatsApp?: () => void;
 }
 
 export const JobCard: React.FC<JobCardProps> = ({
@@ -19,27 +20,33 @@ export const JobCard: React.FC<JobCardProps> = ({
   onPress,
   onSharePDF,
   onCollectPay,
+  onShareWhatsApp,
 }) => {
   const isDarkMode = useQuoteStore((state) => state.isDarkMode);
   const colors = getThemeColors(isDarkMode);
 
   const isPaid = quote.status === 'PAID';
+  const isInvoiced = quote.status === 'INVOICED';
   const isSigned = quote.status === 'SIGNED_LOCKED';
   const isDraft = quote.status === 'DRAFT';
 
   const badgeBg = isPaid
     ? colors.successLight
-    : isSigned
+    : isInvoiced
     ? colors.primaryLight
+    : isSigned
+    ? colors.warningLight || colors.backgroundSecondary
     : colors.slateInfoLight;
 
   const badgeTextColor = isPaid
     ? colors.emerald
-    : isSigned
+    : isInvoiced
     ? colors.primary
+    : isSigned
+    ? colors.amber
     : colors.slateInfo;
 
-  const badgeLabel = isPaid ? 'Paid' : isSigned ? 'Signed & Locked' : 'Draft';
+  const badgeLabel = isPaid ? 'Paid' : isInvoiced ? 'Invoice Issued' : isSigned ? 'Signed & Locked' : 'Draft';
 
   const profile = useQuoteStore((state) => state.profile);
   const curSymbol = quote.currencySymbol || profile?.currencySymbol || '$';
@@ -122,11 +129,33 @@ export const JobCard: React.FC<JobCardProps> = ({
           }}
           activeOpacity={0.8}
         >
-          <FileText size={15} color={colors.textSecondary} style={{ marginRight: 6 }} />
+          <FileText size={14} color={colors.textSecondary} style={{ marginRight: 4 }} />
           <Text style={[styles.actionBtnSecondaryText, { color: colors.textSecondary }]}>
-            Share PDF
+            PDF
           </Text>
         </TouchableOpacity>
+
+        {onShareWhatsApp && (
+          <TouchableOpacity
+            style={[
+              styles.actionBtnSecondary,
+              {
+                backgroundColor: '#25D366' + '18',
+                borderColor: '#25D366' + '50',
+              },
+            ]}
+            onPress={(e) => {
+              e.stopPropagation();
+              onShareWhatsApp();
+            }}
+            activeOpacity={0.8}
+          >
+            <MessageCircle size={14} color="#25D366" style={{ marginRight: 4 }} />
+            <Text style={[styles.actionBtnSecondaryText, { color: '#25D366', fontWeight: '800' }]}>
+              WhatsApp
+            </Text>
+          </TouchableOpacity>
+        )}
 
         {!isPaid && (
           <TouchableOpacity
@@ -137,7 +166,7 @@ export const JobCard: React.FC<JobCardProps> = ({
             }}
             activeOpacity={0.85}
           >
-            <CreditCard size={15} color="#FFFFFF" style={{ marginRight: 6 }} />
+            <CreditCard size={14} color="#FFFFFF" style={{ marginRight: 5 }} />
             <Text style={styles.actionBtnPrimaryText}>Collect Payment</Text>
           </TouchableOpacity>
         )}
