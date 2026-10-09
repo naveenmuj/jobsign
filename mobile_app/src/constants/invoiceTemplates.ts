@@ -16,7 +16,7 @@ export const INVOICE_TEMPLATES: InvoiceTemplateOption[] = [
   {
     id: 'advanced_gst',
     name: 'Advanced GST',
-    subtitle: 'myBillBook Trade Layout',
+    subtitle: 'Enterprise GST & Trade Layout',
     badge: 'India Standard',
     tagline: 'Itemized HSN/SAC, Unit rates & Tax breakups',
     description: 'Detailed GST format with dedicated HSN/SAC codes, trade units (sq.ft/nos/mtr), CGST & SGST breakups, vector UPI QR and statutory declaration.',

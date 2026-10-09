@@ -103,6 +103,34 @@ class AlertServiceClass {
     this.listeners.forEach((listener) => listener(config));
   }
 
+  public confirm(options: {
+    title: string;
+    message?: string;
+    confirmText?: string;
+    cancelText?: string;
+    isDestructive?: boolean;
+    onConfirm?: () => void;
+    onCancel?: () => void;
+  }): void {
+    this.alert({
+      title: options.title,
+      message: options.message,
+      type: options.isDestructive ? 'DANGER' : 'INFO',
+      buttons: [
+        {
+          text: options.cancelText || 'Cancel',
+          style: 'cancel',
+          onPress: options.onCancel,
+        },
+        {
+          text: options.confirmText || 'Confirm',
+          style: options.isDestructive ? 'destructive' : 'default',
+          onPress: options.onConfirm,
+        },
+      ],
+    });
+  }
+
   public dismiss(): void {
     this.currentAlert = null;
     this.listeners.forEach((listener) => listener(null));

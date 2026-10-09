@@ -472,7 +472,7 @@ export class PDFService {
             body.theme-contractor .seal-hash { color: #18181B; background: #E4E4E7; }
             body.theme-contractor .audit-page { background-color: #F4F4F5; border: 2px solid #18181B; border-radius: 4px; }
 
-            /* ── THEME 5: ADVANCED GST (MYBILLBOOK TRADE LAYOUT) ── */
+            /* ── THEME 5: ADVANCED GST (ENTERPRISE TRADE LAYOUT) ── */
             body.theme-advanced_gst {
               font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
               color: #0F172A;
@@ -782,7 +782,7 @@ export class PDFService {
               }
             </div>
 
-            <!-- ── HSN / SAC TAX BREAKDOWN TABLE (MYBILLBOOK PARITY) ── -->
+            <!-- ── HSN / SAC TAX BREAKDOWN TABLE ── -->
             ${
               templateId === 'advanced_gst' && quote.taxAmountCents > 0
                 ? `

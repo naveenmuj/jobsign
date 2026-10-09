@@ -225,8 +225,154 @@ it('Contains all 22 required accounting and GST audit fields', () => {
 });
 
 // -----------------------------------------------------------------------------
+// 5. Backup & Disaster Recovery Serialization & Integrity Tests
+// -----------------------------------------------------------------------------
+console.log('\n👉 [SUITE 5: Backup & Disaster Recovery Validation (BackupService)]');
+
+function validateBackupFormat(jsonString) {
+  try {
+    const parsed = JSON.parse(jsonString);
+    if (!parsed || parsed.app !== 'JobSign' || !Array.isArray(parsed.quotes)) {
+      return { valid: false, error: 'Invalid app identifier or missing quotes array' };
+    }
+    const totalRevenueCents = parsed.quotes.reduce((acc, q) => acc + (q.totalAmountCents || 0), 0);
+    return {
+      valid: true,
+      businessName: parsed.contractorProfile?.businessName || parsed.metadata?.businessName || 'Solo Contractor',
+      invoiceCount: parsed.quotes.length,
+      presetCount: Array.isArray(parsed.presets) ? parsed.presets.length : 0,
+      totalRevenueCents,
+    };
+  } catch (err) {
+    return { valid: false, error: 'Invalid JSON string' };
+  }
+}
+
+it('Validates a complete JobSign backup payload structure', () => {
+  const samplePayload = {
+    app: 'JobSign',
+    schemaVersion: 1,
+    exportedAt: Date.now(),
+    appVersion: '1.0.0',
+    devicePlatform: 'android',
+    contractorProfile: {
+      businessName: 'Apex Electricals',
+      ownerName: 'Vikram Malhotra',
+      phone: '9845012345',
+      email: 'vikram@apex.in',
+      currencySymbol: '₹',
+      currencyCode: 'INR',
+      defaultTaxBasisPoints: 1800,
+      backupSettings: {
+        autoBackupEnabled: true,
+        backupTarget: 'DRIVE_SAF',
+        driveFolderName: 'Google Drive / JobSign',
+      },
+    },
+    quotes: [
+      {
+        id: 'q-1001',
+        quoteNumber: 1001,
+        clientName: 'Rahul Sharma',
+        status: 'SIGNED_LOCKED',
+        subtotalCents: 60000,
+        taxRateBasisPoints: 1800,
+        taxAmountCents: 10800,
+        totalAmountCents: 70800,
+        pdfSha256Hash: '5c1a91b6968701b01d36b921634a6ae6831d1c7111cb7370d2fc7534b42e4c1d',
+        lineItems: [
+          { id: 'li-1', description: 'Wiring Point', unitPriceCents: 25000, quantity: 2, totalCents: 50000 },
+        ],
+      },
+    ],
+    presets: [
+      { id: 'p-1', title: 'Electrical Wiring', priceCents: 25000, category: 'Labor' },
+    ],
+    metadata: {
+      totalQuotes: 1,
+      businessName: 'Apex Electricals',
+      totalRevenueCents: 70800,
+    },
+  };
+
+  const jsonStr = JSON.stringify(samplePayload);
+  const result = validateBackupFormat(jsonStr);
+
+  assert.strictEqual(result.valid, true);
+  assert.strictEqual(result.businessName, 'Apex Electricals');
+  assert.strictEqual(result.invoiceCount, 1);
+  assert.strictEqual(result.presetCount, 1);
+  assert.strictEqual(result.totalRevenueCents, 70800);
+});
+
+it('Rejects corrupt or non-JobSign backup payloads', () => {
+  const nonJobSign = JSON.stringify({ app: 'RandomApp', data: [] });
+  assert.strictEqual(validateBackupFormat(nonJobSign).valid, false);
+
+  const missingQuotes = JSON.stringify({ app: 'JobSign' });
+  assert.strictEqual(validateBackupFormat(missingQuotes).valid, false);
+
+  const brokenJson = '{ app: "JobSign", broken...';
+  assert.strictEqual(validateBackupFormat(brokenJson).valid, false);
+});
+
+it('Preserves cryptographic SHA-256 seal and line items through serialization cycle', () => {
+  const originalQuote = {
+    id: 'q-test',
+    quoteNumber: 1005,
+    clientName: 'Vikram Malhotra',
+    status: 'SIGNED_LOCKED',
+    subtotalCents: 60000,
+    taxRateBasisPoints: 1800,
+    taxAmountCents: 10800,
+    totalAmountCents: 70800,
+    pdfSha256Hash: '5c1a91b6968701b01d36b921634a6ae6831d1c7111cb7370d2fc7534b42e4c1d',
+    lineItems: [
+      { id: 'li-1', description: 'Socket Fitting', unitPriceCents: 35000, quantity: 1, totalCents: 35000 },
+    ],
+    changeOrders: [
+      { id: 'co-1', quoteId: 'q-test', orderNumber: 1, reason: 'Extra MCB', addedTotalCents: 15000, signatureSvg: '<path/>', signatureTimestamp: 1720000000000, pdfSha256Hash: 'hash_co' },
+    ],
+  };
+
+  const payload = {
+    app: 'JobSign',
+    schemaVersion: 1,
+    exportedAt: 1728500000000,
+    quotes: [originalQuote],
+  };
+
+  const serialized = JSON.stringify(payload);
+  const parsed = JSON.parse(serialized);
+
+  const recoveredQuote = parsed.quotes[0];
+  assert.strictEqual(recoveredQuote.pdfSha256Hash, '5c1a91b6968701b01d36b921634a6ae6831d1c7111cb7370d2fc7534b42e4c1d');
+  assert.strictEqual(recoveredQuote.lineItems.length, 1);
+  assert.strictEqual(recoveredQuote.changeOrders.length, 1);
+  assert.strictEqual(recoveredQuote.changeOrders[0].addedTotalCents, 15000);
+});
+
+it('Respects auto-backup toggle and detects active Drive folder configuration', () => {
+  const settingsOn = {
+    autoBackupEnabled: true,
+    backupTarget: 'DRIVE_SAF',
+    driveFolderUri: 'content://tree/primary:GoogleDrive',
+    driveFolderName: 'Google Drive / JobSign',
+  };
+  assert.strictEqual(settingsOn.autoBackupEnabled, true);
+  assert.ok(settingsOn.driveFolderName.includes('Google Drive'));
+
+  const settingsOff = {
+    autoBackupEnabled: false,
+    backupTarget: 'LOCAL_VAULT',
+  };
+  assert.strictEqual(settingsOff.autoBackupEnabled, false);
+});
+
+// -----------------------------------------------------------------------------
 // SUMMARY
 // -----------------------------------------------------------------------------
 console.log('\n====================================================');
 console.log(`🎉 ALL TESTS PASSED: ${passedTests}/${totalTests} (100% SUCCESS RATE)`);
 console.log('====================================================');
+

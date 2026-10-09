@@ -7,6 +7,7 @@ import { DatabaseService } from '../services/DatabaseService';
 import { FEATURE_FLAGS } from '../config/featureFlags';
 import { CurrencyService } from '../services/CurrencyService';
 import { RegionPaymentService } from '../services/RegionPaymentService';
+import { BackupService } from '../services/BackupService';
 
 const detectedMarket = CurrencyService.detectMarketRegion();
 const detectedCurrency = CurrencyService.detectDeviceCurrency();
@@ -75,6 +76,10 @@ export const DEFAULT_PROFILE: ContractorProfile = {
   currencySymbol: detectedCurrency.symbol,
   currencyCode: detectedCurrency.code,
   defaultInvoiceType: 'ESTIMATE',
+  backupSettings: {
+    autoBackupEnabled: true,
+    backupTarget: 'LOCAL_VAULT',
+  },
 };
 
 interface QuoteStore {
@@ -132,6 +137,10 @@ export const useQuoteStore = create<QuoteStore>()(
         await DatabaseService.saveQuote(quote);
         const updated = [quote, ...get().quotes.filter((q) => q.id !== quote.id)];
         set({ quotes: updated });
+        // Auto-backup to Google Drive / OneDrive / Local vault
+        BackupService.performAutoBackup('NEW_INVOICE').catch((e) =>
+          console.warn('[QuoteStore] Auto-backup non-fatal warning:', e)
+        );
       },
 
       deleteQuote: async (id: string) => {

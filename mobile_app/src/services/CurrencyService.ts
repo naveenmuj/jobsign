@@ -219,9 +219,20 @@ export class CurrencyService {
     return this.detectMarketRegion();
   }
 
+  private static inrFormatter = new Intl.NumberFormat('en-IN', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+
+  private static usFormatter = new Intl.NumberFormat('en-US', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+
   /**
    * Universal currency formatter with active symbol and regional number grouping.
    * Supports Indian number formatting (e.g. ₹1,50,000.00) and Western formatting (e.g. $150,000.00).
+   * Uses cached Intl.NumberFormat instances for zero-allocation, sub-microsecond speed.
    */
   public static format(cents: number, symbol?: string, currencyCode?: string): string {
     const activeSymbol = symbol !== undefined && symbol !== null ? symbol : (currencyCode === 'INR' ? '₹' : '$');
@@ -230,11 +241,7 @@ export class CurrencyService {
     const isIndia = activeSymbol === '₹' || currencyCode === 'INR';
 
     try {
-      const locale = isIndia ? 'en-IN' : 'en-US';
-      const formattedNumber = new Intl.NumberFormat(locale, {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-      }).format(value);
+      const formattedNumber = (isIndia ? this.inrFormatter : this.usFormatter).format(value);
       return `${activeSymbol}${formattedNumber}`;
     } catch {
       return `${activeSymbol}${value.toFixed(2)}`;

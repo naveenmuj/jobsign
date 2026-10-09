@@ -426,7 +426,7 @@ export class RegionPaymentService {
 
   /**
    * Top trade contractor service presets for the US market in USD ($).
-   * Modeled after top field service contractor applications (Joist / Jobber).
+   * Industry standard trade contractor rates and units.
    */
   public static readonly US_TRADE_PRESETS = [
     { title: 'Diagnostic & Service Call', priceCents: 9500, category: 'Diagnostic', unit: 'trip' },
@@ -447,7 +447,7 @@ export class RegionPaymentService {
   ];
 
   /**
-   * Standard US Trade Contractor Agreement & Legal Terms (Joist / UETA / Mechanics Lien Standard).
+   * Standard US Trade Contractor Agreement & Legal Terms (UETA / Mechanics Lien Standard).
    */
   public static readonly US_STANDARD_TERMS = `1. Payment Schedule: Balance is due upon completion or per agreed Net terms. A late charge of 1.5% per month (18% per annum) applies to overdue balances.
 2. Scope & Change Orders: Any alteration or deviation from specified scope involving extra labor or materials will be executed only upon written change order agreement.

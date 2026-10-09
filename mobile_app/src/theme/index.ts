@@ -1,7 +1,6 @@
 /**
  * JobSign Design System
- * 
- * Inspired by modern financial & field-service leaders (Square Invoices, Stripe, Joist, Jobber).
+ * Modern financial & field-service invoice design system.
  * Default mode: Clean, high-trust Light Mode with crisp typography, subtle slate borders,
  * and high-contrast accessibility for outdoor job sites.
  */

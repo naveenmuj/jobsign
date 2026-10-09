@@ -294,10 +294,10 @@ export const PaymentQRModal: React.FC<{ quote: Quote; onClose: () => void }> = (
     }
 
     const modeLabels: Record<string, string> = {
-      UPI: 'UPI',
+      UPI: isUS ? 'Zelle' : isIndia ? 'UPI' : 'Instant Pay',
       CASH: 'Cash',
-      BANK: 'Direct Bank Transfer',
-      CHEQUE: 'Cheque',
+      BANK: isUS ? 'ACH / Direct Deposit' : 'Direct Bank Transfer',
+      CHEQUE: isUS ? 'Check' : 'Cheque',
     };
     const modeLabel = modeLabels[settlementMode] || settlementMode;
 
@@ -857,7 +857,7 @@ export const PaymentQRModal: React.FC<{ quote: Quote; onClose: () => void }> = (
               </>
             )}
 
-            {/* Settlement & Payment Mode Recording Section (myBillBook Parity) */}
+            {/* Settlement & Payment Mode Recording Section */}
             <View style={styles.settlementCard}>
               <Text style={styles.settlementSectionTitle}>RECORD SETTLEMENT / PAYMENT MODE</Text>
 
@@ -866,7 +866,13 @@ export const PaymentQRModal: React.FC<{ quote: Quote; onClose: () => void }> = (
                 {(['UPI', 'CASH', 'BANK', 'CHEQUE'] as const).map((m) => {
                   const isSelected = settlementMode === m;
                   const icon = m === 'UPI' ? '⚡' : m === 'CASH' ? '💵' : m === 'BANK' ? '🏛️' : '📜';
-                  const label = m === 'UPI' ? 'UPI' : m === 'CASH' ? 'Cash' : m === 'BANK' ? 'Bank' : 'Cheque';
+                  const label = m === 'UPI'
+                    ? (isUS ? 'Zelle' : isIndia ? 'UPI' : 'Instant')
+                    : m === 'CASH'
+                    ? 'Cash'
+                    : m === 'BANK'
+                    ? (isUS ? 'ACH' : 'Bank')
+                    : (isUS ? 'Check' : 'Cheque');
                   return (
                     <TouchableOpacity
                       key={m}

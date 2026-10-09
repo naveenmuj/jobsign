@@ -91,6 +91,46 @@ export interface ContractorProfile {
   defaultInvoiceType?: 'TAX_INVOICE' | 'BILL_OF_SUPPLY' | 'ESTIMATE'; // Default document title
   region?: 'IN' | 'US' | 'GB' | 'EU' | 'CA' | 'AU' | 'GLOBAL'; // Explicit market/region mode ('US' or 'IN' or global)
   checkPayableTo?: string;      // US check payee (e.g. "Apex Contracting LLC")
+  backupSettings?: BackupSettings; // Cloud Drive and local backup configuration
+}
+
+export interface BackupSettings {
+  autoBackupEnabled: boolean;          // Automatically backup when new invoice/quote is created
+  backupTarget: 'DRIVE_SAF' | 'SHARE_SHEET' | 'LOCAL_VAULT'; // Target destination
+  driveFolderUri?: string;              // Selected Google Drive / OneDrive SAF folder URI
+  driveFolderName?: string;             // Human-readable folder name (e.g. "Google Drive / JobSign Backups")
+  lastBackupTimestamp?: number;        // When the last backup was successfully created
+  lastBackupInvoiceCount?: number;     // How many invoices were backed up
+  lastBackupSizeBytes?: number;        // Size of the backup file in bytes
+}
+
+export interface JobSignBackupPayload {
+  app: 'JobSign';
+  schemaVersion: number;
+  exportedAt: number;
+  appVersion: string;
+  devicePlatform: string;
+  contractorProfile: ContractorProfile;
+  quotes: Quote[];
+  presets: ItemPreset[];
+  metadata: {
+    totalQuotes: number;
+    businessName: string;
+    totalRevenueCents: number;
+    checksum?: string;
+  };
+}
+
+export interface BackupPreview {
+  valid: boolean;
+  businessName: string;
+  invoiceCount: number;
+  presetCount: number;
+  exportedAt: number;
+  appVersion: string;
+  totalRevenueCents: number;
+  currencySymbol: string;
+  payload: JobSignBackupPayload;
 }
 
 export interface Quote {

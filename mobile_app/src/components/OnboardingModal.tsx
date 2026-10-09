@@ -13,10 +13,11 @@ import {
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as Haptics from 'expo-haptics';
-import { Building2, Camera, Image as ImageIcon, CheckCircle, Sparkles, X } from 'lucide-react-native';
+import { Building2, Camera, Image as ImageIcon, CheckCircle, Sparkles, X, CloudDownload } from 'lucide-react-native';
 import { Theme, getThemeColors } from '../theme';
 import { useQuoteStore } from '../store/useQuoteStore';
 import { AlertService } from '../services/AlertService';
+import { BackupService } from '../services/BackupService';
 import { useAppSafeArea } from '../utils/safeArea';
 import { useKeyboard } from '../utils/useKeyboard';
 
@@ -85,6 +86,55 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({ visible, onFin
       hasCustomBusinessName: !!businessName.trim(),
     });
     onFinish();
+  };
+
+  const [isRestoring, setIsRestoring] = useState(false);
+
+  const handleRestoreFromBackup = async () => {
+    if (isRestoring) return;
+    setIsRestoring(true);
+    try {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      const res = await BackupService.pickAndInspectBackupFile();
+      if (res.cancelled) {
+        setIsRestoring(false);
+        return;
+      }
+      const preview = res.preview;
+      AlertService.confirm({
+        title: 'Restore Backup? 🔄',
+        message: `Found JobSign backup for "${preview.businessName}" (${new Date(preview.exportedAt).toLocaleDateString()}) containing ${preview.invoiceCount} quotes/invoices and ${preview.presetCount} presets.\n\nRestore all data now?`,
+        confirmText: 'Restore All Data',
+        cancelText: 'Cancel',
+        isDestructive: false,
+        onConfirm: async () => {
+          try {
+            const restored = await BackupService.restoreFromPayload(preview.payload, 'REPLACE');
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            AlertService.alert({
+              title: 'Data Restored Successfully 🎉',
+              message: `Restored ${restored.restoredQuotes} invoice(s) and profile for "${preview.businessName}".`,
+              type: 'SUCCESS',
+            });
+            onFinish();
+          } catch (e: any) {
+            AlertService.alert({
+              title: 'Restore Failed',
+              message: e?.message || 'Could not restore backup file.',
+              type: 'DANGER',
+            });
+          }
+        },
+      });
+    } catch (err: any) {
+      AlertService.alert({
+        title: 'Invalid Backup File',
+        message: err?.message || 'Failed to read backup file.',
+        type: 'WARNING',
+      });
+    } finally {
+      setIsRestoring(false);
+    }
   };
 
   const handleSkip = () => {
@@ -229,6 +279,29 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({ visible, onFin
                 </Text>
               </View>
             </View>
+
+            {/* Restore from Backup Option */}
+            <TouchableOpacity
+              style={[
+                styles.restoreCallout,
+                {
+                  backgroundColor: colors.primary + '10',
+                  borderColor: colors.primary + '35',
+                },
+              ]}
+              onPress={handleRestoreFromBackup}
+              disabled={isRestoring}
+            >
+              <CloudDownload size={20} color={colors.primary} />
+              <View style={{ flex: 1, marginLeft: 10 }}>
+                <Text style={[styles.restoreCalloutTitle, { color: colors.primary }]}>
+                  Already have a backup?
+                </Text>
+                <Text style={[styles.restoreCalloutSub, { color: colors.textSecondary }]}>
+                  Restore from Google Drive, OneDrive, or local file
+                </Text>
+              </View>
+            </TouchableOpacity>
           </ScrollView>
 
           {/* Bottom Actions */}
@@ -388,6 +461,23 @@ const styles = StyleSheet.create({
   perkText: {
     fontSize: 12,
     fontWeight: '600',
+  },
+  restoreCallout: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 14,
+    borderRadius: Theme.borderRadius.md,
+    borderWidth: 1.5,
+    marginTop: 18,
+  },
+  restoreCalloutTitle: {
+    fontSize: 13,
+    fontWeight: '800',
+    marginBottom: 2,
+  },
+  restoreCalloutSub: {
+    fontSize: 11.5,
+    lineHeight: 16,
   },
   footerBar: {
     flexDirection: 'row',

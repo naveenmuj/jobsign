@@ -498,4 +498,119 @@ export class DatabaseService {
     const row = await db.getFirstAsync<{ count: number }>('SELECT COUNT(*) as count FROM user_behavior_logs');
     return row?.count || 0;
   }
+
+  // ---- BACKUP & RESTORE METHODS ----
+
+  public static async restoreQuotes(quotes: Quote[], replaceAll: boolean = true): Promise<number> {
+    const db = await this.getDB();
+    let restoredCount = 0;
+
+    await db.withTransactionAsync(async () => {
+      if (replaceAll) {
+        await db.runAsync('DELETE FROM line_items');
+        await db.runAsync('DELETE FROM change_orders');
+        await db.runAsync('DELETE FROM quotes');
+      }
+
+      for (const quote of quotes) {
+        if (!replaceAll) {
+          await db.runAsync('DELETE FROM line_items WHERE quote_id = ?', [quote.id]);
+          await db.runAsync('DELETE FROM change_orders WHERE quote_id = ?', [quote.id]);
+          await db.runAsync('DELETE FROM quotes WHERE id = ?', [quote.id]);
+        }
+
+        await db.runAsync(
+          `INSERT OR REPLACE INTO quotes (
+            id, quote_number, client_name, client_phone, client_email, client_address,
+            job_description, status, subtotal_cents, tax_rate_basis_points, tax_amount_cents,
+            total_amount_cents, notes, photo_uri, signature_svg, signature_timestamp,
+            signature_gps_lat, signature_gps_lng, pdf_sha256_hash, created_at, updated_at,
+            tax_label, currency_symbol, include_photo_in_pdf, completed_photo_uri, invoice_issued_timestamp,
+            deposit_amount_cents, payment_terms, due_date_timestamp, document_type, place_of_supply, is_gst_split
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [
+            quote.id,
+            quote.quoteNumber,
+            quote.clientName,
+            quote.clientPhone || null,
+            quote.clientEmail || null,
+            quote.clientAddress || null,
+            quote.jobDescription || null,
+            quote.status,
+            quote.subtotalCents,
+            quote.taxRateBasisPoints,
+            quote.taxAmountCents,
+            quote.totalAmountCents,
+            quote.notes || null,
+            quote.photoUri || null,
+            quote.signatureSvg || null,
+            quote.signatureTimestamp || null,
+            quote.signatureGpsLat || null,
+            quote.signatureGpsLng || null,
+            quote.pdfSha256Hash || null,
+            quote.createdAt,
+            quote.updatedAt,
+            quote.taxLabel || null,
+            quote.currencySymbol || null,
+            quote.includePhotoInPdf ? 1 : 0,
+            quote.completedPhotoUri || null,
+            quote.invoiceIssuedTimestamp || null,
+            quote.depositAmountCents || 0,
+            quote.paymentTerms || null,
+            quote.dueDateTimestamp || null,
+            quote.documentType || null,
+            quote.placeOfSupply || null,
+            quote.isGstSplit ? 1 : 0,
+          ]
+        );
+
+        if (quote.lineItems && quote.lineItems.length > 0) {
+          for (const item of quote.lineItems) {
+            await db.runAsync(
+              `INSERT OR REPLACE INTO line_items (
+                id, quote_id, description, unit_price_cents, quantity, total_cents, hsn_sac, unit, discount_percent
+              ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+              [
+                item.id,
+                quote.id,
+                item.description,
+                item.unitPriceCents,
+                item.quantity,
+                item.totalCents,
+                item.hsnSac || null,
+                item.unit || null,
+                item.discountPercent || 0,
+              ]
+            );
+          }
+        }
+
+        if (quote.changeOrders && quote.changeOrders.length > 0) {
+          for (const co of quote.changeOrders) {
+            await db.runAsync(
+              `INSERT OR REPLACE INTO change_orders (
+                id, quote_id, order_number, reason, added_total_cents, signature_svg,
+                signature_timestamp, pdf_sha256_hash, added_items_json
+              ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+              [
+                co.id,
+                quote.id,
+                co.orderNumber,
+                co.reason,
+                co.addedTotalCents,
+                co.signatureSvg,
+                co.signatureTimestamp,
+                co.pdfSha256Hash,
+                JSON.stringify(co.addedItems || []),
+              ]
+            );
+          }
+        }
+
+        restoredCount++;
+      }
+    });
+
+    return restoredCount;
+  }
 }

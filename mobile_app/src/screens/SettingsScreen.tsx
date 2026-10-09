@@ -28,7 +28,8 @@ import { FEATURE_FLAGS } from '../config/featureFlags';
 import { useAppSafeArea } from '../utils/safeArea';
 import { runSelfDiagnostics } from '../services/DiagnosticService';
 import { ExportService } from '../services/ExportService';
-import { Quote, ContractorProfile } from '../types';
+import { BackupService } from '../services/BackupService';
+import { Quote, ContractorProfile, BackupPreview } from '../types';
 import { INVOICE_TEMPLATES, InvoiceTemplateId } from '../constants/invoiceTemplates';
 import {
   ChevronLeft,
@@ -53,6 +54,14 @@ import {
   MapPin,
   Lock,
   FileSpreadsheet,
+  Cloud,
+  CloudUpload,
+  CloudDownload,
+  Folder,
+  HardDrive,
+  RefreshCw,
+  FileJson,
+  Share2,
 } from 'lucide-react-native';
 
 // Generates a localized preview quote matching the active regional currency & tax setup
@@ -522,25 +531,173 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onBack }) => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
   };
 
-  const handleBackupExport = async () => {
+  // Backup & Restore State
+  const [isRestoring, setIsRestoring] = useState(false);
+  const [isLinkingFolder, setIsLinkingFolder] = useState(false);
+  const [restorePreview, setRestorePreview] = useState<BackupPreview | null>(null);
+  const [restoreMode, setRestoreMode] = useState<'REPLACE' | 'MERGE'>('REPLACE');
+  const [showRestoreModal, setShowRestoreModal] = useState(false);
+
+  const handleToggleAutoBackup = async () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    const current = profile.backupSettings?.autoBackupEnabled ?? true;
+    const next = !current;
+    updateProfile({
+      backupSettings: {
+        ...(profile.backupSettings || { backupTarget: 'LOCAL_VAULT' }),
+        autoBackupEnabled: next,
+      },
+    });
+    if (next) {
+      BackupService.performAutoBackup('TOGGLED_ON').catch(console.warn);
+    }
+  };
+
+  const handleLinkDriveFolder = async () => {
+    if (isLinkingFolder) return;
+    setIsLinkingFolder(true);
+    try {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      const res = await BackupService.pickDriveFolder();
+      if (res) {
+        updateProfile({
+          backupSettings: {
+            ...(profile.backupSettings || { autoBackupEnabled: true }),
+            autoBackupEnabled: true,
+            backupTarget: 'DRIVE_SAF',
+            driveFolderUri: res.uri,
+            driveFolderName: res.name,
+          },
+        });
+        await BackupService.performAutoBackup('FOLDER_LINKED');
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        AlertService.alert({
+          title: 'Cloud Folder Linked! ☁️',
+          message: `JobSign will now automatically sync a backup snapshot to "${res.name}" whenever an invoice is created.`,
+          type: 'SUCCESS',
+        });
+      }
+    } catch (err: any) {
+      AlertService.alert({
+        title: 'Folder Access Error',
+        message: err?.message || 'Could not link cloud folder.',
+        type: 'WARNING',
+      });
+    } finally {
+      setIsLinkingFolder(false);
+    }
+  };
+
+  const handleDisconnectDriveFolder = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    AlertService.confirm({
+      title: 'Disconnect Cloud Folder?',
+      message: 'Automatic cloud drive sync will be paused. Backups will continue to be safely stored in the local device vault.',
+      confirmText: 'Disconnect',
+      cancelText: 'Cancel',
+      isDestructive: true,
+      onConfirm: () => {
+        updateProfile({
+          backupSettings: {
+            ...(profile.backupSettings || { autoBackupEnabled: true }),
+            driveFolderUri: undefined,
+            driveFolderName: undefined,
+            backupTarget: 'LOCAL_VAULT',
+          },
+        });
+      },
+    });
+  };
+
+  const handleBackupNow = async () => {
     if (isBackingUp) return;
     setIsBackingUp(true);
     try {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-      await PDFService.exportFullDatabaseBackup();
-      AlertService.alert({
-        title: 'Backup Created',
-        message: 'Your SQLite database and legal audit records have been exported.',
-        type: 'SUCCESS',
-      });
+      const success = await BackupService.performAutoBackup('MANUAL_USER_REQUEST');
+      if (success) {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        const folder = profile.backupSettings?.driveFolderName;
+        AlertService.alert({
+          title: 'Backup Created Successfully! 🛡️',
+          message: folder
+            ? `Synced ${quotes.length} invoices to ${folder} and local vault.`
+            : `Saved snapshot of ${quotes.length} invoices to your local vault.`,
+          type: 'SUCCESS',
+        });
+      }
     } catch (err: any) {
       AlertService.alert({
         title: 'Backup Failed',
-        message: err?.message || 'Could not export database.',
+        message: err?.message || 'Could not complete backup.',
         type: 'DANGER',
       });
     } finally {
       setIsBackingUp(false);
+    }
+  };
+
+  const handleShareBackup = async () => {
+    if (isBackingUp) return;
+    setIsBackingUp(true);
+    try {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      await BackupService.shareBackupFile();
+    } catch (err: any) {
+      AlertService.alert({
+        title: 'Share Failed',
+        message: err?.message || 'Could not share backup file.',
+        type: 'DANGER',
+      });
+    } finally {
+      setIsBackingUp(false);
+    }
+  };
+
+  const handleStartRestore = async () => {
+    if (isRestoring) return;
+    setIsRestoring(true);
+    try {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      const res = await BackupService.pickAndInspectBackupFile();
+      if (res.cancelled) {
+        setIsRestoring(false);
+        return;
+      }
+      setRestorePreview(res.preview);
+      setShowRestoreModal(true);
+    } catch (err: any) {
+      AlertService.alert({
+        title: 'Invalid Backup File',
+        message: err?.message || 'Selected file could not be parsed as a JobSign backup.',
+        type: 'WARNING',
+      });
+    } finally {
+      setIsRestoring(false);
+    }
+  };
+
+  const handleConfirmRestore = async () => {
+    if (!restorePreview) return;
+    try {
+      setIsRestoring(true);
+      const res = await BackupService.restoreFromPayload(restorePreview.payload, restoreMode);
+      setShowRestoreModal(false);
+      setRestorePreview(null);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      AlertService.alert({
+        title: 'Data Restored Successfully 🎉',
+        message: `Recovered ${res.restoredQuotes} invoice(s) and profile for "${restorePreview.businessName}".`,
+        type: 'SUCCESS',
+      });
+    } catch (err: any) {
+      AlertService.alert({
+        title: 'Restore Failed',
+        message: err?.message || 'Could not restore backup data.',
+        type: 'DANGER',
+      });
+    } finally {
+      setIsRestoring(false);
     }
   };
 
@@ -686,7 +843,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onBack }) => {
                     activeRegion === 'US' && styles.marketPillTitleActive,
                   ]}
                 >
-                  US Contractors (Joist / Jobber)
+                  US Trade Contractors & Construction
                 </Text>
                 <Text
                   style={[
@@ -720,7 +877,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onBack }) => {
                     activeRegion === 'IN' && styles.marketPillTitleActive,
                   ]}
                 >
-                  India MSME (myBillBook Mode)
+                  India MSME & Trade (GST Mode)
                 </Text>
                 <Text
                   style={[
@@ -875,9 +1032,15 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onBack }) => {
           />
 
           <SettingsRow
-            icon={<Download size={18} color="#3B82F6" />}
-            title="Data Backup & Export"
-            subtitle="Export SQLite encrypted database backup"
+            icon={<Cloud size={18} color="#3B82F6" />}
+            title="Data Backup & Cloud Sync"
+            subtitle={
+              profile.backupSettings?.driveFolderName
+                ? `Syncing to ${profile.backupSettings.driveFolderName}`
+                : "Auto-sync to Google Drive & restore data"
+            }
+            badge={profile.backupSettings?.driveFolderName ? "Sync Active" : undefined}
+            badgeColor={colors.emerald}
             colors={colors}
             onPress={() => setActiveModal('BACKUP')}
           />
@@ -1142,7 +1305,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onBack }) => {
       {/* ── MODAL 4: DIRECT PAYMENT & SETTLEMENT ────────────────────────────── */}
       <SettingsSubModal
         visible={activeModal === 'PAYMENT'}
-        title={activeRegion === 'US' ? 'US Payment Rails (Joist Standard)' : 'Instant QR & Bank Transfer'}
+        title={activeRegion === 'US' ? 'US Payment Rails (Zelle, ACH, Cards)' : 'Instant QR & Bank Transfer'}
         subtitle={
           activeRegion === 'US'
             ? 'Accept Zelle, Venmo, Cash App, Direct Deposit (ACH), and Checks with 0% middleman fees'
@@ -1619,7 +1782,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onBack }) => {
                 🇮🇳 GST & Indian Compliance
               </Text>
               <View style={{ backgroundColor: colors.emerald + '20', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, marginLeft: 8 }}>
-                <Text style={{ fontSize: 9, fontWeight: '800', color: colors.emerald }}>myBillBook Standard</Text>
+                <Text style={{ fontSize: 9, fontWeight: '800', color: colors.emerald }}>Statutory Compliance Standard</Text>
               </View>
             </View>
 
@@ -1870,35 +2033,324 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onBack }) => {
         </TouchableOpacity>
       </SettingsSubModal>
 
-      {/* ── MODAL 8: BACKUP ────────────────────────────────────────────────── */}
+      {/* ── MODAL 8: BACKUP & CLOUD SYNC ──────────────────────────────────── */}
       <SettingsSubModal
         visible={activeModal === 'BACKUP'}
-        title="Data Backup & Database Export"
-        subtitle="Export local encrypted SQLite tables and digital signatures"
+        title="Data Backup & Cloud Sync"
+        subtitle="Automatic Google Drive sync, local vault & disaster recovery"
         colors={colors}
         insets={insets}
         onClose={() => setActiveModal(null)}
       >
-        <Text style={styles.backupDesc}>
-          JobSign operates offline-first. All estimates, GPS coordinates, affirmative consent
-          timestamps, and SHA-256 integrity hashes are stored in your phone's private SQLite database.
-        </Text>
+          {/* 1. Auto-Backup Toggle Card */}
+          <View style={[styles.backupCard, { backgroundColor: colors.backgroundSecondary, borderColor: colors.border }]}>
+            <View style={styles.toggleRowBorderless}>
+              <View style={{ flex: 1, paddingRight: 12 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+                  <RefreshCw size={15} color={colors.primary} />
+                  <Text style={[styles.toggleLabel, { color: colors.textPrimary }]}>
+                    Auto-Backup on New Invoice
+                  </Text>
+                </View>
+                <Text style={[styles.toggleSub, { color: colors.textSecondary }]}>
+                  Automatically saves a secure cryptographic backup snapshot whenever a quote or invoice is created.
+                </Text>
+              </View>
+              <TouchableOpacity
+                activeOpacity={0.8}
+                style={[
+                  styles.toggleSwitch,
+                  profile.backupSettings?.autoBackupEnabled && styles.toggleSwitchActive,
+                ]}
+                onPress={handleToggleAutoBackup}
+              >
+                <View
+                  style={[
+                    styles.toggleThumb,
+                    profile.backupSettings?.autoBackupEnabled && styles.toggleThumbActive,
+                  ]}
+                />
+              </TouchableOpacity>
+            </View>
+          </View>
 
-        <TouchableOpacity
-          style={styles.backupBtn}
-          onPress={handleBackupExport}
-          disabled={isBackingUp}
-        >
-          {isBackingUp ? (
-            <ActivityIndicator size="small" color="#FFFFFF" />
-          ) : (
-            <>
-              <Download size={16} color="#FFFFFF" style={{ marginRight: 6 }} />
-              <Text style={styles.backupBtnText}>Export Database Backup (.db)</Text>
-            </>
-          )}
-        </TouchableOpacity>
+          {/* 2. Cloud Drive Folder Linking */}
+          <Text style={[styles.inputLabel, { color: colors.textPrimary, marginTop: 14 }]}>
+            CLOUD SYNC DESTINATION
+          </Text>
+
+          <View style={[styles.backupCard, { backgroundColor: colors.backgroundSecondary, borderColor: colors.border }]}>
+            {profile.backupSettings?.driveFolderName ? (
+              <View>
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <Cloud size={16} color={colors.emerald} />
+                    <Text style={{ fontSize: 13, fontWeight: '800', color: colors.emerald }}>
+                      Cloud Folder Connected
+                    </Text>
+                  </View>
+                  <View style={[styles.pillBadge, { backgroundColor: colors.emerald + '20' }]}>
+                    <Text style={{ fontSize: 10, fontWeight: '800', color: colors.emerald }}>SYNC ACTIVE</Text>
+                  </View>
+                </View>
+
+                <View style={[styles.folderPathBox, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                  <Folder size={16} color={colors.primary} />
+                  <Text style={{ fontSize: 12.5, fontWeight: '700', color: colors.textPrimary, flex: 1 }} numberOfLines={1}>
+                    {profile.backupSettings.driveFolderName}
+                  </Text>
+                </View>
+
+                <View style={{ flexDirection: 'row', gap: 8, marginTop: 10 }}>
+                  <TouchableOpacity
+                    style={[styles.smallActionBtn, { borderColor: colors.border, backgroundColor: colors.surface }]}
+                    onPress={handleLinkDriveFolder}
+                    disabled={isLinkingFolder}
+                  >
+                    <Text style={{ fontSize: 11.5, fontWeight: '700', color: colors.textPrimary }}>Change Folder</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.smallActionBtn, { borderColor: colors.rose + '30', backgroundColor: colors.roseLight }]}
+                    onPress={handleDisconnectDriveFolder}
+                  >
+                    <Text style={{ fontSize: 11.5, fontWeight: '700', color: colors.rose }}>Disconnect</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            ) : (
+              <View>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                  <CloudUpload size={16} color={colors.primary} />
+                  <Text style={{ fontSize: 13, fontWeight: '800', color: colors.textPrimary }}>
+                    Link Google Drive / Cloud Folder
+                  </Text>
+                </View>
+                <Text style={{ fontSize: 11.5, color: colors.textSecondary, lineHeight: 16, marginBottom: 12 }}>
+                  Select any folder in Google Drive, Microsoft OneDrive, or phone storage. Invoices will automatically save there in real-time.
+                </Text>
+                <TouchableOpacity
+                  style={[styles.linkDriveBtn, { backgroundColor: colors.primary }]}
+                  onPress={handleLinkDriveFolder}
+                  disabled={isLinkingFolder}
+                >
+                  {isLinkingFolder ? (
+                    <ActivityIndicator size="small" color="#FFFFFF" />
+                  ) : (
+                    <>
+                      <Cloud size={16} color="#FFFFFF" style={{ marginRight: 6 }} />
+                      <Text style={styles.linkDriveBtnText}>Select Google Drive / Cloud Folder</Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+              </View>
+            )}
+          </View>
+
+          {/* 3. Last Backup Status Stats */}
+          <View style={[styles.statsRowBox, { backgroundColor: colors.backgroundSecondary, borderColor: colors.border }]}>
+            <View style={styles.statCol}>
+              <Text style={[styles.statLabel, { color: colors.textMuted }]}>LAST BACKUP</Text>
+              <Text style={[styles.statVal, { color: colors.textPrimary }]}>
+                {profile.backupSettings?.lastBackupTimestamp
+                  ? new Date(profile.backupSettings.lastBackupTimestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                  : 'Never'}
+              </Text>
+            </View>
+            <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
+            <View style={styles.statCol}>
+              <Text style={[styles.statLabel, { color: colors.textMuted }]}>INVOICES SAVED</Text>
+              <Text style={[styles.statVal, { color: colors.emerald }]}>
+                {profile.backupSettings?.lastBackupInvoiceCount ?? quotes.length}
+              </Text>
+            </View>
+            <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
+            <View style={styles.statCol}>
+              <Text style={[styles.statLabel, { color: colors.textMuted }]}>BACKUP SIZE</Text>
+              <Text style={[styles.statVal, { color: colors.textPrimary }]}>
+                {profile.backupSettings?.lastBackupSizeBytes
+                  ? `${(profile.backupSettings.lastBackupSizeBytes / 1024).toFixed(1)} KB`
+                  : '0 KB'}
+              </Text>
+            </View>
+          </View>
+
+          {/* 4. Action Buttons */}
+          <Text style={[styles.inputLabel, { color: colors.textPrimary, marginTop: 14 }]}>
+            BACKUP & RESTORE ACTIONS
+          </Text>
+
+          <View style={{ gap: 10 }}>
+            {/* Backup Now */}
+            <TouchableOpacity
+              style={[styles.primaryActionBtn, { backgroundColor: colors.emerald }]}
+              onPress={handleBackupNow}
+              disabled={isBackingUp}
+            >
+              {isBackingUp ? (
+                <ActivityIndicator size="small" color="#FFFFFF" />
+              ) : (
+                <>
+                  <CloudUpload size={17} color="#FFFFFF" style={{ marginRight: 8 }} />
+                  <Text style={styles.primaryActionBtnText}>Backup Now</Text>
+                </>
+              )}
+            </TouchableOpacity>
+
+            {/* Share / Save to Drive */}
+            <TouchableOpacity
+              style={[styles.secondaryActionBtn, { backgroundColor: colors.surface, borderColor: colors.primary }]}
+              onPress={handleShareBackup}
+              disabled={isBackingUp}
+            >
+              <Share2 size={16} color={colors.primary} style={{ marginRight: 8 }} />
+              <Text style={[styles.secondaryActionBtnText, { color: colors.primary }]}>
+                Share / Save Backup to Cloud
+              </Text>
+            </TouchableOpacity>
+
+            {/* Restore from Backup File */}
+            <TouchableOpacity
+              style={[styles.secondaryActionBtn, { backgroundColor: colors.surface, borderColor: '#8B5CF6' }]}
+              onPress={handleStartRestore}
+              disabled={isRestoring}
+            >
+              {isRestoring ? (
+                <ActivityIndicator size="small" color="#8B5CF6" />
+              ) : (
+                <>
+                  <CloudDownload size={17} color="#8B5CF6" style={{ marginRight: 8 }} />
+                  <Text style={[styles.secondaryActionBtnText, { color: '#8B5CF6' }]}>
+                    Restore from Backup File (.json)
+                  </Text>
+                </>
+              )}
+            </TouchableOpacity>
+          </View>
+
+          {/* Privacy & Recovery Assurance */}
+          <View style={[styles.privacyCallout, { backgroundColor: colors.backgroundSecondary, borderColor: colors.border }]}>
+            <Shield size={16} color={colors.textMuted} />
+            <Text style={[styles.privacyCalloutText, { color: colors.textSecondary }]}>
+              Your backup files are 100% private and stored only on your device and linked cloud drive. No external server tracking. When reinstalling JobSign, use "Restore from Backup" to recover all records.
+            </Text>
+          </View>
       </SettingsSubModal>
+
+      {/* ── RESTORE PREVIEW & CONFIRMATION MODAL ──────────────────────────── */}
+      <Modal visible={showRestoreModal && !!restorePreview} transparent animationType="fade">
+        <View style={styles.confirmOverlay}>
+          <View style={[styles.confirmCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+              <View style={[styles.confirmIconCircle, { backgroundColor: '#8B5CF620' }]}>
+                <CloudDownload size={22} color="#8B5CF6" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.confirmTitle, { color: colors.textPrimary }]}>
+                  Restore JobSign Backup
+                </Text>
+                <Text style={{ fontSize: 11, color: colors.textMuted }}>
+                  Verify backup contents before importing
+                </Text>
+              </View>
+            </View>
+
+            {/* Details Box */}
+            {restorePreview && (
+              <View style={[styles.previewDetailBox, { backgroundColor: colors.backgroundSecondary, borderColor: colors.border }]}>
+                <View style={styles.previewDetailRow}>
+                  <Text style={[styles.previewDetailLabel, { color: colors.textMuted }]}>Business Name:</Text>
+                  <Text style={[styles.previewDetailVal, { color: colors.textPrimary }]}>
+                    {restorePreview.businessName}
+                  </Text>
+                </View>
+                <View style={styles.previewDetailRow}>
+                  <Text style={[styles.previewDetailLabel, { color: colors.textMuted }]}>Invoices Found:</Text>
+                  <Text style={[styles.previewDetailVal, { color: colors.emerald, fontWeight: '800' }]}>
+                    {restorePreview.invoiceCount} quotes/invoices
+                  </Text>
+                </View>
+                <View style={styles.previewDetailRow}>
+                  <Text style={[styles.previewDetailLabel, { color: colors.textMuted }]}>Item Presets:</Text>
+                  <Text style={[styles.previewDetailVal, { color: colors.textPrimary }]}>
+                    {restorePreview.presetCount} presets
+                  </Text>
+                </View>
+                <View style={styles.previewDetailRow}>
+                  <Text style={[styles.previewDetailLabel, { color: colors.textMuted }]}>Backup Date:</Text>
+                  <Text style={[styles.previewDetailVal, { color: colors.textPrimary }]}>
+                    {new Date(restorePreview.exportedAt).toLocaleDateString()} {new Date(restorePreview.exportedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  </Text>
+                </View>
+              </View>
+            )}
+
+            {/* Mode Selector */}
+            <Text style={[styles.inputLabel, { color: colors.textPrimary, marginTop: 12, marginBottom: 6 }]}>
+              IMPORT STRATEGY
+            </Text>
+            <View style={{ flexDirection: 'row', gap: 8, marginBottom: 16 }}>
+              <TouchableOpacity
+                style={[
+                  styles.modeOptionBtn,
+                  { backgroundColor: colors.backgroundSecondary, borderColor: colors.border },
+                  restoreMode === 'REPLACE' && { backgroundColor: '#8B5CF620', borderColor: '#8B5CF6', borderWidth: 1.5 },
+                ]}
+                onPress={() => setRestoreMode('REPLACE')}
+              >
+                <Text style={[styles.modeOptionTitle, { color: restoreMode === 'REPLACE' ? '#8B5CF6' : colors.textPrimary }]}>
+                  Clean Restore
+                </Text>
+                <Text style={{ fontSize: 10, color: colors.textMuted, marginTop: 2 }}>
+                  Recommended for fresh reinstall
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.modeOptionBtn,
+                  { backgroundColor: colors.backgroundSecondary, borderColor: colors.border },
+                  restoreMode === 'MERGE' && { backgroundColor: '#8B5CF620', borderColor: '#8B5CF6', borderWidth: 1.5 },
+                ]}
+                onPress={() => setRestoreMode('MERGE')}
+              >
+                <Text style={[styles.modeOptionTitle, { color: restoreMode === 'MERGE' ? '#8B5CF6' : colors.textPrimary }]}>
+                  Merge Invoices
+                </Text>
+                <Text style={{ fontSize: 10, color: colors.textMuted, marginTop: 2 }}>
+                  Combine with existing
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Confirmation Buttons */}
+            <View style={{ flexDirection: 'row', gap: 10 }}>
+              <TouchableOpacity
+                style={[styles.cancelBtn, { borderColor: colors.border }]}
+                onPress={() => {
+                  setShowRestoreModal(false);
+                  setRestorePreview(null);
+                }}
+              >
+                <Text style={{ fontSize: 13, fontWeight: '700', color: colors.textSecondary }}>Cancel</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.confirmBtn, { backgroundColor: '#8B5CF6' }]}
+                onPress={handleConfirmRestore}
+                disabled={isRestoring}
+              >
+                {isRestoring ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <Text style={{ fontSize: 13, fontWeight: '800', color: '#FFFFFF' }}>
+                    Confirm Restore
+                  </Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
 
       {/* ── MODAL 9: LEGAL ─────────────────────────────────────────────────── */}
       <SettingsSubModal
@@ -2583,24 +3035,193 @@ const makeStyles = (colors: ThemeColors) =>
       color: colors.emerald,
     },
     // Backup & Legal
-    backupDesc: {
-      fontSize: 13,
-      color: colors.textSecondary,
-      lineHeight: 18,
-      marginBottom: 16,
+    // Backup & Cloud Sync Hub
+    backupCard: {
+      borderRadius: 12,
+      borderWidth: 1,
+      padding: 14,
+      marginBottom: 10,
     },
-    backupBtn: {
-      backgroundColor: colors.primary,
-      paddingVertical: 14,
-      borderRadius: 10,
+    toggleRowBorderless: {
       flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+    },
+    pillBadge: {
+      paddingHorizontal: 8,
+      paddingVertical: 2,
+      borderRadius: 6,
+    },
+    folderPathBox: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+      paddingHorizontal: 12,
+      paddingVertical: 10,
+      borderRadius: 8,
+      borderWidth: 1,
+      marginTop: 4,
+    },
+    smallActionBtn: {
+      paddingHorizontal: 12,
+      paddingVertical: 6,
+      borderRadius: 6,
+      borderWidth: 1,
+      alignItems: 'center',
+    },
+    linkDriveBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingVertical: 12,
+      borderRadius: 8,
+    },
+    linkDriveBtnText: {
+      color: '#FFFFFF',
+      fontSize: 13,
+      fontWeight: '700',
+    },
+    statsRowBox: {
+      flexDirection: 'row',
+      borderRadius: 12,
+      borderWidth: 1,
+      paddingVertical: 12,
+      marginVertical: 10,
+    },
+    statCol: {
+      flex: 1,
+      alignItems: 'center',
+    },
+    statDivider: {
+      width: 1,
+      height: '80%',
+      alignSelf: 'center',
+    },
+    statLabel: {
+      fontSize: 10,
+      fontWeight: '800',
+      letterSpacing: 0.5,
+      marginBottom: 3,
+    },
+    statVal: {
+      fontSize: 13,
+      fontWeight: '800',
+    },
+    primaryActionBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingVertical: 13,
+      borderRadius: 10,
+    },
+    primaryActionBtnText: {
+      color: '#FFFFFF',
+      fontSize: 13.5,
+      fontWeight: '800',
+    },
+    secondaryActionBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingVertical: 12,
+      borderRadius: 10,
+      borderWidth: 1.5,
+    },
+    secondaryActionBtnText: {
+      fontSize: 13,
+      fontWeight: '700',
+    },
+    privacyCallout: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      gap: 10,
+      padding: 12,
+      borderRadius: 10,
+      borderWidth: 1,
+      marginTop: 14,
+      marginBottom: 20,
+    },
+    privacyCalloutText: {
+      fontSize: 11,
+      lineHeight: 16,
+      flex: 1,
+    },
+    // Restore Confirmation Modal
+    confirmOverlay: {
+      flex: 1,
+      backgroundColor: 'rgba(0, 0, 0, 0.7)',
+      justifyContent: 'center',
+      alignItems: 'center',
+      padding: 20,
+    },
+    confirmCard: {
+      width: '100%',
+      maxWidth: 400,
+      borderRadius: 16,
+      borderWidth: 1,
+      padding: 20,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.25,
+      shadowRadius: 10,
+      elevation: 6,
+    },
+    confirmIconCircle: {
+      width: 44,
+      height: 44,
+      borderRadius: 22,
       justifyContent: 'center',
       alignItems: 'center',
     },
-    backupBtnText: {
-      color: '#FFFFFF',
-      fontSize: 14,
+    confirmTitle: {
+      fontSize: 16,
+      fontWeight: '800',
+    },
+    previewDetailBox: {
+      borderRadius: 10,
+      borderWidth: 1,
+      padding: 12,
+      gap: 6,
+      marginVertical: 8,
+    },
+    previewDetailRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+    },
+    previewDetailLabel: {
+      fontSize: 12,
+      fontWeight: '600',
+    },
+    previewDetailVal: {
+      fontSize: 12.5,
       fontWeight: '700',
+    },
+    modeOptionBtn: {
+      flex: 1,
+      padding: 10,
+      borderRadius: 8,
+      borderWidth: 1,
+      alignItems: 'center',
+    },
+    modeOptionTitle: {
+      fontSize: 12,
+      fontWeight: '800',
+    },
+    cancelBtn: {
+      flex: 1,
+      paddingVertical: 12,
+      borderRadius: 8,
+      borderWidth: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    confirmBtn: {
+      flex: 1.5,
+      paddingVertical: 12,
+      borderRadius: 8,
+      alignItems: 'center',
+      justifyContent: 'center',
     },
     legalBox: {
       backgroundColor: colors.backgroundSecondary,

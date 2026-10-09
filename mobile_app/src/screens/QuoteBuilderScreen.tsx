@@ -923,7 +923,7 @@ export const QuoteBuilderScreen: React.FC<{ onBack: () => void; initialQuote?: Q
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
       >
-        {/* Document Type Selector (myBillBook Parity) */}
+        {/* Document Type Selector */}
         <View style={[styles.card, { paddingVertical: 12, marginBottom: 14 }]}>
           <Text style={styles.label}>Document Type</Text>
           <View style={{ flexDirection: 'row', gap: 6 }}>
@@ -1516,6 +1516,44 @@ export const QuoteBuilderScreen: React.FC<{ onBack: () => void; initialQuote?: Q
                 placeholderTextColor={colors.textMuted}
               />
             </View>
+          </View>
+
+          {/* Quick Deposit % Chips */}
+          <View style={{ flexDirection: 'row', gap: 6, marginTop: 10 }}>
+            {[10, 25, 33, 50].map((pct) => (
+              <TouchableOpacity
+                key={pct}
+                style={[
+                  styles.termChip,
+                  { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 6 },
+                ]}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  const pctAmt = Math.round((totalAmountCents * pct) / 100);
+                  setDepositInput((pctAmt / 100).toFixed(2));
+                }}
+              >
+                <Text style={[styles.termChipText, { fontSize: 11, fontWeight: '700' }]}>
+                  {pct}%
+                </Text>
+              </TouchableOpacity>
+            ))}
+            {depositInput ? (
+              <TouchableOpacity
+                style={[
+                  styles.termChip,
+                  { alignItems: 'center', justifyContent: 'center', paddingVertical: 6, paddingHorizontal: 10 },
+                ]}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  setDepositInput('');
+                }}
+              >
+                <Text style={[styles.termChipText, { fontSize: 11, color: colors.rose, fontWeight: '700' }]}>
+                  Clear
+                </Text>
+              </TouchableOpacity>
+            ) : null}
           </View>
         </View>
 
