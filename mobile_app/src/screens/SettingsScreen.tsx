@@ -7,6 +7,10 @@ import {
   TextInput,
   TouchableOpacity,
   Image,
+  Modal,
+  KeyboardAvoidingView,
+  Platform,
+  ActivityIndicator,
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import * as ImagePicker from 'expo-image-picker';
@@ -22,26 +26,30 @@ import { TelemetryService } from '../services/TelemetryService';
 import { FEATURE_FLAGS } from '../config/featureFlags';
 import { useAppSafeArea } from '../utils/safeArea';
 import { runSelfDiagnostics } from '../services/DiagnosticService';
-import { Quote } from '../types';
+import { Quote, ContractorProfile } from '../types';
 import { INVOICE_TEMPLATES, InvoiceTemplateId } from '../constants/invoiceTemplates';
 import {
   ChevronLeft,
-  Star,
-  Zap,
-  Shield,
-  Download,
-  Trash2,
-  Camera,
-  Image as ImageIcon,
+  ChevronRight,
   Building2,
+  Image as ImageIcon,
   Palette,
-  CheckCircle2,
-  Eye,
-  FileText,
-  Activity,
-  Bell,
+  Zap,
   Globe,
+  FileText,
+  Bell,
+  Download,
+  Shield,
+  Eye,
+  Check,
+  X,
+  Camera,
+  Trash2,
+  CheckCircle2,
+  Star,
+  Activity,
   MapPin,
+  Lock,
 } from 'lucide-react-native';
 
 // Sample quote used for live instant preview of invoice templates
@@ -77,499 +85,62 @@ const SAMPLE_PREVIEW_QUOTE: Quote = {
     },
     {
       id: 'li-2',
-      description: 'Whole-Home Surge Protective Device (Type 2 SPD)',
+      description: 'Whole-Home Type 2 Surge Protective Device (SPD)',
       quantity: 1,
-      unitPriceCents: 35000,
-      totalCents: 35000,
+      unitPriceCents: 47500,
+      totalCents: 47500,
     },
     {
       id: 'li-3',
-      description: 'Dual Copper Ground Rod System & Cold Water Bond',
+      description: 'City Electrical Permit Application & Inspection Coordination',
       quantity: 1,
-      unitPriceCents: 25000,
-      totalCents: 25000,
-    },
-  ],
-  changeOrders: [
-    {
-      id: 'co-1',
-      quoteId: 'preview-sample-quote',
-      orderNumber: 1,
-      reason: 'Replaced Corroded Weatherhead Cable & Conduit',
-      addedItems: [],
-      addedTotalCents: 27500,
-      signatureSvg: '<path d="M 10 90 Q 60 20 110 85 T 210 70 Q 260 130 330 40 T 450 95" fill="none" stroke="#0F172A" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>',
-      signatureTimestamp: Date.now(),
-      pdfSha256Hash: 'a1b2c3d4e5f67890123456789abcdef0123456789abcdef0123456789abcdef0',
+      unitPriceCents: 40000,
+      totalCents: 40000,
     },
   ],
 };
 
-// ---------------------------------------------------------------------------
-// Style factory — called with current theme colors so every token is dynamic
-// ---------------------------------------------------------------------------
-const makeStyles = (colors: ThemeColors) =>
-  StyleSheet.create({
-    container: {
-      flex: 1,
-      backgroundColor: colors.background,
-    },
-    header: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      paddingHorizontal: 16,
-      paddingTop: 54,
-      paddingBottom: 14,
-      backgroundColor: colors.surface,
-      borderBottomWidth: 1,
-      borderColor: colors.border,
-    },
-    backBtn: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      padding: 6,
-      gap: 4,
-    },
-    backText: {
-      color: colors.primary,
-      fontSize: 15,
-      fontWeight: 'bold',
-    },
-    headerTitle: {
-      color: colors.textPrimary,
-      fontSize: 17,
-      fontWeight: '800',
-    },
-    scrollContent: {
-      padding: 16,
-      paddingBottom: 60,
-    },
+interface SettingsScreenProps {
+  onBack?: () => void;
+}
 
-    // ── Pro card ────────────────────────────────────────────────────────────
-    proCard: {
-      backgroundColor: colors.warningLight,
-      borderWidth: 1.5,
-      borderColor: colors.amber,
-      borderRadius: Theme.borderRadius.md,
-      padding: 16,
-      marginBottom: 16,
-    },
-    proRow: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-    },
-    proTitle: {
-      fontSize: 16,
-      fontWeight: '900',
-      color: colors.amber,
-    },
-    proSub: {
-      fontSize: 12,
-      color: colors.textSecondary,
-      marginTop: 4,
-      lineHeight: 18,
-    },
-    proTitleRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 6,
-    },
-    upgradeBtn: {
-      marginTop: 12,
-      backgroundColor: colors.amber,
-      minHeight: 48,
-      borderRadius: Theme.borderRadius.md,
-      justifyContent: 'center',
-      alignItems: 'center',
-      flexDirection: 'row',
-      gap: 6,
-      ...Theme.shadows.primaryBtn,
-    },
-    upgradeBtnText: {
-      color: '#0F172A',
-      fontWeight: '900',
-      fontSize: 14,
-      letterSpacing: 0.5,
-    },
-    manageMembershipBtn: {
-      marginTop: 12,
-      backgroundColor: colors.surface,
-      borderWidth: 1,
-      borderColor: colors.primary,
-      minHeight: 48,
-      borderRadius: Theme.borderRadius.md,
-      justifyContent: 'center',
-      alignItems: 'center',
-    },
-    manageMembershipText: {
-      color: colors.primary,
-      fontWeight: '700',
-      fontSize: 14,
-      letterSpacing: 0.3,
-    },
-    proToggleBtn: {
-      marginTop: 12,
-      backgroundColor: colors.warningLight,
-      borderWidth: 1,
-      borderColor: colors.amber,
-      paddingVertical: 10,
-      borderRadius: Theme.borderRadius.sm,
-      alignItems: 'center',
-    },
-    proToggleBtnActive: {
-      backgroundColor: colors.successLight,
-      borderColor: colors.emerald,
-    },
-    proToggleText: {
-      color: colors.textPrimary,
-      fontWeight: '900',
-      fontSize: 13,
-      letterSpacing: 0.5,
-    },
-
-    // ── Generic section card ─────────────────────────────────────────────────
-    card: {
-      backgroundColor: colors.card,
-      borderRadius: 12,
-      padding: 16,
-      borderWidth: 1,
-      borderColor: colors.cardBorder,
-      marginBottom: 16,
-      shadowColor: '#0F172A',
-      shadowOffset: { width: 0, height: 1 },
-      shadowOpacity: 0.05,
-      shadowRadius: 4,
-      elevation: 2,
-    },
-    cardLabel: {
-      fontSize: 11,
-      fontWeight: '700',
-      color: colors.textMuted,
-      letterSpacing: 0.8,
-      textTransform: 'uppercase',
-      marginBottom: 10,
-    },
-    cardHint: {
-      fontSize: 12,
-      color: colors.textMuted,
-      marginBottom: 12,
-      lineHeight: 16,
-    },
-
-    // ── Inputs ───────────────────────────────────────────────────────────────
-    input: {
-      backgroundColor: colors.backgroundSecondary,
-      borderWidth: 1,
-      borderColor: colors.cardBorder,
-      borderRadius: Theme.borderRadius.sm,
-      padding: 12,
-      fontSize: 14,
-      color: colors.textPrimary,
-    },
-
-    // ── Preset list ──────────────────────────────────────────────────────────
-    newPresetRow: {
-      flexDirection: 'row',
-      gap: 8,
-      marginBottom: 12,
-    },
-    addPresetBtn: {
-      backgroundColor: colors.primary,
-      width: 48,
-      borderRadius: Theme.borderRadius.sm,
-      justifyContent: 'center',
-      alignItems: 'center',
-    },
-    addPresetBtnText: {
-      fontSize: 22,
-      color: '#FFFFFF',
-      fontWeight: 'bold',
-      lineHeight: 26,
-    },
-    presetItemRow: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      paddingVertical: 8,
-      borderBottomWidth: 1,
-      borderColor: colors.border,
-    },
-    presetTitleText: {
-      fontSize: 14,
-      fontWeight: '600',
-      color: colors.textPrimary,
-    },
-    presetPriceText: {
-      fontSize: 13,
-      fontWeight: '800',
-      color: colors.primary,
-      marginTop: 2,
-    },
-    deletePresetBtn: {
-      padding: 6,
-    },
-
-    // ── Backup / utility buttons ─────────────────────────────────────────────
-    backupBtn: {
-      backgroundColor: colors.backgroundSecondary,
-      borderWidth: 1,
-      borderColor: colors.cardBorder,
-      paddingVertical: 12,
-      paddingHorizontal: 16,
-      borderRadius: Theme.borderRadius.sm,
-      alignItems: 'center',
-      flexDirection: 'row',
-      justifyContent: 'center',
-      gap: 8,
-    },
-    backupBtnSecondary: {
-      marginTop: 10,
-    },
-    backupBtnText: {
-      color: colors.textSecondary,
-      fontWeight: '700',
-      fontSize: 13,
-    },
-
-    // ── Logo picker ──────────────────────────────────────────────────────────
-    logoBox: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 14,
-      backgroundColor: colors.backgroundSecondary,
-      borderWidth: 1,
-      borderColor: colors.cardBorder,
-      borderRadius: Theme.borderRadius.sm,
-      padding: 12,
-      marginBottom: 12,
-    },
-    logoImage: {
-      width: 56,
-      height: 56,
-      borderRadius: 8,
-      borderWidth: 1,
-      borderColor: colors.border,
-      backgroundColor: '#FFFFFF',
-    },
-    logoActionsCol: {
-      flex: 1,
-      gap: 6,
-    },
-    logoPickerBtnRow: {
-      flexDirection: 'row',
-      gap: 8,
-      marginTop: 6,
-    },
-    logoBtn: {
-      flex: 1,
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'center',
-      gap: 6,
-      backgroundColor: colors.surface,
-      borderWidth: 1,
-      borderColor: colors.border,
-      paddingVertical: 8,
-      borderRadius: Theme.borderRadius.sm,
-    },
-    logoBtnText: {
-      fontSize: 12,
-      fontWeight: '700',
-      color: colors.textPrimary,
-    },
-
-    // ── Save button ──────────────────────────────────────────────────────────
-    saveBtn: {
-      backgroundColor: colors.primary,
-      minHeight: Theme.touchTarget.minHeight,
-      borderRadius: Theme.borderRadius.md,
-      justifyContent: 'center',
-      alignItems: 'center',
-      marginTop: 10,
-      ...Theme.shadows.primaryBtn,
-    },
-    saveBtnText: {
-      color: '#FFFFFF',
-      fontSize: 15,
-      fontWeight: '900',
-      letterSpacing: 0.5,
-    },
-
-    // ── Dark-mode toggle row ──────────────────────────────────────────────────
-    darkModeRow: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      gap: 12,
-    },
-    darkModeTitle: {
-      fontSize: 14,
-      fontWeight: 'bold',
-      color: colors.textPrimary,
-    },
-    darkModeSub: {
-      fontSize: 11.5,
-      color: colors.textSecondary,
-      marginTop: 2,
-      lineHeight: 16,
-    },
-    darkModeBtn: {
-      backgroundColor: colors.backgroundSecondary,
-      paddingHorizontal: 16,
-      paddingVertical: 10,
-      borderRadius: Theme.borderRadius.sm,
-      borderWidth: 1,
-      borderColor: colors.border,
-      minWidth: 56,
-      alignItems: 'center',
-    },
-    darkModeBtnActive: {
-      backgroundColor: colors.primary,
-      borderColor: colors.primary,
-    },
-    darkModeBtnText: {
-      color: colors.textSecondary,
-      fontWeight: 'bold',
-      fontSize: 13,
-    },
-    darkModeBtnTextActive: {
-      color: '#FFFFFF',
-      fontWeight: '900',
-    },
-
-    // ── Template Picker ──────────────────────────────────────────────────────
-    templateCard: {
-      backgroundColor: colors.surface,
-      borderRadius: Theme.borderRadius.md,
-      borderWidth: 1.5,
-      borderColor: colors.border,
-      padding: 14,
-      marginBottom: 12,
-    },
-    templateCardActive: {
-      borderColor: colors.primary,
-      backgroundColor: colors.primaryLight,
-    },
-    templateHeaderRow: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      marginBottom: 6,
-    },
-    templateName: {
-      fontSize: 15,
-      fontWeight: '800',
-      color: colors.textPrimary,
-    },
-    templateBadge: {
-      paddingHorizontal: 8,
-      paddingVertical: 3,
-      borderRadius: Theme.borderRadius.full,
-    },
-    templateBadgeText: {
-      fontSize: 10,
-      fontWeight: '800',
-      letterSpacing: 0.5,
-      textTransform: 'uppercase',
-    },
-    templateSubtitle: {
-      fontSize: 12,
-      fontWeight: '600',
-      color: colors.textSecondary,
-      marginBottom: 4,
-    },
-    templateDesc: {
-      fontSize: 11.5,
-      color: colors.textSecondary,
-      lineHeight: 16,
-      marginBottom: 8,
-    },
-    mockupContainer: {
-      borderRadius: 6,
-      borderWidth: 1,
-      borderColor: colors.border,
-      padding: 8,
-      marginVertical: 6,
-      backgroundColor: '#FFFFFF',
-    },
-    templateActionRow: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      marginTop: 8,
-      paddingTop: 8,
-      borderTopWidth: 1,
-      borderColor: colors.border,
-    },
-    previewBtn: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 5,
-      paddingVertical: 6,
-      paddingHorizontal: 10,
-      borderRadius: Theme.borderRadius.sm,
-      backgroundColor: colors.surface,
-      borderWidth: 1,
-      borderColor: colors.border,
-    },
-    previewBtnText: {
-      fontSize: 11.5,
-      fontWeight: '700',
-      color: colors.textPrimary,
-    },
-    selectRadioBtn: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 5,
-      paddingVertical: 6,
-      paddingHorizontal: 12,
-      borderRadius: Theme.borderRadius.full,
-      backgroundColor: colors.surface,
-      borderWidth: 1,
-      borderColor: colors.border,
-    },
-    selectRadioBtnActive: {
-      backgroundColor: colors.primary,
-      borderColor: colors.primary,
-    },
-    selectRadioText: {
-      fontSize: 11,
-      fontWeight: '800',
-      color: colors.textSecondary,
-    },
-    selectRadioTextActive: {
-      color: '#FFFFFF',
-    },
-  });
-
-// ---------------------------------------------------------------------------
-// Component
-// ---------------------------------------------------------------------------
-export const SettingsScreen: React.FC<{ onBack: () => void }> = ({ onBack }) => {
+export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onBack }) => {
   const {
     profile,
     updateProfile,
-    isPro,
-    setProStatus,
     presets,
     addPreset,
-    removePreset,
+    deleteQuote,
     isDarkMode,
-    toggleDarkMode,
+    toggleSunlightMode,
   } = useQuoteStore();
 
   const colors = getThemeColors(isDarkMode);
   const styles = React.useMemo(() => makeStyles(colors), [colors]);
   const insets = useAppSafeArea();
 
-  const [businessName, setBusinessName] = useState(profile.businessName);
-  const [address, setAddress] = useState(profile.address || '');
-  const [ownerName, setOwnerName] = useState(profile.ownerName);
-  const [phone, setPhone] = useState(profile.phone);
+  // Active sub-modal state (null = show clean menu)
+  type ModalType =
+    | 'PROFILE'
+    | 'LOGO'
+    | 'TEMPLATE'
+    | 'PAYMENT'
+    | 'CURRENCY_TAX'
+    | 'NOTIFICATIONS'
+    | 'PRESETS'
+    | 'BACKUP'
+    | 'LEGAL';
+  const [activeModal, setActiveModal] = useState<ModalType | null>(null);
+
+  // Form states
+  const [businessName, setBusinessName] = useState(profile.businessName || '');
+  const [ownerName, setOwnerName] = useState(profile.ownerName || '');
+  const [phone, setPhone] = useState(profile.phone || '');
   const [email, setEmail] = useState(profile.email || '');
-  const [logoUri, setLogoUri] = useState<string | null>(profile.logoUri || null);
+  const [address, setAddress] = useState(profile.address || '');
   const [license, setLicense] = useState(profile.licenseNumber || '');
+  const [logoUri, setLogoUri] = useState<string | null>(profile.logoUri || null);
+
   const [defaultTaxRate, setDefaultTaxRate] = useState(
     ((profile.defaultTaxBasisPoints ?? 825) / 100).toFixed(2)
   );
@@ -577,22 +148,29 @@ export const SettingsScreen: React.FC<{ onBack: () => void }> = ({ onBack }) => 
     profile.taxEnabledByDefault ?? true
   );
   const [taxLabel, setTaxLabel] = useState(profile.taxLabel || 'Sales Tax');
-  const [zelle, setZelle] = useState(profile.zelleAccount || '');
-  const [venmo, setVenmo] = useState(profile.venmoAccount || '');
-  const [cashApp, setCashApp] = useState(profile.cashAppAccount || '');
+
+  const [currencySymbol, setCurrencySymbol] = useState(profile.currencySymbol || '$');
+  const [currencyCode, setCurrencyCode] = useState(profile.currencyCode || 'USD');
+  const [isDetectingCurrency, setIsDetectingCurrency] = useState(false);
+
+  // Payments
   const [upiId, setUpiId] = useState(profile.upiId || '');
   const [upiPayeeName, setUpiPayeeName] = useState(profile.upiPayeeName || '');
   const [bankAccountNumber, setBankAccountNumber] = useState(profile.bankAccountNumber || '');
   const [bankIfsc, setBankIfsc] = useState(profile.bankIfsc || '');
   const [bankName, setBankName] = useState(profile.bankName || '');
-  const [currencySymbol, setCurrencySymbol] = useState(profile.currencySymbol || '$');
-  const [currencyCode, setCurrencyCode] = useState(profile.currencyCode || 'USD');
-  const [isDetectingCurrency, setIsDetectingCurrency] = useState(false);
+  const [zelle, setZelle] = useState(profile.zelleAccount || '');
+  const [venmo, setVenmo] = useState(profile.venmoAccount || '');
+  const [cashApp, setCashApp] = useState(profile.cashAppAccount || '');
+  const [showOtherRails, setShowOtherRails] = useState(false);
+
+  // Templates
   const [selectedTemplate, setSelectedTemplate] = useState<InvoiceTemplateId>(
     profile.invoiceTemplate || 'modern'
   );
-  const [showPaywall, setShowPaywall] = useState(false);
-  const [showBehaviorLogs, setShowBehaviorLogs] = useState(false);
+  const [isPreviewingPdf, setIsPreviewingPdf] = useState(false);
+
+  // Notifications
   const [outboxAlerts, setOutboxAlerts] = useState(
     profile.notificationPreferences?.outboxAlerts ?? true
   );
@@ -602,123 +180,32 @@ export const SettingsScreen: React.FC<{ onBack: () => void }> = ({ onBack }) => 
   const [paymentReminders, setPaymentReminders] = useState(
     profile.notificationPreferences?.paymentReminders ?? true
   );
-  const [showOtherRails, setShowOtherRails] = useState(false);
 
-  const handleDetectCurrency = async () => {
-    setIsDetectingCurrency(true);
-    try {
-      const detected = await CurrencyService.detectFromLocationOrDevice();
-      setCurrencySymbol(detected.symbol);
-      setCurrencyCode(detected.code);
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      AlertService.alert({
-        title: 'Currency Detected',
-        message: `Set currency to ${detected.name} (${detected.symbol}) based on your device location and regional locale.`,
-        type: 'SUCCESS',
-      });
-    } catch (err: any) {
-      AlertService.alert({
-        title: 'Detection Notice',
-        message: 'Could not detect location. Defaulting to device timezone.',
-        type: 'INFO',
-      });
-    } finally {
-      setIsDetectingCurrency(false);
-    }
-  };
-
-  const devTapCount = React.useRef(0);
-  const devTapTimer = React.useRef<any>(null);
-
-  const handleVersionTap = () => {
-    devTapCount.current += 1;
-    if (devTapTimer.current) clearTimeout(devTapTimer.current);
-    devTapTimer.current = setTimeout(() => {
-      devTapCount.current = 0;
-    }, 2000);
-
-    if (devTapCount.current >= 5) {
-      devTapCount.current = 0;
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      setShowBehaviorLogs(true);
-    }
-  };
-
-  const handlePickLogo = async () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.8,
-    });
-    if (!result.canceled && result.assets[0]) {
-      setLogoUri(result.assets[0].uri);
-    }
-  };
-
-  const handleCaptureLogo = async () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    const { status } = await ImagePicker.requestCameraPermissionsAsync();
-    if (status !== 'granted') {
-      AlertService.alert({
-        title: 'Camera Access',
-        message: 'Please allow camera access to take a shop logo photo.',
-        type: 'WARNING',
-      });
-      return;
-    }
-    const result = await ImagePicker.launchCameraAsync({
-      mediaTypes: ['images'],
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.8,
-    });
-    if (!result.canceled && result.assets[0]) {
-      setLogoUri(result.assets[0].uri);
-    }
-  };
-
-  const handleOpenPaywall = async () => {
-    if (!FEATURE_FLAGS.PAYMENT_ENABLED) return;
-    const presented = await BillingService.presentRevenueCatPaywall();
-    if (!presented) {
-      setShowPaywall(true);
-    }
-  };
-
-  const handlePreviewTemplate = async (templateId: InvoiceTemplateId) => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    try {
-      const previewProfile = {
-        ...profile,
-        businessName: businessName.trim() || profile.businessName,
-        address: address.trim() || profile.address,
-        ownerName: ownerName.trim() || profile.ownerName,
-        phone: phone.trim() || profile.phone,
-        email: email.trim() || profile.email,
-        logoUri: logoUri || profile.logoUri,
-        licenseNumber: license.trim() || profile.licenseNumber,
-        invoiceTemplate: templateId,
-      };
-      await PDFService.generateAndSharePDF(SAMPLE_PREVIEW_QUOTE, previewProfile);
-    } catch (err: any) {
-      AlertService.alert({
-        title: 'Preview Error',
-        message: err?.message || 'Could not generate preview.',
-        type: 'DANGER',
-      });
-    }
-  };
-
-  // Custom preset modal state
+  // Presets
   const [newPresetTitle, setNewPresetTitle] = useState('');
   const [newPresetPrice, setNewPresetPrice] = useState('');
+  const [newPresetCategory, setNewPresetCategory] = useState<'Diagnostic' | 'Labor' | 'Parts' | 'Common'>('Labor');
 
-  const handleSaveProfile = () => {
+  // Modals & Diagnostic
+  const [showPaywall, setShowPaywall] = useState(false);
+  const [showBehaviorLogs, setShowBehaviorLogs] = useState(false);
+  const [isBackingUp, setIsBackingUp] = useState(false);
+  const [versionTapCount, setVersionTapCount] = useState(0);
+
+  // Initials for avatar
+  const initials = (businessName || 'JobSign')
+    .split(' ')
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((w) => w[0].toUpperCase())
+    .join('') || 'JS';
+
+  // Save changes to store
+  const handleSaveAll = (showToast = true) => {
     const parsedTax = parseFloat(defaultTaxRate);
     const taxBasisPoints = Math.round((isNaN(parsedTax) ? 8.25 : parsedTax) * 100);
-    updateProfile({
+
+    const updatedProfile: Partial<ContractorProfile> = {
       businessName: businessName.trim() || 'My Contracting Co.',
       ownerName: ownerName.trim(),
       phone: phone.trim(),
@@ -746,229 +233,201 @@ export const SettingsScreen: React.FC<{ onBack: () => void }> = ({ onBack }) => 
         sealConfirmations,
         paymentReminders,
       },
-    });
+    };
+
+    updateProfile(updatedProfile);
     TelemetryService.logProfile('NOTIFICATION_PREFERENCES_UPDATED', {
       outboxAlerts,
       sealConfirmations,
       paymentReminders,
     });
+
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    AlertService.alert({
-      title: 'Settings Saved',
-      message: 'Your business profile, shop logo, template style, regional currency, tax, and notification preferences have been saved.',
-      type: 'SUCCESS',
-    });
+    if (showToast) {
+      AlertService.alert({
+        title: 'Settings Saved',
+        message: 'Your preferences have been successfully updated.',
+        type: 'SUCCESS',
+      });
+    }
   };
 
-  const handleCreatePreset = () => {
-    const priceCents = Math.round((parseFloat(newPresetPrice) || 0) * 100);
-    if (!newPresetTitle.trim() || priceCents <= 0) {
+  const handlePickLogo = async (fromCamera = false) => {
+    try {
+      const permission = fromCamera
+        ? await ImagePicker.requestCameraPermissionsAsync()
+        : await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+      if (!permission.granted) {
+        AlertService.alert({
+          title: 'Permission Required',
+          message: 'Camera & photo library permissions are needed to select your company logo.',
+          type: 'WARNING',
+        });
+        return;
+      }
+
+      const result = fromCamera
+        ? await ImagePicker.launchCameraAsync({ allowsEditing: true, aspect: [1, 1], quality: 0.8 })
+        : await ImagePicker.launchImageLibraryAsync({ allowsEditing: true, aspect: [1, 1], quality: 0.8 });
+
+      if (!result.canceled && result.assets[0]?.uri) {
+        setLogoUri(result.assets[0].uri);
+        updateProfile({ logoUri: result.assets[0].uri });
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      }
+    } catch (err: any) {
       AlertService.alert({
-        title: 'Invalid Preset',
-        message: `Please enter a valid title and price (${currencySymbol}).`,
+        title: 'Logo Error',
+        message: err?.message || 'Failed to select logo.',
+        type: 'DANGER',
+      });
+    }
+  };
+
+  const handlePreviewTemplate = async (templateId: InvoiceTemplateId) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    if (isPreviewingPdf) return;
+    setIsPreviewingPdf(true);
+    try {
+      const previewProfile: ContractorProfile = {
+        ...profile,
+        businessName: businessName.trim() || profile.businessName,
+        address: address.trim() || profile.address,
+        ownerName: ownerName.trim() || profile.ownerName,
+        phone: phone.trim() || profile.phone,
+        email: email.trim() || profile.email,
+        logoUri: logoUri || profile.logoUri,
+        licenseNumber: license.trim() || profile.licenseNumber,
+        currencySymbol: currencySymbol || profile.currencySymbol || '$',
+        currencyCode: currencyCode || profile.currencyCode || 'USD',
+        invoiceTemplate: templateId,
+      };
+      // Uses direct viewPDF so user can inspect the sample layout right on screen
+      await PDFService.viewPDF(SAMPLE_PREVIEW_QUOTE, previewProfile);
+    } catch (err: any) {
+      AlertService.alert({
+        title: 'Preview Error',
+        message: err?.message || 'Could not preview template.',
+        type: 'DANGER',
+      });
+    } finally {
+      setIsPreviewingPdf(false);
+    }
+  };
+
+  const handleDetectCurrency = async () => {
+    setIsDetectingCurrency(true);
+    try {
+      const detected = await CurrencyService.detectFromLocationOrDevice();
+      setCurrencySymbol(detected.symbol);
+      setCurrencyCode(detected.code);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      AlertService.alert({
+        title: 'Currency Detected',
+        message: `Set currency to ${detected.name} (${detected.symbol}) based on your location/locale.`,
+        type: 'SUCCESS',
+      });
+    } catch (err: any) {
+      AlertService.alert({
+        title: 'Detection Failed',
+        message: 'Could not auto-detect location. Please select currency manually.',
         type: 'WARNING',
       });
+    } finally {
+      setIsDetectingCurrency(false);
+    }
+  };
+
+  const handleAddPreset = () => {
+    if (!newPresetTitle.trim()) {
+      AlertService.alert({ title: 'Invalid Preset', message: 'Enter a title for the service preset.', type: 'WARNING' });
       return;
     }
+    const cents = Math.round((parseFloat(newPresetPrice) || 0) * 100);
     addPreset({
       title: newPresetTitle.trim(),
-      priceCents,
-      category: 'Common',
+      priceCents: cents,
+      category: newPresetCategory,
     });
     setNewPresetTitle('');
     setNewPresetPrice('');
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
   };
 
-  const handleExportBackup = async () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    const path = await PDFService.exportFullDatabaseBackup();
-    if (!path) {
+  const handleBackupExport = async () => {
+    if (isBackingUp) return;
+    setIsBackingUp(true);
+    try {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      await PDFService.exportFullDatabaseBackup();
       AlertService.alert({
-        title: 'Database Backup',
-        message: 'All local estimates and signatures are securely preserved in offline SQLite.',
+        title: 'Backup Created',
+        message: 'Your SQLite database and legal audit records have been exported.',
         type: 'SUCCESS',
       });
+    } catch (err: any) {
+      AlertService.alert({
+        title: 'Backup Failed',
+        message: err?.message || 'Could not export database.',
+        type: 'DANGER',
+      });
+    } finally {
+      setIsBackingUp(false);
     }
   };
 
-  const handleRunDiagnostics = async () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    const diag = await runSelfDiagnostics();
-    if (diag.passed) {
-      AlertService.alert({
-        title: 'System Integrity OK',
-        message: diag.results.join('\n'),
-        type: 'SUCCESS',
-      });
+  const handleVersionTap = () => {
+    const next = versionTapCount + 1;
+    setVersionTapCount(next);
+    if (next >= 5) {
+      setVersionTapCount(0);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      setShowBehaviorLogs(true);
     } else {
-      AlertService.alert({
-        title: 'Diagnostic Alert',
-        message: diag.results.join('\n'),
-        type: 'WARNING',
-      });
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     }
   };
+
+  const activeTemplateName =
+    INVOICE_TEMPLATES.find((t) => t.id === selectedTemplate)?.name || 'Modern Navy';
 
   const renderMiniMockup = (templateId: InvoiceTemplateId) => {
-    if (templateId === 'modern') {
-      return (
-        <View style={styles.mockupContainer}>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingBottom: 6, borderBottomWidth: 1.5, borderColor: '#CBD5E1' }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
-              <View style={{ width: 18, height: 18, borderRadius: 4, backgroundColor: '#0F172A', alignItems: 'center', justifyContent: 'center' }}>
-                <Text style={{ color: '#FFF', fontSize: 9, fontWeight: '900' }}>JS</Text>
-              </View>
-              <View style={{ width: 65, height: 6, backgroundColor: '#0F172A', borderRadius: 2 }} />
-            </View>
-            <View style={{ paddingHorizontal: 6, paddingVertical: 2, borderRadius: 10, backgroundColor: '#EFF6FF', borderWidth: 0.5, borderColor: '#BFDBFE' }}>
-              <Text style={{ fontSize: 7, fontWeight: '800', color: '#1E40AF' }}>ESTIMATE</Text>
-            </View>
-          </View>
-          <View style={{ flexDirection: 'row', gap: 6, marginVertical: 6 }}>
-            <View style={{ flex: 1, height: 16, backgroundColor: '#F8FAFC', borderRadius: 3, borderWidth: 0.5, borderColor: '#E2E8F0', padding: 3, justifyContent: 'center' }}>
-              <View style={{ width: '65%', height: 3.5, backgroundColor: '#64748B', borderRadius: 1 }} />
-            </View>
-            <View style={{ flex: 1, height: 16, backgroundColor: '#F8FAFC', borderRadius: 3, borderWidth: 0.5, borderColor: '#E2E8F0', padding: 3, justifyContent: 'center' }}>
-              <View style={{ width: '55%', height: 3.5, backgroundColor: '#64748B', borderRadius: 1 }} />
-            </View>
-          </View>
-          <View style={{ gap: 3, marginVertical: 3 }}>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 2, borderBottomWidth: 0.5, borderColor: '#E2E8F0' }}>
-              <View style={{ width: 85, height: 4, backgroundColor: '#334155', borderRadius: 1 }} />
-              <View style={{ width: 30, height: 4, backgroundColor: '#0F172A', borderRadius: 1 }} />
-            </View>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 2, borderBottomWidth: 0.5, borderColor: '#E2E8F0' }}>
-              <View style={{ width: 70, height: 4, backgroundColor: '#334155', borderRadius: 1 }} />
-              <View style={{ width: 25, height: 4, backgroundColor: '#0F172A', borderRadius: 1 }} />
-            </View>
-          </View>
-          <View style={{ alignSelf: 'flex-end', flexDirection: 'row', gap: 6, alignItems: 'center', marginTop: 4, paddingTop: 4, borderTopWidth: 1.5, borderColor: '#0F172A' }}>
-            <Text style={{ fontSize: 8, fontWeight: '800', color: '#475569' }}>TOTAL:</Text>
-            <Text style={{ fontSize: 9, fontWeight: '900', color: '#0F172A' }}>{currencySymbol}2,949.81</Text>
-          </View>
-        </View>
-      );
-    }
+    const accentColor =
+      templateId === 'modern'
+        ? '#1E3A8A'
+        : templateId === 'classic'
+        ? '#831843'
+        : templateId === 'minimal'
+        ? '#111827'
+        : '#D97706';
 
-    if (templateId === 'classic') {
-      return (
-        <View style={[styles.mockupContainer, { backgroundColor: '#FAF8F5', borderColor: '#D6D3D1' }]}>
-          <View style={{ paddingBottom: 6, borderBottomWidth: 2, borderColor: '#44403C' }}>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
-                <View style={{ width: 18, height: 18, borderRadius: 2, backgroundColor: '#292524', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#78716C' }}>
-                  <Text style={{ color: '#FAF8F5', fontSize: 9, fontWeight: '900', fontStyle: 'italic' }}>JS</Text>
-                </View>
-                <View style={{ width: 70, height: 6, backgroundColor: '#1C1917', borderRadius: 1 }} />
-              </View>
-              <View style={{ paddingHorizontal: 5, paddingVertical: 2, borderRadius: 2, backgroundColor: '#FDF2F8', borderWidth: 0.5, borderColor: '#F472B6' }}>
-                <Text style={{ fontSize: 7, fontWeight: '800', color: '#831843' }}>AGREEMENT</Text>
-              </View>
-            </View>
-            <View style={{ height: 1, backgroundColor: '#44403C', marginTop: 2 }} />
-          </View>
-          <View style={{ flexDirection: 'row', gap: 6, marginVertical: 6 }}>
-            <View style={{ flex: 1, height: 16, backgroundColor: '#FFFFFF', borderRadius: 2, borderWidth: 0.5, borderColor: '#D6D3D1', padding: 3, justifyContent: 'center' }}>
-              <View style={{ width: '60%', height: 3.5, backgroundColor: '#831843', borderRadius: 1 }} />
-            </View>
-            <View style={{ flex: 1, height: 16, backgroundColor: '#FFFFFF', borderRadius: 2, borderWidth: 0.5, borderColor: '#D6D3D1', padding: 3, justifyContent: 'center' }}>
-              <View style={{ width: '50%', height: 3.5, backgroundColor: '#831843', borderRadius: 1 }} />
-            </View>
-          </View>
-          <View style={{ gap: 3, marginVertical: 3 }}>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 2, borderBottomWidth: 0.5, borderColor: '#E7E5E4' }}>
-              <View style={{ width: 85, height: 4, backgroundColor: '#292524', borderRadius: 1 }} />
-              <View style={{ width: 30, height: 4, backgroundColor: '#1C1917', borderRadius: 1 }} />
-            </View>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 2, borderBottomWidth: 0.5, borderColor: '#E7E5E4' }}>
-              <View style={{ width: 65, height: 4, backgroundColor: '#292524', borderRadius: 1 }} />
-              <View style={{ width: 25, height: 4, backgroundColor: '#1C1917', borderRadius: 1 }} />
-            </View>
-          </View>
-          <View style={{ alignSelf: 'flex-end', flexDirection: 'row', gap: 6, alignItems: 'center', marginTop: 4, paddingTop: 4, borderTopWidth: 1, borderColor: '#1C1917', borderBottomWidth: 2, borderBottomColor: '#1C1917' }}>
-            <Text style={{ fontSize: 8, fontWeight: '800', color: '#57534E', fontStyle: 'italic' }}>TOTAL:</Text>
-            <Text style={{ fontSize: 9, fontWeight: '900', color: '#831843' }}>{currencySymbol}2,949.81</Text>
-          </View>
-        </View>
-      );
-    }
-
-    if (templateId === 'minimal') {
-      return (
-        <View style={[styles.mockupContainer, { backgroundColor: '#FFFFFF', borderColor: '#E5E7EB' }]}>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingBottom: 6, borderBottomWidth: 1.5, borderColor: '#000000' }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
-              <View style={{ width: 16, height: 16, backgroundColor: '#000000', alignItems: 'center', justifyContent: 'center' }}>
-                <Text style={{ color: '#FFF', fontSize: 8, fontWeight: '900' }}>JS</Text>
-              </View>
-              <View style={{ width: 60, height: 5, backgroundColor: '#000000' }} />
-            </View>
-            <View style={{ paddingHorizontal: 4, paddingVertical: 1, backgroundColor: '#000000' }}>
-              <Text style={{ fontSize: 7, fontWeight: '900', color: '#FFFFFF' }}>#1042</Text>
-            </View>
-          </View>
-          <View style={{ flexDirection: 'row', gap: 6, marginVertical: 6 }}>
-            <View style={{ flex: 1, height: 16, borderLeftWidth: 2, borderColor: '#000000', paddingLeft: 4, justifyContent: 'center' }}>
-              <View style={{ width: '60%', height: 3, backgroundColor: '#000000' }} />
-            </View>
-            <View style={{ flex: 1, height: 16, borderLeftWidth: 2, borderColor: '#000000', paddingLeft: 4, justifyContent: 'center' }}>
-              <View style={{ width: '50%', height: 3, backgroundColor: '#000000' }} />
-            </View>
-          </View>
-          <View style={{ gap: 3, marginVertical: 3 }}>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 2, borderBottomWidth: 0.5, borderColor: '#E5E7EB' }}>
-              <View style={{ width: 80, height: 3.5, backgroundColor: '#111827' }} />
-              <View style={{ width: 25, height: 3.5, backgroundColor: '#000000' }} />
-            </View>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 2, borderBottomWidth: 0.5, borderColor: '#E5E7EB' }}>
-              <View style={{ width: 65, height: 3.5, backgroundColor: '#111827' }} />
-              <View style={{ width: 20, height: 3.5, backgroundColor: '#000000' }} />
-            </View>
-          </View>
-          <View style={{ alignSelf: 'flex-end', backgroundColor: '#000000', paddingHorizontal: 6, paddingVertical: 3, marginTop: 4 }}>
-            <Text style={{ fontSize: 8, fontWeight: '900', color: '#FFFFFF' }}>{currencySymbol}2,949.81</Text>
-          </View>
-        </View>
-      );
-    }
-
-    // contractor / industrial
     return (
-      <View style={[styles.mockupContainer, { backgroundColor: '#FFFFFF', borderColor: '#D4D4D8' }]}>
-        <View style={{ backgroundColor: '#18181B', padding: 5, borderRadius: 3, borderBottomWidth: 2, borderColor: '#F59E0B' }}>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-              <View style={{ width: 16, height: 16, borderRadius: 2, backgroundColor: '#F59E0B', alignItems: 'center', justifyContent: 'center' }}>
-                <Text style={{ color: '#000', fontSize: 8, fontWeight: '900' }}>JS</Text>
-              </View>
-              <View style={{ width: 60, height: 5, backgroundColor: '#FFFFFF', borderRadius: 1 }} />
-            </View>
-            <View style={{ paddingHorizontal: 4, paddingVertical: 1, backgroundColor: '#F59E0B', borderRadius: 2 }}>
-              <Text style={{ fontSize: 7, fontWeight: '900', color: '#000000' }}>ESTIMATE</Text>
-            </View>
-          </View>
+      <View
+        style={{
+          height: 48,
+          backgroundColor: '#FFFFFF',
+          borderRadius: 6,
+          borderWidth: 1,
+          borderColor: accentColor + '30',
+          padding: 6,
+          marginVertical: 8,
+          justifyContent: 'space-between',
+        }}
+      >
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+          <View style={{ height: 6, width: 34, backgroundColor: accentColor, borderRadius: 2 }} />
+          <View style={{ height: 4, width: 20, backgroundColor: '#94A3B8', borderRadius: 2 }} />
         </View>
-        <View style={{ flexDirection: 'row', gap: 6, marginVertical: 6 }}>
-          <View style={{ flex: 1, height: 16, backgroundColor: '#F4F4F5', borderRadius: 2, borderTopWidth: 2, borderColor: '#D97706', padding: 3, justifyContent: 'center' }}>
-            <View style={{ width: '60%', height: 3.5, backgroundColor: '#B45309', borderRadius: 1 }} />
-          </View>
-          <View style={{ flex: 1, height: 16, backgroundColor: '#F4F4F5', borderRadius: 2, borderTopWidth: 2, borderColor: '#D97706', padding: 3, justifyContent: 'center' }}>
-            <View style={{ width: '50%', height: 3.5, backgroundColor: '#B45309', borderRadius: 1 }} />
-          </View>
+        <View style={{ flexDirection: 'row', gap: 4 }}>
+          <View style={{ height: 3, flex: 1, backgroundColor: '#E2E8F0', borderRadius: 1 }} />
+          <View style={{ height: 3, width: 18, backgroundColor: '#E2E8F0', borderRadius: 1 }} />
         </View>
-        <View style={{ gap: 3, marginVertical: 3 }}>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 2, borderBottomWidth: 0.5, borderColor: '#E4E4E7' }}>
-            <View style={{ width: 85, height: 4, backgroundColor: '#18181B', borderRadius: 1 }} />
-            <View style={{ width: 30, height: 4, backgroundColor: '#18181B', borderRadius: 1 }} />
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+          <View style={{ height: 3, width: 24, backgroundColor: '#E2E8F0', borderRadius: 1 }} />
+          <View style={{ paddingHorizontal: 4, paddingVertical: 1, backgroundColor: accentColor, borderRadius: 2 }}>
+            <Text style={{ fontSize: 7, fontWeight: '900', color: '#FFFFFF' }}>TOTAL</Text>
           </View>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 2, borderBottomWidth: 0.5, borderColor: '#E4E4E7' }}>
-            <View style={{ width: 70, height: 4, backgroundColor: '#18181B', borderRadius: 1 }} />
-            <View style={{ width: 25, height: 4, backgroundColor: '#18181B', borderRadius: 1 }} />
-          </View>
-        </View>
-        <View style={{ alignSelf: 'flex-end', backgroundColor: '#18181B', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 3, marginTop: 4 }}>
-          <Text style={{ fontSize: 8, fontWeight: '900', color: '#FBBF24' }}>TOTAL: {currencySymbol}2,949.81</Text>
         </View>
       </View>
     );
@@ -976,866 +435,1548 @@ export const SettingsScreen: React.FC<{ onBack: () => void }> = ({ onBack }) => 
 
   return (
     <View style={styles.container}>
-      {/* Header */}
+      {/* ── Top Header ───────────────────────────────────────────────────────── */}
       <View style={styles.header}>
+        {onBack ? (
+          <TouchableOpacity
+            style={styles.backBtn}
+            onPress={onBack}
+            hitSlop={{ top: 14, bottom: 14, left: 14, right: 14 }}
+          >
+            <ChevronLeft size={20} color={colors.primary} />
+          </TouchableOpacity>
+        ) : (
+          <View style={{ width: 20 }} />
+        )}
+        <Text style={styles.headerTitle}>Settings</Text>
         <TouchableOpacity
-          style={styles.backBtn}
-          onPress={onBack}
+          style={styles.sunlightBtn}
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            toggleSunlightMode();
+          }}
           hitSlop={{ top: 14, bottom: 14, left: 14, right: 14 }}
         >
-          <ChevronLeft size={20} color={colors.primary} strokeWidth={2.5} />
-          <Text style={styles.backText}>Back</Text>
+          <Zap size={16} color={colors.amber} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Settings</Text>
-        <View style={{ width: 60 }} />
       </View>
 
       <ScrollView
         contentContainerStyle={[styles.scrollContent, { paddingBottom: 100 + insets.bottom }]}
-        keyboardShouldPersistTaps="handled"
-        keyboardDismissMode="on-drag"
+        showsVerticalScrollIndicator={false}
       >
-
-        {/* ── Membership / Free Access Card ───────────────────────────────── */}
-        <View style={styles.proCard}>
-          <View style={styles.proRow}>
-            <View style={{ flex: 1 }}>
-              <View style={styles.proTitleRow}>
-                <Star size={16} color={colors.amber} fill={colors.amber} />
-                <Text style={styles.proTitle}>
-                  {FEATURE_FLAGS.PAYMENT_ENABLED
-                    ? isPro
-                      ? 'Pro Member — Unlimited Estimates'
-                      : 'JobSign Pro — Early-Bird Pricing'
-                    : 'JobSign Full Access — 100% Free'}
-                </Text>
-              </View>
-              <Text style={styles.proSub}>
-                {FEATURE_FLAGS.PAYMENT_ENABLED
-                  ? isPro
-                    ? 'Unlimited signed estimates, custom branding & courtroom audit seals.'
-                    : [
-                        '• Annual: $29.99 / year (save 37% vs monthly)',
-                        '• Monthly: $3.99 / month',
-                        '• Lifetime: $49.99 one-time',
-                      ].join('\n')
-                  : 'All Pro features, unlimited estimates, all 4 PDF templates, cryptographic seals, and courtroom audit certificates are completely free.'}
-              </Text>
-            </View>
-          </View>
-
-          {FEATURE_FLAGS.PAYMENT_ENABLED && (
-            !isPro ? (
-              <TouchableOpacity
-                style={styles.upgradeBtn}
-                onPress={() => {
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                  handleOpenPaywall();
-                }}
-              >
-                <Zap size={16} color="#0F172A" />
-                <Text style={styles.upgradeBtnText}>Upgrade to Pro</Text>
-              </TouchableOpacity>
+        {/* ── Profile Summary Hero Card ─────────────────────────────────────── */}
+        <TouchableOpacity
+          style={styles.profileHeroCard}
+          onPress={() => setActiveModal('PROFILE')}
+          activeOpacity={0.8}
+        >
+          <View style={styles.avatarCircle}>
+            {logoUri ? (
+              <Image source={{ uri: logoUri }} style={styles.avatarImg} />
             ) : (
-              <TouchableOpacity
-                style={styles.manageMembershipBtn}
-                onPress={() => {
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                  handleOpenPaywall();
-                }}
-              >
-                <Text style={styles.manageMembershipText}>Manage Membership / Restore</Text>
-              </TouchableOpacity>
-            )
-          )}
-
-          {__DEV__ && (
-            <TouchableOpacity
-              style={[styles.proToggleBtn, isPro && styles.proToggleBtnActive]}
-              onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-                setProStatus(!isPro);
-              }}
-            >
-              <Text style={styles.proToggleText}>
-                {isPro ? '[DEV] Deactivate Pro' : '[DEV] Activate Pro'}
-              </Text>
-            </TouchableOpacity>
-          )}
-        </View>
-
-        {/* ── Dark Mode Toggle ──────────────────────────────────────────────── */}
-        <View style={styles.card}>
-          <Text style={styles.cardLabel}>Display</Text>
-          <View style={styles.darkModeRow}>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.darkModeTitle}>Dark Mode</Text>
-              <Text style={styles.darkModeSub}>
-                Switch between light and dark interface themes.
-              </Text>
-            </View>
-            <TouchableOpacity
-              style={[styles.darkModeBtn, isDarkMode && styles.darkModeBtnActive]}
-              onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                toggleDarkMode();
-              }}
-            >
-              <Text style={[styles.darkModeBtnText, isDarkMode && styles.darkModeBtnTextActive]}>
-                {isDarkMode ? 'ON' : 'OFF'}
-              </Text>
-            </TouchableOpacity>
+              <Text style={styles.avatarInitials}>{initials}</Text>
+            )}
           </View>
-        </View>
-
-        {/* ── Smart Alerts & Notifications ───────────────────────────────────── */}
-        <View style={styles.card}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 }}>
-            <Bell size={16} color={colors.amber} />
-            <Text style={styles.cardLabel}>Smart Alerts & Notifications</Text>
-          </View>
-          <Text style={styles.cardHint}>
-            JobSign sends only functional, zero-spam notifications for critical job milestones and outbox deliveries.
-          </Text>
-
-          {/* Outbox delivery toggle */}
-          <View style={[styles.darkModeRow, { paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: colors.borderSubtle }]}>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.darkModeTitle}>Offline Outbox Delivery</Text>
-              <Text style={styles.darkModeSub}>
-                Alerts when queued basement agreements are automatically delivered upon reconnection.
-              </Text>
-            </View>
-            <TouchableOpacity
-              style={[styles.darkModeBtn, outboxAlerts && styles.darkModeBtnActive]}
-              onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                setOutboxAlerts(!outboxAlerts);
-              }}
-            >
-              <Text style={[styles.darkModeBtnText, outboxAlerts && styles.darkModeBtnTextActive]}>
-                {outboxAlerts ? 'ON' : 'OFF'}
-              </Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* Seal confirmation toggle */}
-          <View style={[styles.darkModeRow, { paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: colors.borderSubtle }]}>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.darkModeTitle}>Signature & Seal Locks</Text>
-              <Text style={styles.darkModeSub}>
-                Instant confirmation when client signs and cryptographic SHA-256 seal locks.
-              </Text>
-            </View>
-            <TouchableOpacity
-              style={[styles.darkModeBtn, sealConfirmations && styles.darkModeBtnActive]}
-              onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                setSealConfirmations(!sealConfirmations);
-              }}
-            >
-              <Text style={[styles.darkModeBtnText, sealConfirmations && styles.darkModeBtnTextActive]}>
-                {sealConfirmations ? 'ON' : 'OFF'}
-              </Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* Payment reminder toggle */}
-          <View style={[styles.darkModeRow, { paddingVertical: 8 }]}>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.darkModeTitle}>Gentle Follow-Up Reminders</Text>
-              <Text style={styles.darkModeSub}>
-                Polite notice 3 days after job completion if payment has not yet been collected.
-              </Text>
-            </View>
-            <TouchableOpacity
-              style={[styles.darkModeBtn, paymentReminders && styles.darkModeBtnActive]}
-              onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                setPaymentReminders(!paymentReminders);
-              }}
-            >
-              <Text style={[styles.darkModeBtnText, paymentReminders && styles.darkModeBtnTextActive]}>
-                {paymentReminders ? 'ON' : 'OFF'}
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        {/* ── Currency & Regional Format ───────────────────────────────────── */}
-        <View style={styles.card}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 }}>
-            <Globe size={16} color={colors.primary} />
-            <Text style={styles.cardLabel}>Currency & Regional Format</Text>
-          </View>
-          <Text style={styles.cardHint}>
-            Sets the currency symbol across all estimates, line items, PDF contracts, signatures, and payments.
-          </Text>
-
-          {/* 1-Tap Auto Detect button */}
-          <TouchableOpacity
-            style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: 8,
-              backgroundColor: isDarkMode ? 'rgba(59, 130, 246, 0.12)' : '#EFF6FF',
-              borderColor: colors.primary,
-              borderWidth: 1,
-              borderRadius: Theme.borderRadius.md,
-              paddingVertical: 10,
-              paddingHorizontal: 14,
-              marginTop: 6,
-              marginBottom: 12,
-            }}
-            onPress={handleDetectCurrency}
-            disabled={isDetectingCurrency}
-            activeOpacity={0.8}
-          >
-            <MapPin size={16} color={colors.primary} />
-            <Text style={{ fontSize: 13, fontWeight: '700', color: colors.primary }}>
-              {isDetectingCurrency ? 'Detecting Location...' : 'Auto-Detect Currency from Device / GPS'}
+          <View style={{ flex: 1 }}>
+            <Text style={styles.heroBusinessName} numberOfLines={1}>
+              {businessName || 'Your Business Name'}
             </Text>
+            <Text style={styles.heroSub} numberOfLines={1}>
+              {ownerName || 'Licensed Contractor'} • {phone || 'Tap to add phone'}
+            </Text>
+            <View style={styles.activeTemplateBadge}>
+              <Palette size={11} color={colors.primary} style={{ marginRight: 4 }} />
+              <Text style={styles.activeTemplateBadgeText}>Style: {activeTemplateName}</Text>
+            </View>
+          </View>
+          <ChevronRight size={18} color={colors.textMuted} />
+        </TouchableOpacity>
+
+        {/* ── Group 1: Business Identity & Branding ─────────────────────────── */}
+        <View style={styles.groupCard}>
+          <Text style={styles.groupHeader}>BUSINESS & BRANDING</Text>
+
+          <SettingsRow
+            icon={<Building2 size={18} color={colors.primary} />}
+            title="Company Profile"
+            subtitle={businessName || 'Name, phone, email, address, license'}
+            colors={colors}
+            onPress={() => setActiveModal('PROFILE')}
+          />
+
+          <SettingsRow
+            icon={<ImageIcon size={18} color="#8B5CF6" />}
+            title="Company Logo"
+            subtitle={logoUri ? 'Custom invoice logo active' : 'Tap to upload company logo'}
+            badge={logoUri ? 'Active' : undefined}
+            badgeColor={colors.emerald}
+            colors={colors}
+            onPress={() => setActiveModal('LOGO')}
+          />
+
+          <SettingsRow
+            icon={<Palette size={18} color="#EC4899" />}
+            title="Invoice Design & Templates"
+            subtitle={`Current: ${activeTemplateName} (4 executive styles)`}
+            badge="Customizable"
+            badgeColor="#EC4899"
+            colors={colors}
+            isLast
+            onPress={() => setActiveModal('TEMPLATE')}
+          />
+        </View>
+
+        {/* ── Group 2: Payments & Taxes ─────────────────────────────────────── */}
+        <View style={styles.groupCard}>
+          <Text style={styles.groupHeader}>PAYMENTS & FINANCIALS</Text>
+
+          <SettingsRow
+            icon={<Zap size={18} color="#EAB308" />}
+            title="Direct Payment & UPI"
+            subtitle={
+              upiId
+                ? `UPI: ${upiId}`
+                : zelle
+                ? `Zelle: ${zelle}`
+                : 'Set up receiving UPI ID or Bank account'
+            }
+            badge={upiId || zelle ? 'Active' : 'Setup Required'}
+            badgeColor={upiId || zelle ? colors.emerald : colors.amber}
+            colors={colors}
+            onPress={() => setActiveModal('PAYMENT')}
+          />
+
+          <SettingsRow
+            icon={<Globe size={18} color="#06B6D4" />}
+            title="Currency & Taxes"
+            subtitle={`${currencySymbol} (${currencyCode}) • Tax: ${
+              taxEnabledByDefault ? defaultTaxRate + '% ' + taxLabel : 'Disabled'
+            }`}
+            colors={colors}
+            isLast
+            onPress={() => setActiveModal('CURRENCY_TAX')}
+          />
+        </View>
+
+        {/* ── Group 3: Operations & Presets ─────────────────────────────────── */}
+        <View style={styles.groupCard}>
+          <Text style={styles.groupHeader}>OPERATIONS & CATALOG</Text>
+
+          <SettingsRow
+            icon={<FileText size={18} color="#10B981" />}
+            title="Service & Price Presets"
+            subtitle={`${presets.length} presets configured for fast quoting`}
+            colors={colors}
+            onPress={() => setActiveModal('PRESETS')}
+          />
+
+          <SettingsRow
+            icon={<Bell size={18} color="#F59E0B" />}
+            title="Notification Alerts"
+            subtitle="Seal confirmations, outbox dispatches, payment reminders"
+            colors={colors}
+            isLast
+            onPress={() => setActiveModal('NOTIFICATIONS')}
+          />
+        </View>
+
+        {/* ── Group 4: Data & Legal ─────────────────────────────────────────── */}
+        <View style={styles.groupCard}>
+          <Text style={styles.groupHeader}>DATA & LEGAL COMPLIANCE</Text>
+
+          <SettingsRow
+            icon={<Download size={18} color="#3B82F6" />}
+            title="Data Backup & Export"
+            subtitle="Export SQLite encrypted database backup"
+            colors={colors}
+            onPress={() => setActiveModal('BACKUP')}
+          />
+
+          <SettingsRow
+            icon={<Shield size={18} color="#6366F1" />}
+            title="Legal & ESIGN Compliance"
+            subtitle="Irrebuttable evidence, UETA & court admissibility"
+            colors={colors}
+            isLast
+            onPress={() => setActiveModal('LEGAL')}
+          />
+        </View>
+
+        {/* ── About & Version Footer ─────────────────────────────────────────── */}
+        <View style={styles.aboutFooter}>
+          <TouchableOpacity onPress={handleVersionTap} activeOpacity={0.6}>
+            <Text style={styles.versionText}>JobSign v1.0.0 (Release Build)</Text>
+            <Text style={styles.versionSub}>Offline-First Local SQLite • Hermetic Audit Trail</Text>
           </TouchableOpacity>
 
-          {/* Quick Select Chips */}
-          <Text style={[styles.cardLabel, { fontSize: 11, marginBottom: 6, color: colors.textSecondary }]}>
-            POPULAR CURRENCIES
-          </Text>
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>
-            {POPULAR_CURRENCIES.map((c) => {
-              const isSelected = currencyCode === c.code || currencySymbol === c.symbol;
-              return (
-                <TouchableOpacity
-                  key={c.code}
-                  style={{
-                    paddingHorizontal: 11,
-                    paddingVertical: 6,
-                    borderRadius: Theme.borderRadius.full,
-                    backgroundColor: isSelected ? colors.primary : colors.backgroundSecondary,
-                    borderWidth: 1,
-                    borderColor: isSelected ? colors.primary : colors.border,
-                  }}
-                  onPress={() => {
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                    setCurrencySymbol(c.symbol);
-                    setCurrencyCode(c.code);
-                  }}
-                >
-                  <Text
-                    style={{
-                      fontSize: 12,
-                      fontWeight: '700',
-                      color: isSelected ? '#FFFFFF' : colors.textPrimary,
-                    }}
-                  >
-                    {c.symbol} {c.code}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-
-          {/* Custom Symbol Input */}
-          <Text style={[styles.cardLabel, { fontSize: 11, marginTop: 4, marginBottom: 6, color: colors.textSecondary }]}>
-            ACTIVE CURRENCY SYMBOL
-          </Text>
-          <TextInput
-            style={styles.input}
-            placeholder="e.g. ₹, $, £, €, CA$, A$, ¥, AED"
-            placeholderTextColor={colors.textMuted}
-            value={currencySymbol}
-            onChangeText={(val) => {
-              setCurrencySymbol(val);
-              const match = POPULAR_CURRENCIES.find((c) => c.symbol.trim() === val.trim());
-              if (match) setCurrencyCode(match.code);
+          <TouchableOpacity
+            style={styles.diagBtn}
+            onPress={async () => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              const r = await runSelfDiagnostics();
+              AlertService.alert({
+                title: r.passed ? 'Diagnostics Passed' : 'Diagnostic Warning',
+                message: r.results.join('\n'),
+                type: r.passed ? 'SUCCESS' : 'WARNING',
+              });
             }}
-          />
+          >
+            <Activity size={13} color={colors.textSecondary} style={{ marginRight: 4 }} />
+            <Text style={styles.diagBtnText}>Run Self-Diagnostics</Text>
+          </TouchableOpacity>
         </View>
+      </ScrollView>
 
-        {/* ── Business Profile ──────────────────────────────────────────────── */}
-        <View style={styles.card}>
-          <Text style={styles.cardLabel}>Shop & Business Profile</Text>
-          <Text style={styles.cardHint}>
-            Your shop name, logo, and physical address appear at the top of every generated client estimate and invoice PDF.
-          </Text>
+      {/* ════════════════════════════════════════════════════════════════════════
+          SUB-MODALS (Clean focused modal sheets opened on clicking items)
+      ════════════════════════════════════════════════════════════════════════ */}
 
-          {/* Shop Logo Picker */}
-          <View style={styles.logoBox}>
+      {/* ── MODAL 1: COMPANY PROFILE ───────────────────────────────────────── */}
+      <SettingsSubModal
+        visible={activeModal === 'PROFILE'}
+        title="Company Profile"
+        subtitle="Appears on all digital contracts, client receipts & legal headers"
+        colors={colors}
+        insets={insets}
+        onClose={() => setActiveModal(null)}
+      >
+        <Text style={styles.inputLabel}>Business / Contracting Name *</Text>
+        <TextInput
+          style={styles.input}
+          placeholder="e.g. Apex Electrical Solutions"
+          placeholderTextColor={colors.textMuted}
+          value={businessName}
+          onChangeText={setBusinessName}
+        />
+
+        <Text style={styles.inputLabel}>Owner / Contractor Full Name</Text>
+        <TextInput
+          style={styles.input}
+          placeholder="e.g. Mike Sullivan"
+          placeholderTextColor={colors.textMuted}
+          value={ownerName}
+          onChangeText={setOwnerName}
+        />
+
+        <Text style={styles.inputLabel}>Phone Number</Text>
+        <TextInput
+          style={styles.input}
+          placeholder="e.g. (512) 843-9201"
+          placeholderTextColor={colors.textMuted}
+          value={phone}
+          onChangeText={setPhone}
+          keyboardType="phone-pad"
+        />
+
+        <Text style={styles.inputLabel}>Email Address</Text>
+        <TextInput
+          style={styles.input}
+          placeholder="e.g. mike@apexservices.com"
+          placeholderTextColor={colors.textMuted}
+          value={email}
+          onChangeText={setEmail}
+          keyboardType="email-address"
+          autoCapitalize="none"
+        />
+
+        <Text style={styles.inputLabel}>Business Physical Address</Text>
+        <TextInput
+          style={styles.input}
+          placeholder="e.g. 1204 Industrial Blvd, Suite B"
+          placeholderTextColor={colors.textMuted}
+          value={address}
+          onChangeText={setAddress}
+        />
+
+        <Text style={styles.inputLabel}>Trade License / Registration #</Text>
+        <TextInput
+          style={styles.input}
+          placeholder="e.g. TX-EL-92841"
+          placeholderTextColor={colors.textMuted}
+          value={license}
+          onChangeText={setLicense}
+        />
+
+        <TouchableOpacity
+          style={styles.modalPrimaryBtn}
+          onPress={() => {
+            handleSaveAll(true);
+            setActiveModal(null);
+          }}
+        >
+          <Check size={16} color="#FFFFFF" style={{ marginRight: 6 }} />
+          <Text style={styles.modalPrimaryBtnText}>Save Company Profile</Text>
+        </TouchableOpacity>
+      </SettingsSubModal>
+
+      {/* ── MODAL 2: COMPANY LOGO ──────────────────────────────────────────── */}
+      <SettingsSubModal
+        visible={activeModal === 'LOGO'}
+        title="Company Logo"
+        subtitle="High-resolution logo embedded in PDF headers"
+        colors={colors}
+        insets={insets}
+        onClose={() => setActiveModal(null)}
+      >
+        <View style={styles.logoModalCenter}>
+          <View style={styles.largeLogoBox}>
             {logoUri ? (
-              <Image source={{ uri: logoUri }} style={styles.logoImage} />
+              <Image source={{ uri: logoUri }} style={styles.largeLogoImg} />
             ) : (
-              <View
-                style={[
-                  styles.logoImage,
-                  {
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    backgroundColor: colors.surface,
-                  },
-                ]}
-              >
-                <Building2 size={24} color={colors.textMuted} />
+              <View style={styles.logoPlaceholderBox}>
+                <ImageIcon size={44} color={colors.textMuted} />
+                <Text style={styles.logoPlaceholderText}>No Logo Uploaded</Text>
               </View>
             )}
-            <View style={styles.logoActionsCol}>
-              <Text style={{ fontSize: 13, fontWeight: '800', color: colors.textPrimary }}>
-                {logoUri ? 'Shop Logo Attached' : 'Add Shop Logo'}
-              </Text>
-              <View style={styles.logoPickerBtnRow}>
-                <TouchableOpacity style={styles.logoBtn} onPress={handlePickLogo}>
-                  <ImageIcon size={14} color={colors.primary} />
-                  <Text style={styles.logoBtnText}>{logoUri ? 'Change' : 'Gallery'}</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.logoBtn} onPress={handleCaptureLogo}>
-                  <Camera size={14} color={colors.textSecondary} />
-                  <Text style={styles.logoBtnText}>Camera</Text>
-                </TouchableOpacity>
-                {logoUri && (
-                  <TouchableOpacity
-                    style={[styles.logoBtn, { borderColor: colors.roseLight }]}
-                    onPress={() => setLogoUri(null)}
-                  >
-                    <Trash2 size={14} color={colors.rose} />
-                  </TouchableOpacity>
-                )}
-              </View>
-            </View>
           </View>
 
-          {/* Shop Name */}
-          <Text style={[styles.cardLabel, { marginTop: 4, marginBottom: 4 }]}>SHOP / COMPANY NAME</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="Business Name (e.g. Apex Electric LLC)"
-            placeholderTextColor={colors.textMuted}
-            value={businessName}
-            onChangeText={setBusinessName}
-          />
+          <View style={styles.logoActionRow}>
+            <TouchableOpacity style={styles.logoPickBtn} onPress={() => handlePickLogo(true)}>
+              <Camera size={16} color={colors.primary} />
+              <Text style={styles.logoPickBtnText}>Take Photo</Text>
+            </TouchableOpacity>
 
-          {/* Shop Physical Address */}
-          <Text style={[styles.cardLabel, { marginTop: 10, marginBottom: 4 }]}>SHOP ADDRESS / LOCATION</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="Physical Address (e.g. 1204 Industrial Blvd, Austin, TX)"
-            placeholderTextColor={colors.textMuted}
-            value={address}
-            onChangeText={setAddress}
-          />
+            <TouchableOpacity style={styles.logoPickBtn} onPress={() => handlePickLogo(false)}>
+              <ImageIcon size={16} color={colors.primary} />
+              <Text style={styles.logoPickBtnText}>Choose Photo</Text>
+            </TouchableOpacity>
 
-          {/* Owner / Master Licensee Name */}
-          <Text style={[styles.cardLabel, { marginTop: 10, marginBottom: 4 }]}>OWNER / CONTRACTOR NAME</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="Owner / Master Licensee Name"
-            placeholderTextColor={colors.textMuted}
-            value={ownerName}
-            onChangeText={setOwnerName}
-          />
-
-          {/* Phone */}
-          <Text style={[styles.cardLabel, { marginTop: 10, marginBottom: 4 }]}>CLIENT CONTACT PHONE</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="Phone Number for Clients"
-            placeholderTextColor={colors.textMuted}
-            keyboardType="phone-pad"
-            value={phone}
-            onChangeText={setPhone}
-          />
-
-          {/* Email */}
-          <Text style={[styles.cardLabel, { marginTop: 10, marginBottom: 4 }]}>BUSINESS EMAIL</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="Email Address (e.g. contact@apexservice.com)"
-            placeholderTextColor={colors.textMuted}
-            keyboardType="email-address"
-            autoCapitalize="none"
-            value={email}
-            onChangeText={setEmail}
-          />
-
-          {/* License */}
-          <Text style={[styles.cardLabel, { marginTop: 10, marginBottom: 4 }]}>LICENSE / REGISTRATION # (OPTIONAL)</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="License / Registration # (optional)"
-            placeholderTextColor={colors.textMuted}
-            value={license}
-            onChangeText={setLicense}
-          />
+            {logoUri ? (
+              <TouchableOpacity
+                style={styles.logoRemoveBtn}
+                onPress={() => {
+                  setLogoUri(null);
+                  updateProfile({ logoUri: undefined });
+                  Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                }}
+              >
+                <Trash2 size={16} color={colors.rose} />
+                <Text style={styles.logoRemoveBtnText}>Remove</Text>
+              </TouchableOpacity>
+            ) : null}
+          </View>
         </View>
 
-        {/* ── Invoice Design & Templates ─────────────────────────────────────── */}
-        <View style={styles.card}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 }}>
-            <Palette size={16} color={colors.primary} />
-            <Text style={styles.cardLabel}>Invoice Design & Templates</Text>
-          </View>
-          <Text style={styles.cardHint}>
-            Choose from 4 executive styles tailored for trades, high-end residential, and modern contractors. Tap any design to select or preview the PDF.
-          </Text>
+        <TouchableOpacity
+          style={styles.modalPrimaryBtn}
+          onPress={() => {
+            handleSaveAll(true);
+            setActiveModal(null);
+          }}
+        >
+          <Check size={16} color="#FFFFFF" style={{ marginRight: 6 }} />
+          <Text style={styles.modalPrimaryBtnText}>Done</Text>
+        </TouchableOpacity>
+      </SettingsSubModal>
 
-          <View style={{ marginTop: 12 }}>
-            {INVOICE_TEMPLATES.map((tmpl) => {
-              const isSelected = selectedTemplate === tmpl.id;
-              return (
+      {/* ── MODAL 3: INVOICE STYLE & TEMPLATES ─────────────────────────────── */}
+      <SettingsSubModal
+        visible={activeModal === 'TEMPLATE'}
+        title="Invoice Design & Templates"
+        subtitle="Tap 'View Sample Invoice' on any style to preview a full PDF"
+        colors={colors}
+        insets={insets}
+        onClose={() => setActiveModal(null)}
+      >
+        {INVOICE_TEMPLATES.map((tmpl) => {
+          const isSelected = selectedTemplate === tmpl.id;
+          return (
+            <View
+              key={tmpl.id}
+              style={[styles.templateCard, isSelected && styles.templateCardSelected]}
+            >
+              {/* Header */}
+              <View style={styles.templateCardHeader}>
+                <View style={{ flex: 1 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <Text style={styles.templateTitle}>{tmpl.name}</Text>
+                    {isSelected && (
+                      <View style={styles.activePill}>
+                        <Check size={10} color="#FFFFFF" />
+                        <Text style={styles.activePillText}>ACTIVE</Text>
+                      </View>
+                    )}
+                  </View>
+                  <Text style={styles.templateDesc}>{tmpl.description}</Text>
+                </View>
+              </View>
+
+              {/* Visual Mockup Wireframe */}
+              {renderMiniMockup(tmpl.id)}
+
+              {/* Action Buttons */}
+              <View style={styles.templateActionRow}>
                 <TouchableOpacity
-                  key={tmpl.id}
-                  activeOpacity={0.88}
-                  style={[styles.templateCard, isSelected && styles.templateCardActive]}
+                  style={styles.viewSampleBtn}
+                  onPress={() => handlePreviewTemplate(tmpl.id)}
+                  disabled={isPreviewingPdf}
+                >
+                  {isPreviewingPdf ? (
+                    <ActivityIndicator size="small" color={colors.primary} />
+                  ) : (
+                    <>
+                      <Eye size={14} color={colors.primary} />
+                      <Text style={styles.viewSampleBtnText}>View Sample Invoice</Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.selectStyleBtn, isSelected && styles.selectStyleBtnActive]}
                   onPress={() => {
                     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                     setSelectedTemplate(tmpl.id);
                   }}
                 >
-                  <View style={styles.templateHeaderRow}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                      <Text style={styles.templateName}>{tmpl.name}</Text>
-                      {isSelected && (
-                        <CheckCircle2 size={16} color={colors.primary} />
-                      )}
-                    </View>
-                    <View
-                      style={[
-                        styles.templateBadge,
-                        {
-                          backgroundColor:
-                            tmpl.id === 'modern'
-                              ? '#EFF6FF'
-                              : tmpl.id === 'classic'
-                              ? '#FDF2F8'
-                              : tmpl.id === 'minimal'
-                              ? '#F3F4F6'
-                              : '#FFFBEB',
-                        },
-                      ]}
-                    >
-                      <Text
-                        style={[
-                          styles.templateBadgeText,
-                          {
-                            color:
-                              tmpl.id === 'modern'
-                                ? '#1E40AF'
-                                : tmpl.id === 'classic'
-                                ? '#9D174D'
-                                : tmpl.id === 'minimal'
-                                ? '#1F2937'
-                                : '#B45309',
-                          },
-                        ]}
-                      >
-                        {tmpl.badge}
-                      </Text>
-                    </View>
-                  </View>
-
-                  <Text style={styles.templateSubtitle}>
-                    {tmpl.subtitle} • {tmpl.fontFamilyName}
+                  <Text style={[styles.selectStyleBtnText, isSelected && styles.selectStyleBtnTextActive]}>
+                    {isSelected ? '✓ Selected' : 'Select Style'}
                   </Text>
-                  <Text style={styles.templateDesc}>{tmpl.description}</Text>
-
-                  {/* Visual Mockup Wireframe */}
-                  {renderMiniMockup(tmpl.id)}
-
-                  {/* Actions Row */}
-                  <View style={styles.templateActionRow}>
-                    <TouchableOpacity
-                      style={styles.previewBtn}
-                      onPress={() => handlePreviewTemplate(tmpl.id)}
-                    >
-                      <Eye size={13} color={colors.primary} />
-                      <Text style={styles.previewBtnText}>Preview PDF</Text>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity
-                      style={[styles.selectRadioBtn, isSelected && styles.selectRadioBtnActive]}
-                      onPress={() => {
-                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                        setSelectedTemplate(tmpl.id);
-                      }}
-                    >
-                      <Text style={[styles.selectRadioText, isSelected && styles.selectRadioTextActive]}>
-                        {isSelected ? '✓ ACTIVE STYLE' : 'USE THIS STYLE'}
-                      </Text>
-                    </TouchableOpacity>
-                  </View>
                 </TouchableOpacity>
-              );
-            })}
+              </View>
+            </View>
+          );
+        })}
+
+        <TouchableOpacity
+          style={styles.modalPrimaryBtn}
+          onPress={() => {
+            handleSaveAll(true);
+            setActiveModal(null);
+          }}
+        >
+          <Check size={16} color="#FFFFFF" style={{ marginRight: 6 }} />
+          <Text style={styles.modalPrimaryBtnText}>Apply Selected Template</Text>
+        </TouchableOpacity>
+      </SettingsSubModal>
+
+      {/* ── MODAL 4: DIRECT PAYMENT & UPI ──────────────────────────────────── */}
+      <SettingsSubModal
+        visible={activeModal === 'PAYMENT'}
+        title="Direct Payment & UPI"
+        subtitle="Pre-fills amount when homeowner scans QR code (0% commission)"
+        colors={colors}
+        insets={insets}
+        onClose={() => setActiveModal(null)}
+      >
+        <Text style={styles.inputLabel}>Your Receiving UPI ID / VPA *</Text>
+        <TextInput
+          style={styles.input}
+          placeholder="e.g. contractor@okhdfcbank, 9876543210@paytm"
+          placeholderTextColor={colors.textMuted}
+          value={upiId}
+          onChangeText={setUpiId}
+          autoCapitalize="none"
+          autoCorrect={false}
+        />
+        <Text style={styles.inputHelp}>
+          When client scans with GPay, PhonePe or Paytm, funds transfer directly to your bank account.
+        </Text>
+
+        <Text style={[styles.inputLabel, { marginTop: 12 }]}>Registered Payee / Business Name</Text>
+        <TextInput
+          style={styles.input}
+          placeholder="Name shown on client's UPI payment screen"
+          placeholderTextColor={colors.textMuted}
+          value={upiPayeeName}
+          onChangeText={setUpiPayeeName}
+        />
+
+        <Text style={[styles.inputLabel, { marginTop: 12 }]}>Bank Account Number (Optional)</Text>
+        <TextInput
+          style={styles.input}
+          placeholder="For clients preferring direct IMPS/NEFT transfer"
+          placeholderTextColor={colors.textMuted}
+          value={bankAccountNumber}
+          onChangeText={setBankAccountNumber}
+          keyboardType="numeric"
+        />
+
+        <Text style={[styles.inputLabel, { marginTop: 12 }]}>Bank IFSC Code (Optional)</Text>
+        <TextInput
+          style={styles.input}
+          placeholder="e.g. HDFC0001234, SBIN0000456"
+          placeholderTextColor={colors.textMuted}
+          value={bankIfsc}
+          onChangeText={setBankIfsc}
+          autoCapitalize="characters"
+        />
+
+        <Text style={[styles.inputLabel, { marginTop: 12 }]}>Bank Name (Optional)</Text>
+        <TextInput
+          style={styles.input}
+          placeholder="e.g. HDFC Bank, State Bank of India"
+          placeholderTextColor={colors.textMuted}
+          value={bankName}
+          onChangeText={setBankName}
+        />
+
+        {/* International Rails Toggle */}
+        <TouchableOpacity
+          style={{ marginTop: 14, alignSelf: 'flex-start' }}
+          onPress={() => setShowOtherRails(!showOtherRails)}
+        >
+          <Text style={{ fontSize: 12, color: colors.primary, fontWeight: '700' }}>
+            {showOtherRails ? 'Hide US Rails (Zelle/Venmo) ▲' : 'Show US Rails (Zelle, Venmo, CashApp) ▼'}
+          </Text>
+        </TouchableOpacity>
+
+        {showOtherRails && (
+          <View style={{ marginTop: 10, paddingTop: 10, borderTopWidth: 1, borderColor: colors.border }}>
+            <Text style={styles.inputLabel}>Zelle Phone or Email</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="e.g. mike@apexservices.com"
+              placeholderTextColor={colors.textMuted}
+              value={zelle}
+              onChangeText={setZelle}
+            />
+
+            <Text style={[styles.inputLabel, { marginTop: 10 }]}>Venmo Username</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="e.g. @ApexServices"
+              placeholderTextColor={colors.textMuted}
+              value={venmo}
+              onChangeText={setVenmo}
+            />
+
+            <Text style={[styles.inputLabel, { marginTop: 10 }]}>Cash App Cashtag</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="e.g. $ApexMike"
+              placeholderTextColor={colors.textMuted}
+              value={cashApp}
+              onChangeText={setCashApp}
+            />
           </View>
+        )}
+
+        <TouchableOpacity
+          style={styles.modalPrimaryBtn}
+          onPress={() => {
+            handleSaveAll(true);
+            setActiveModal(null);
+          }}
+        >
+          <Check size={16} color="#FFFFFF" style={{ marginRight: 6 }} />
+          <Text style={styles.modalPrimaryBtnText}>Save Payment Accounts</Text>
+        </TouchableOpacity>
+      </SettingsSubModal>
+
+      {/* ── MODAL 5: CURRENCY & TAXES ───────────────────────────────────────── */}
+      <SettingsSubModal
+        visible={activeModal === 'CURRENCY_TAX'}
+        title="Currency & Tax Preferences"
+        subtitle="Automatic GPS detection & sales tax calculation rules"
+        colors={colors}
+        insets={insets}
+        onClose={() => setActiveModal(null)}
+      >
+        <Text style={styles.inputLabel}>Selected Currency Symbol</Text>
+        <View style={styles.currencyChips}>
+          {POPULAR_CURRENCIES.map((c) => {
+            const isCur = currencySymbol === c.symbol;
+            return (
+              <TouchableOpacity
+                key={c.code}
+                style={[styles.currencyChip, isCur && styles.currencyChipActive]}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  setCurrencySymbol(c.symbol);
+                  setCurrencyCode(c.code);
+                }}
+              >
+                <Text style={[styles.currencyChipSymbol, isCur && styles.currencyChipSymbolActive]}>
+                  {c.symbol}
+                </Text>
+                <Text style={[styles.currencyChipCode, isCur && styles.currencyChipCodeActive]}>
+                  {c.code}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
         </View>
 
-        {/* ── Tax & Localization Preferences ─────────────────────────────────── */}
-        <View style={styles.card}>
-          <Text style={styles.cardLabel}>Tax & Localization Preferences</Text>
-          <Text style={styles.cardHint}>
-            Configure whether sales tax, VAT, or GST is applied by default across your estimates.
-          </Text>
+        <TouchableOpacity
+          style={styles.detectBtn}
+          onPress={handleDetectCurrency}
+          disabled={isDetectingCurrency}
+        >
+          {isDetectingCurrency ? (
+            <ActivityIndicator size="small" color={colors.primary} />
+          ) : (
+            <>
+              <MapPin size={14} color={colors.primary} />
+              <Text style={styles.detectBtnText}>Auto-Detect From Device Location</Text>
+            </>
+          )}
+        </TouchableOpacity>
 
-          {/* Default Tax Enable/Disable Toggle */}
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 12, marginBottom: 14 }}>
-            <View style={{ flex: 1, paddingRight: 12 }}>
-              <Text style={{ fontSize: 14, fontWeight: '700', color: colors.textPrimary }}>
-                Apply Tax by Default
-              </Text>
-              <Text style={{ fontSize: 11, color: colors.textSecondary, marginTop: 2 }}>
-                {taxEnabledByDefault
-                  ? 'All new estimates will start with tax calculated'
-                  : 'New estimates start tax-free / exempt (can enable per quote)'}
-              </Text>
-            </View>
+        <Text style={[styles.inputLabel, { marginTop: 16 }]}>Default Tax Rate (%)</Text>
+        <View style={styles.taxPresetRow}>
+          {[
+            { label: '0%', val: '0.00' },
+            { label: '5% (GST)', val: '5.00' },
+            { label: '8.25% (US)', val: '8.25' },
+            { label: '10% (AU)', val: '10.00' },
+            { label: '13% (CA)', val: '13.00' },
+            { label: '18% (GST)', val: '18.00' },
+          ].map((r) => (
             <TouchableOpacity
-              style={{
-                backgroundColor: taxEnabledByDefault ? colors.primary : colors.backgroundSecondary,
-                borderColor: taxEnabledByDefault ? colors.primary : colors.border,
-                borderWidth: 1.5,
-                borderRadius: Theme.borderRadius.full,
-                paddingHorizontal: 14,
-                paddingVertical: 7,
-              }}
+              key={r.val}
+              style={[styles.taxChip, defaultTaxRate === r.val && styles.taxChipActive]}
               onPress={() => {
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                setTaxEnabledByDefault(!taxEnabledByDefault);
+                setDefaultTaxRate(r.val);
+              }}
+            >
+              <Text style={[styles.taxChipText, defaultTaxRate === r.val && styles.taxChipTextActive]}>
+                {r.label}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        <TextInput
+          style={[styles.input, { marginTop: 10 }]}
+          placeholder="Custom Rate (e.g. 8.25)"
+          placeholderTextColor={colors.textMuted}
+          keyboardType="decimal-pad"
+          value={defaultTaxRate}
+          onChangeText={setDefaultTaxRate}
+        />
+
+        <Text style={[styles.inputLabel, { marginTop: 12 }]}>Tax Label Name</Text>
+        <TextInput
+          style={styles.input}
+          placeholder="e.g. Sales Tax, GST, VAT"
+          placeholderTextColor={colors.textMuted}
+          value={taxLabel}
+          onChangeText={setTaxLabel}
+        />
+
+        <TouchableOpacity
+          style={styles.toggleRow}
+          onPress={() => setTaxEnabledByDefault(!taxEnabledByDefault)}
+        >
+          <Text style={styles.toggleLabel}>Enable Tax by Default on New Estimates</Text>
+          <View style={[styles.toggleSwitch, taxEnabledByDefault && styles.toggleSwitchActive]}>
+            <View style={[styles.toggleThumb, taxEnabledByDefault && styles.toggleThumbActive]} />
+          </View>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.modalPrimaryBtn}
+          onPress={() => {
+            handleSaveAll(true);
+            setActiveModal(null);
+          }}
+        >
+          <Check size={16} color="#FFFFFF" style={{ marginRight: 6 }} />
+          <Text style={styles.modalPrimaryBtnText}>Save Currency & Taxes</Text>
+        </TouchableOpacity>
+      </SettingsSubModal>
+
+      {/* ── MODAL 6: PRESETS ───────────────────────────────────────────────── */}
+      <SettingsSubModal
+        visible={activeModal === 'PRESETS'}
+        title="Service & Price Presets"
+        subtitle="Quick-insert common diagnostic, labor and material line items"
+        colors={colors}
+        insets={insets}
+        onClose={() => setActiveModal(null)}
+      >
+        <View style={styles.addPresetBox}>
+          <Text style={styles.inputLabel}>Add New Line Item Preset</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="Service Title (e.g. Drain Cleaning)"
+            placeholderTextColor={colors.textMuted}
+            value={newPresetTitle}
+            onChangeText={setNewPresetTitle}
+          />
+          <TextInput
+            style={[styles.input, { marginTop: 8 }]}
+            placeholder={`Price in ${currencySymbol} (e.g. 150.00)`}
+            placeholderTextColor={colors.textMuted}
+            keyboardType="decimal-pad"
+            value={newPresetPrice}
+            onChangeText={setNewPresetPrice}
+          />
+
+          <TouchableOpacity style={styles.addPresetBtn} onPress={handleAddPreset}>
+            <Text style={styles.addPresetBtnText}>+ Add to Catalog</Text>
+          </TouchableOpacity>
+        </View>
+
+        <Text style={[styles.inputLabel, { marginTop: 16 }]}>Existing Presets ({presets.length})</Text>
+        {presets.map((p) => (
+          <View key={p.id} style={styles.presetItemRow}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.presetTitle}>{p.title}</Text>
+              <Text style={styles.presetCategory}>{p.category}</Text>
+            </View>
+            <Text style={styles.presetPrice}>
+              {currencySymbol}
+              {(p.priceCents / 100).toFixed(2)}
+            </Text>
+          </View>
+        ))}
+
+        <TouchableOpacity
+          style={styles.modalPrimaryBtn}
+          onPress={() => setActiveModal(null)}
+        >
+          <Check size={16} color="#FFFFFF" style={{ marginRight: 6 }} />
+          <Text style={styles.modalPrimaryBtnText}>Done</Text>
+        </TouchableOpacity>
+      </SettingsSubModal>
+
+      {/* ── MODAL 7: NOTIFICATIONS ─────────────────────────────────────────── */}
+      <SettingsSubModal
+        visible={activeModal === 'NOTIFICATIONS'}
+        title="Notification Preferences"
+        subtitle="Proactive milestones and legal seal alerts"
+        colors={colors}
+        insets={insets}
+        onClose={() => setActiveModal(null)}
+      >
+        <TouchableOpacity
+          style={styles.toggleRow}
+          onPress={() => setSealConfirmations(!sealConfirmations)}
+        >
+          <View style={{ flex: 1, paddingRight: 12 }}>
+            <Text style={styles.toggleLabel}>Client Seal Confirmations</Text>
+            <Text style={styles.toggleSub}>
+              Alert immediately when client finishes signing on glass.
+            </Text>
+          </View>
+          <View style={[styles.toggleSwitch, sealConfirmations && styles.toggleSwitchActive]}>
+            <View style={[styles.toggleThumb, sealConfirmations && styles.toggleThumbActive]} />
+          </View>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.toggleRow}
+          onPress={() => setOutboxAlerts(!outboxAlerts)}
+        >
+          <View style={{ flex: 1, paddingRight: 12 }}>
+            <Text style={styles.toggleLabel}>Offline Sync Dispatches</Text>
+            <Text style={styles.toggleSub}>
+              Alert when outbox queue finishes synchronizing upon cellular reconnection.
+            </Text>
+          </View>
+          <View style={[styles.toggleSwitch, outboxAlerts && styles.toggleSwitchActive]}>
+            <View style={[styles.toggleThumb, outboxAlerts && styles.toggleThumbActive]} />
+          </View>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.toggleRow}
+          onPress={() => setPaymentReminders(!paymentReminders)}
+        >
+          <View style={{ flex: 1, paddingRight: 12 }}>
+            <Text style={styles.toggleLabel}>Uncollected Balance Reminders</Text>
+            <Text style={styles.toggleSub}>
+              Polite reminders for uncollected signed contracts.
+            </Text>
+          </View>
+          <View style={[styles.toggleSwitch, paymentReminders && styles.toggleSwitchActive]}>
+            <View style={[styles.toggleThumb, paymentReminders && styles.toggleThumbActive]} />
+          </View>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.modalPrimaryBtn}
+          onPress={() => {
+            handleSaveAll(true);
+            setActiveModal(null);
+          }}
+        >
+          <Check size={16} color="#FFFFFF" style={{ marginRight: 6 }} />
+          <Text style={styles.modalPrimaryBtnText}>Save Notification Settings</Text>
+        </TouchableOpacity>
+      </SettingsSubModal>
+
+      {/* ── MODAL 8: BACKUP ────────────────────────────────────────────────── */}
+      <SettingsSubModal
+        visible={activeModal === 'BACKUP'}
+        title="Data Backup & Database Export"
+        subtitle="Export local encrypted SQLite tables and digital signatures"
+        colors={colors}
+        insets={insets}
+        onClose={() => setActiveModal(null)}
+      >
+        <Text style={styles.backupDesc}>
+          JobSign operates offline-first. All estimates, GPS coordinates, affirmative consent
+          timestamps, and SHA-256 integrity hashes are stored in your phone's private SQLite database.
+        </Text>
+
+        <TouchableOpacity
+          style={styles.backupBtn}
+          onPress={handleBackupExport}
+          disabled={isBackingUp}
+        >
+          {isBackingUp ? (
+            <ActivityIndicator size="small" color="#FFFFFF" />
+          ) : (
+            <>
+              <Download size={16} color="#FFFFFF" style={{ marginRight: 6 }} />
+              <Text style={styles.backupBtnText}>Export Database Backup (.db)</Text>
+            </>
+          )}
+        </TouchableOpacity>
+      </SettingsSubModal>
+
+      {/* ── MODAL 9: LEGAL ─────────────────────────────────────────────────── */}
+      <SettingsSubModal
+        visible={activeModal === 'LEGAL'}
+        title="Legal Terms & Compliance"
+        subtitle="Statutory compliance under ESIGN Act & UETA"
+        colors={colors}
+        insets={insets}
+        onClose={() => setActiveModal(null)}
+      >
+        <View style={styles.legalBox}>
+          <Text style={styles.legalTitle}>Electronic Signatures in Global & National Commerce Act (15 U.S.C. § 7001)</Text>
+          <Text style={styles.legalBody}>
+            Electronic records and touch signatures captured in JobSign satisfy statutory
+            requirements for legal validity. Affirmative consent is explicitly confirmed by the
+            client before signing, binding both parties.
+          </Text>
+
+          <Text style={[styles.legalTitle, { marginTop: 12 }]}>Tamper-Evident SHA-256 Integrity</Text>
+          <Text style={styles.legalBody}>
+            Every agreement receives a unique 256-bit cryptographic digest representing the entire
+            terms, pricing, and signature. Any post-signing alteration invalidates the seal immediately.
+          </Text>
+        </View>
+
+        <TouchableOpacity
+          style={styles.modalPrimaryBtn}
+          onPress={() => setActiveModal(null)}
+        >
+          <Check size={16} color="#FFFFFF" style={{ marginRight: 6 }} />
+          <Text style={styles.modalPrimaryBtnText}>Understood</Text>
+        </TouchableOpacity>
+      </SettingsSubModal>
+
+      {/* Other Modals */}
+      {showPaywall && <PaywallModal visible={showPaywall} onClose={() => setShowPaywall(false)} />}
+      {showBehaviorLogs && (
+        <BehaviorLogsModal visible={showBehaviorLogs} onClose={() => setShowBehaviorLogs(false)} />
+      )}
+    </View>
+  );
+};
+
+// ── Reusable Settings Row Component ──────────────────────────────────────────
+const SettingsRow: React.FC<{
+  icon: React.ReactNode;
+  title: string;
+  subtitle?: string;
+  badge?: string;
+  badgeColor?: string;
+  onPress: () => void;
+  colors: ThemeColors;
+  isLast?: boolean;
+}> = ({ icon, title, subtitle, badge, badgeColor, onPress, colors, isLast }) => {
+  return (
+    <TouchableOpacity
+      style={[
+        {
+          flexDirection: 'row',
+          alignItems: 'center',
+          paddingVertical: 14,
+          paddingHorizontal: 16,
+          borderBottomWidth: isLast ? 0 : 1,
+          borderColor: colors.border,
+        },
+      ]}
+      onPress={() => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        onPress();
+      }}
+      activeOpacity={0.7}
+    >
+      <View
+        style={{
+          width: 36,
+          height: 36,
+          borderRadius: 10,
+          backgroundColor: colors.backgroundSecondary,
+          justifyContent: 'center',
+          alignItems: 'center',
+          marginRight: 12,
+        }}
+      >
+        {icon}
+      </View>
+      <View style={{ flex: 1, marginRight: 8 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          <Text style={{ fontSize: 14, fontWeight: '700', color: colors.textPrimary }}>
+            {title}
+          </Text>
+          {badge ? (
+            <View
+              style={{
+                backgroundColor: (badgeColor || colors.primary) + '18',
+                paddingHorizontal: 6,
+                paddingVertical: 2,
+                borderRadius: 4,
               }}
             >
               <Text
                 style={{
-                  color: taxEnabledByDefault ? '#FFFFFF' : colors.textSecondary,
+                  fontSize: 10,
                   fontWeight: '800',
-                  fontSize: 12,
+                  color: badgeColor || colors.primary,
+                  textTransform: 'uppercase',
                 }}
               >
-                {taxEnabledByDefault ? 'ENABLED' : 'DISABLED'}
+                {badge}
               </Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* Tax Name / Label */}
-          <Text style={[styles.cardLabel, { marginTop: 4, marginBottom: 6 }]}>Tax Name / Label</Text>
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
-            {['Sales Tax', 'VAT', 'GST', 'HST'].map((t) => (
-              <TouchableOpacity
-                key={t}
-                style={{
-                  paddingHorizontal: 10,
-                  paddingVertical: 5,
-                  borderRadius: Theme.borderRadius.full,
-                  backgroundColor: taxLabel === t ? colors.primary : colors.backgroundSecondary,
-                  borderWidth: 1,
-                  borderColor: taxLabel === t ? colors.primary : colors.border,
-                }}
-                onPress={() => setTaxLabel(t)}
-              >
-                <Text
-                  style={{
-                    fontSize: 11,
-                    fontWeight: '700',
-                    color: taxLabel === t ? '#FFFFFF' : colors.textSecondary,
-                  }}
-                >
-                  {t}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-          <TextInput
-            style={styles.input}
-            placeholder="Custom Tax Label (e.g. Sales Tax, VAT, GST)"
-            placeholderTextColor={colors.textMuted}
-            value={taxLabel}
-            onChangeText={setTaxLabel}
-          />
-
-          {/* Default Rate (%) */}
-          <Text style={[styles.cardLabel, { marginTop: 12, marginBottom: 6 }]}>Default Rate (%)</Text>
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
-            {[
-              { label: '0% (Exempt)', val: '0.00' },
-              { label: '5% (GST)', val: '5.00' },
-              { label: '8.25% (US TX)', val: '8.25' },
-              { label: '10% (AU GST)', val: '10.00' },
-              { label: '13% (CA HST)', val: '13.00' },
-              { label: '20% (UK VAT)', val: '20.00' },
-            ].map((r) => (
-              <TouchableOpacity
-                key={r.val}
-                style={{
-                  paddingHorizontal: 10,
-                  paddingVertical: 5,
-                  borderRadius: Theme.borderRadius.full,
-                  backgroundColor: defaultTaxRate === r.val ? colors.primary : colors.backgroundSecondary,
-                  borderWidth: 1,
-                  borderColor: defaultTaxRate === r.val ? colors.primary : colors.border,
-                }}
-                onPress={() => setDefaultTaxRate(r.val)}
-              >
-                <Text
-                  style={{
-                    fontSize: 11,
-                    fontWeight: '700',
-                    color: defaultTaxRate === r.val ? '#FFFFFF' : colors.textSecondary,
-                  }}
-                >
-                  {r.label}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-          <TextInput
-            style={styles.input}
-            placeholder="Default Rate (%) (e.g. 8.25 or 20.00)"
-            placeholderTextColor={colors.textMuted}
-            keyboardType="decimal-pad"
-            value={defaultTaxRate}
-            onChangeText={setDefaultTaxRate}
-          />
-        </View>
-
-        {/* ── Payment Accounts ──────────────────────────────────────────────── */}
-        <View style={styles.card}>
-          <Text style={styles.cardLabel}>Direct Payment & Payout Accounts</Text>
-          <Text style={styles.cardHint}>
-            Used to generate on-screen QR codes and PDF invoice settlement details (0% commission, direct to your bank).
-          </Text>
-
-          {currencySymbol === '₹' || currencyCode === 'INR' ? (
-            <>
-              <Text style={{ fontSize: 12, fontWeight: '700', color: colors.textPrimary, marginTop: 10, marginBottom: 4 }}>
-                Your UPI ID / VPA (Required for Instant QR):
-              </Text>
-              <TextInput
-                style={styles.input}
-                placeholder="e.g. 9876543210@paytm, contractor@okhdfcbank"
-                placeholderTextColor={colors.textMuted}
-                value={upiId}
-                onChangeText={setUpiId}
-                autoCapitalize="none"
-                autoCorrect={false}
-              />
-
-              <Text style={{ fontSize: 12, fontWeight: '700', color: colors.textPrimary, marginTop: 10, marginBottom: 4 }}>
-                Registered Payee / Business Name:
-              </Text>
-              <TextInput
-                style={styles.input}
-                placeholder="Name shown on client's UPI app (e.g. GPay / PhonePe)"
-                placeholderTextColor={colors.textMuted}
-                value={upiPayeeName}
-                onChangeText={setUpiPayeeName}
-              />
-
-              <Text style={{ fontSize: 12, fontWeight: '700', color: colors.textPrimary, marginTop: 10, marginBottom: 4 }}>
-                Bank Account Number (Optional):
-              </Text>
-              <TextInput
-                style={styles.input}
-                placeholder="For clients who prefer direct NEFT / IMPS"
-                placeholderTextColor={colors.textMuted}
-                value={bankAccountNumber}
-                onChangeText={setBankAccountNumber}
-                keyboardType="numeric"
-              />
-
-              <Text style={{ fontSize: 12, fontWeight: '700', color: colors.textPrimary, marginTop: 10, marginBottom: 4 }}>
-                Bank IFSC Code (Optional):
-              </Text>
-              <TextInput
-                style={styles.input}
-                placeholder="e.g. HDFC0001234, SBIN0000456"
-                placeholderTextColor={colors.textMuted}
-                value={bankIfsc}
-                onChangeText={setBankIfsc}
-                autoCapitalize="characters"
-              />
-
-              <Text style={{ fontSize: 12, fontWeight: '700', color: colors.textPrimary, marginTop: 10, marginBottom: 4 }}>
-                Bank Name (Optional):
-              </Text>
-              <TextInput
-                style={styles.input}
-                placeholder="e.g. HDFC Bank, State Bank of India"
-                placeholderTextColor={colors.textMuted}
-                value={bankName}
-                onChangeText={setBankName}
-              />
-
-              <TouchableOpacity
-                style={{ marginTop: 14, alignSelf: 'flex-start' }}
-                onPress={() => setShowOtherRails(!showOtherRails)}
-              >
-                <Text style={{ fontSize: 12, color: colors.primary, fontWeight: '700' }}>
-                  {showOtherRails ? 'Hide US Rails (Zelle, Venmo) ▲' : 'Show US Rails (Zelle, Venmo, CashApp) ▼'}
-                </Text>
-              </TouchableOpacity>
-
-              {showOtherRails && (
-                <View style={{ marginTop: 10, paddingTop: 10, borderTopWidth: 1, borderColor: colors.border }}>
-                  <TextInput
-                    style={styles.input}
-                    placeholder="Zelle Phone or Email"
-                    placeholderTextColor={colors.textMuted}
-                    value={zelle}
-                    onChangeText={setZelle}
-                  />
-                  <TextInput
-                    style={[styles.input, { marginTop: 10 }]}
-                    placeholder="Venmo Username (e.g. @ApexElectric)"
-                    placeholderTextColor={colors.textMuted}
-                    value={venmo}
-                    onChangeText={setVenmo}
-                  />
-                  <TextInput
-                    style={[styles.input, { marginTop: 10 }]}
-                    placeholder="Cash App Cashtag (e.g. $ApexElectric)"
-                    placeholderTextColor={colors.textMuted}
-                    value={cashApp}
-                    onChangeText={setCashApp}
-                  />
-                </View>
-              )}
-            </>
-          ) : (
-            <>
-              <TextInput
-                style={styles.input}
-                placeholder="Zelle Phone or Email"
-                placeholderTextColor={colors.textMuted}
-                value={zelle}
-                onChangeText={setZelle}
-              />
-              <TextInput
-                style={[styles.input, { marginTop: 10 }]}
-                placeholder="Venmo Username (e.g. @ApexElectric)"
-                placeholderTextColor={colors.textMuted}
-                value={venmo}
-                onChangeText={setVenmo}
-              />
-              <TextInput
-                style={[styles.input, { marginTop: 10 }]}
-                placeholder="Cash App Cashtag (e.g. $ApexElectric)"
-                placeholderTextColor={colors.textMuted}
-                value={cashApp}
-                onChangeText={setCashApp}
-              />
-
-              <TouchableOpacity
-                style={{ marginTop: 14, alignSelf: 'flex-start' }}
-                onPress={() => setShowOtherRails(!showOtherRails)}
-              >
-                <Text style={{ fontSize: 12, color: colors.primary, fontWeight: '700' }}>
-                  {showOtherRails ? 'Hide UPI (India) Rails ▲' : 'Show UPI (India) Rails (GPay, PhonePe) ▼'}
-                </Text>
-              </TouchableOpacity>
-
-              {showOtherRails && (
-                <View style={{ marginTop: 10, paddingTop: 10, borderTopWidth: 1, borderColor: colors.border }}>
-                  <TextInput
-                    style={styles.input}
-                    placeholder="UPI ID (e.g. 9876543210@paytm)"
-                    placeholderTextColor={colors.textMuted}
-                    value={upiId}
-                    onChangeText={setUpiId}
-                    autoCapitalize="none"
-                  />
-                  <TextInput
-                    style={[styles.input, { marginTop: 10 }]}
-                    placeholder="Registered Payee / Business Name"
-                    placeholderTextColor={colors.textMuted}
-                    value={upiPayeeName}
-                    onChangeText={setUpiPayeeName}
-                  />
-                </View>
-              )}
-            </>
-          )}
-        </View>
-
-        {/* ── Service Presets ───────────────────────────────────────────────── */}
-        <View style={styles.card}>
-          <Text style={styles.cardLabel}>Service Presets ({presets.length})</Text>
-          <View style={styles.newPresetRow}>
-            <TextInput
-              style={[styles.input, { flex: 2 }]}
-              placeholder="Item Name (e.g. Capacitor)"
-              placeholderTextColor={colors.textMuted}
-              value={newPresetTitle}
-              onChangeText={setNewPresetTitle}
-            />
-            <TextInput
-              style={[styles.input, { flex: 1 }]}
-              placeholder={`${currencySymbol} Price`}
-              placeholderTextColor={colors.textMuted}
-              keyboardType="decimal-pad"
-              value={newPresetPrice}
-              onChangeText={setNewPresetPrice}
-            />
-            <TouchableOpacity style={styles.addPresetBtn} onPress={handleCreatePreset}>
-              <Text style={styles.addPresetBtnText}>+</Text>
-            </TouchableOpacity>
-          </View>
-
-          {presets.map((p) => (
-            <View key={p.id} style={styles.presetItemRow}>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.presetTitleText}>{p.title}</Text>
-                <Text style={styles.presetPriceText}>{currencySymbol}{(p.priceCents / 100).toFixed(0)}</Text>
-              </View>
-              <TouchableOpacity
-                onPress={() => removePreset(p.id)}
-                style={styles.deletePresetBtn}
-                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-              >
-                <Trash2 size={16} color={colors.rose} strokeWidth={2} />
-              </TouchableOpacity>
             </View>
-          ))}
+          ) : null}
         </View>
-
-        {/* ── Local Storage & Backup ────────────────────────────────────────── */}
-        <View style={styles.card}>
-          <Text style={styles.cardLabel}>Local Storage & Backup</Text>
-          <Text style={styles.cardHint}>
-            JobSign runs 100% offline. Export an encrypted archive of your SQLite quotes and
-            signatures anytime.
-          </Text>
-          <TouchableOpacity style={styles.backupBtn} onPress={handleExportBackup}>
-            <Download size={15} color={colors.textSecondary} strokeWidth={2} />
-            <Text style={styles.backupBtnText}>Export Backup</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.backupBtn, styles.backupBtnSecondary]}
-            onPress={handleRunDiagnostics}
+        {subtitle ? (
+          <Text
+            style={{ fontSize: 12, color: colors.textSecondary, marginTop: 2 }}
+            numberOfLines={1}
+            ellipsizeMode="tail"
           >
-            <Shield size={15} color={colors.textSecondary} strokeWidth={2} />
-            <Text style={styles.backupBtnText}>Run Diagnostics</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* ── Save Button ───────────────────────────────────────────────────── */}
-        <TouchableOpacity style={styles.saveBtn} onPress={handleSaveProfile}>
-          <Text style={styles.saveBtnText}>Save Settings</Text>
-        </TouchableOpacity>
-
-        {/* Discreet App Version Footer (Secret 5-Tap Developer Console) */}
-        <TouchableOpacity
-          activeOpacity={0.8}
-          onPress={handleVersionTap}
-          style={{ alignItems: 'center', marginTop: 24, paddingVertical: 12 }}
-        >
-          <Text style={{ fontSize: 12, fontWeight: '600', color: colors.textMuted }}>
-            JobSign v1.0.0 (Build 1)
+            {subtitle}
           </Text>
-        </TouchableOpacity>
-      </ScrollView>
-
-      {/* Paywall Modal */}
-      <PaywallModal visible={showPaywall} onClose={() => setShowPaywall(false)} />
-
-      {/* Behavior Logs Modal */}
-      <BehaviorLogsModal visible={showBehaviorLogs} onClose={() => setShowBehaviorLogs(false)} />
-    </View>
+        ) : null}
+      </View>
+      <ChevronRight size={18} color={colors.textMuted} />
+    </TouchableOpacity>
   );
 };
+
+// ── Reusable Sub-Modal Component ─────────────────────────────────────────────
+const SettingsSubModal: React.FC<{
+  visible: boolean;
+  title: string;
+  subtitle?: string;
+  onClose: () => void;
+  children: React.ReactNode;
+  colors: ThemeColors;
+  insets: any;
+}> = ({ visible, title, subtitle, onClose, children, colors, insets }) => {
+  if (!visible) return null;
+  return (
+    <Modal visible={visible} animationType="slide" transparent={true} onRequestClose={onClose}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        style={{ flex: 1, backgroundColor: colors.overlay, justifyContent: 'flex-end' }}
+      >
+        <View
+          style={{
+            backgroundColor: colors.surface,
+            borderTopLeftRadius: 20,
+            borderTopRightRadius: 20,
+            maxHeight: '92%',
+            paddingBottom: 24 + insets.bottom,
+            borderTopWidth: 1,
+            borderColor: colors.border,
+            shadowColor: '#0F172A',
+            shadowOffset: { width: 0, height: -4 },
+            shadowOpacity: 0.15,
+            shadowRadius: 10,
+            elevation: 8,
+          }}
+        >
+          {/* Header */}
+          <View
+            style={{
+              flexDirection: 'row',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              paddingHorizontal: 20,
+              paddingTop: 20,
+              paddingBottom: 14,
+              borderBottomWidth: 1,
+              borderColor: colors.border,
+            }}
+          >
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontSize: 18, fontWeight: '800', color: colors.textPrimary }}>
+                {title}
+              </Text>
+              {subtitle ? (
+                <Text style={{ fontSize: 12, color: colors.textSecondary, marginTop: 2 }}>
+                  {subtitle}
+                </Text>
+              ) : null}
+            </View>
+            <TouchableOpacity
+              onPress={onClose}
+              hitSlop={{ top: 14, bottom: 14, left: 14, right: 14 }}
+              style={{
+                padding: 6,
+                borderRadius: 20,
+                backgroundColor: colors.backgroundSecondary,
+                marginLeft: 10,
+              }}
+            >
+              <X size={18} color={colors.textSecondary} />
+            </TouchableOpacity>
+          </View>
+
+          {/* Modal Body */}
+          <ScrollView
+            contentContainerStyle={{ padding: 20, paddingBottom: 30 }}
+            showsVerticalScrollIndicator={false}
+          >
+            {children}
+          </ScrollView>
+        </View>
+      </KeyboardAvoidingView>
+    </Modal>
+  );
+};
+
+const makeStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: colors.background,
+    },
+    header: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingHorizontal: 16,
+      paddingTop: 54,
+      paddingBottom: 14,
+      backgroundColor: colors.surface,
+      borderBottomWidth: 1,
+      borderColor: colors.border,
+    },
+    backBtn: {
+      padding: 6,
+    },
+    headerTitle: {
+      fontSize: 18,
+      fontWeight: '800',
+      color: colors.textPrimary,
+    },
+    sunlightBtn: {
+      padding: 6,
+    },
+    scrollContent: {
+      padding: 16,
+    },
+    // Hero profile card
+    profileHeroCard: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: colors.surface,
+      borderRadius: 14,
+      padding: 16,
+      marginBottom: 16,
+      borderWidth: 1,
+      borderColor: colors.border,
+      shadowColor: '#0F172A',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.05,
+      shadowRadius: 4,
+      elevation: 2,
+    },
+    avatarCircle: {
+      width: 48,
+      height: 48,
+      borderRadius: 24,
+      backgroundColor: colors.primary + '18',
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginRight: 14,
+      borderWidth: 1.5,
+      borderColor: colors.primary + '40',
+      overflow: 'hidden',
+    },
+    avatarImg: {
+      width: 48,
+      height: 48,
+      borderRadius: 24,
+    },
+    avatarInitials: {
+      fontSize: 18,
+      fontWeight: '800',
+      color: colors.primary,
+    },
+    heroBusinessName: {
+      fontSize: 16,
+      fontWeight: '800',
+      color: colors.textPrimary,
+    },
+    heroSub: {
+      fontSize: 12,
+      color: colors.textSecondary,
+      marginTop: 2,
+    },
+    activeTemplateBadge: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginTop: 6,
+      backgroundColor: colors.backgroundSecondary,
+      paddingHorizontal: 8,
+      paddingVertical: 3,
+      borderRadius: 6,
+      alignSelf: 'flex-start',
+    },
+    activeTemplateBadgeText: {
+      fontSize: 11,
+      fontWeight: '700',
+      color: colors.primary,
+    },
+    // Groups
+    groupCard: {
+      backgroundColor: colors.surface,
+      borderRadius: 14,
+      borderWidth: 1,
+      borderColor: colors.border,
+      marginBottom: 16,
+      overflow: 'hidden',
+      shadowColor: '#0F172A',
+      shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: 0.04,
+      shadowRadius: 3,
+      elevation: 1,
+    },
+    groupHeader: {
+      fontSize: 11,
+      fontWeight: '800',
+      color: colors.textMuted,
+      letterSpacing: 0.8,
+      paddingHorizontal: 16,
+      paddingTop: 14,
+      paddingBottom: 6,
+    },
+    // Sub-modal styles
+    inputLabel: {
+      fontSize: 12,
+      fontWeight: '700',
+      color: colors.textPrimary,
+      marginBottom: 6,
+      marginTop: 10,
+    },
+    input: {
+      backgroundColor: colors.backgroundSecondary,
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: 8,
+      paddingHorizontal: 12,
+      paddingVertical: 10,
+      fontSize: 14,
+      color: colors.textPrimary,
+    },
+    inputHelp: {
+      fontSize: 11,
+      color: colors.textMuted,
+      marginTop: 4,
+    },
+    modalPrimaryBtn: {
+      backgroundColor: colors.emerald,
+      paddingVertical: 14,
+      borderRadius: 10,
+      flexDirection: 'row',
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginTop: 24,
+      shadowColor: '#0F172A',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.1,
+      shadowRadius: 4,
+      elevation: 2,
+    },
+    modalPrimaryBtnText: {
+      color: '#FFFFFF',
+      fontSize: 14,
+      fontWeight: '800',
+    },
+    // Logo Modal
+    logoModalCenter: {
+      alignItems: 'center',
+      paddingVertical: 10,
+    },
+    largeLogoBox: {
+      width: 120,
+      height: 120,
+      borderRadius: 16,
+      backgroundColor: colors.backgroundSecondary,
+      borderWidth: 1.5,
+      borderColor: colors.border,
+      justifyContent: 'center',
+      alignItems: 'center',
+      overflow: 'hidden',
+      marginBottom: 16,
+    },
+    largeLogoImg: {
+      width: 120,
+      height: 120,
+    },
+    logoPlaceholderBox: {
+      alignItems: 'center',
+      gap: 6,
+    },
+    logoPlaceholderText: {
+      fontSize: 11,
+      color: colors.textMuted,
+      fontWeight: '600',
+    },
+    logoActionRow: {
+      flexDirection: 'row',
+      gap: 10,
+    },
+    logoPickBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      paddingHorizontal: 14,
+      paddingVertical: 10,
+      backgroundColor: colors.backgroundSecondary,
+      borderRadius: 8,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    logoPickBtnText: {
+      fontSize: 12,
+      fontWeight: '700',
+      color: colors.textPrimary,
+    },
+    logoRemoveBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      paddingHorizontal: 14,
+      paddingVertical: 10,
+      backgroundColor: colors.roseLight,
+      borderRadius: 8,
+      borderWidth: 1,
+      borderColor: colors.rose + '30',
+    },
+    logoRemoveBtnText: {
+      fontSize: 12,
+      fontWeight: '700',
+      color: colors.rose,
+    },
+    // Template Cards
+    templateCard: {
+      backgroundColor: colors.card,
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: 12,
+      padding: 16,
+      marginBottom: 12,
+    },
+    templateCardSelected: {
+      borderColor: colors.primary,
+      backgroundColor: colors.primary + '08',
+      borderWidth: 2,
+    },
+    templateCardHeader: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      marginBottom: 12,
+    },
+    templateTitle: {
+      fontSize: 15,
+      fontWeight: '800',
+      color: colors.textPrimary,
+    },
+    templateDesc: {
+      fontSize: 12,
+      color: colors.textSecondary,
+      marginTop: 4,
+      lineHeight: 16,
+    },
+    activePill: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+      backgroundColor: colors.emerald,
+      paddingHorizontal: 6,
+      paddingVertical: 2,
+      borderRadius: 4,
+    },
+    activePillText: {
+      color: '#FFFFFF',
+      fontSize: 9,
+      fontWeight: '900',
+      letterSpacing: 0.5,
+    },
+    templateActionRow: {
+      flexDirection: 'row',
+      gap: 10,
+      marginTop: 4,
+    },
+    viewSampleBtn: {
+      flex: 1,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 6,
+      paddingVertical: 10,
+      backgroundColor: colors.primary + '15',
+      borderRadius: 8,
+      borderWidth: 1,
+      borderColor: colors.primary + '30',
+    },
+    viewSampleBtnText: {
+      fontSize: 12,
+      fontWeight: '700',
+      color: colors.primary,
+    },
+    selectStyleBtn: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingVertical: 10,
+      backgroundColor: colors.backgroundSecondary,
+      borderRadius: 8,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    selectStyleBtnActive: {
+      backgroundColor: colors.primary,
+      borderColor: colors.primary,
+    },
+    selectStyleBtnText: {
+      fontSize: 12,
+      fontWeight: '700',
+      color: colors.textPrimary,
+    },
+    selectStyleBtnTextActive: {
+      color: '#FFFFFF',
+      fontWeight: '800',
+    },
+    // Currency & Tax
+    currencyChips: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 8,
+      marginBottom: 10,
+    },
+    currencyChip: {
+      paddingHorizontal: 12,
+      paddingVertical: 8,
+      borderRadius: 8,
+      backgroundColor: colors.backgroundSecondary,
+      borderWidth: 1,
+      borderColor: colors.border,
+      alignItems: 'center',
+    },
+    currencyChipActive: {
+      backgroundColor: colors.primary,
+      borderColor: colors.primary,
+    },
+    currencyChipSymbol: {
+      fontSize: 16,
+      fontWeight: '800',
+      color: colors.textPrimary,
+    },
+    currencyChipSymbolActive: {
+      color: '#FFFFFF',
+    },
+    currencyChipCode: {
+      fontSize: 10,
+      color: colors.textMuted,
+      fontWeight: '600',
+    },
+    currencyChipCodeActive: {
+      color: '#FFFFFF',
+    },
+    detectBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 6,
+      paddingVertical: 10,
+      backgroundColor: colors.primary + '15',
+      borderRadius: 8,
+      borderWidth: 1,
+      borderColor: colors.primary + '30',
+      marginTop: 6,
+    },
+    detectBtnText: {
+      fontSize: 12,
+      fontWeight: '700',
+      color: colors.primary,
+    },
+    taxPresetRow: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 6,
+      marginBottom: 8,
+    },
+    taxChip: {
+      paddingHorizontal: 10,
+      paddingVertical: 6,
+      borderRadius: 6,
+      backgroundColor: colors.backgroundSecondary,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    taxChipActive: {
+      backgroundColor: colors.emerald,
+      borderColor: colors.emerald,
+    },
+    taxChipText: {
+      fontSize: 11,
+      fontWeight: '700',
+      color: colors.textPrimary,
+    },
+    taxChipTextActive: {
+      color: '#FFFFFF',
+    },
+    toggleRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingVertical: 12,
+      borderBottomWidth: 1,
+      borderColor: colors.border,
+    },
+    toggleLabel: {
+      fontSize: 13,
+      fontWeight: '700',
+      color: colors.textPrimary,
+    },
+    toggleSub: {
+      fontSize: 11,
+      color: colors.textSecondary,
+      marginTop: 2,
+    },
+    toggleSwitch: {
+      width: 44,
+      height: 24,
+      borderRadius: 12,
+      backgroundColor: colors.border,
+      padding: 2,
+    },
+    toggleSwitchActive: {
+      backgroundColor: colors.emerald,
+    },
+    toggleThumb: {
+      width: 20,
+      height: 20,
+      borderRadius: 10,
+      backgroundColor: '#FFFFFF',
+    },
+    toggleThumbActive: {
+      alignSelf: 'flex-end',
+    },
+    // Presets Modal
+    addPresetBox: {
+      backgroundColor: colors.backgroundSecondary,
+      borderRadius: 10,
+      padding: 12,
+      marginBottom: 12,
+    },
+    addPresetBtn: {
+      backgroundColor: colors.primary,
+      paddingVertical: 10,
+      borderRadius: 8,
+      alignItems: 'center',
+      marginTop: 10,
+    },
+    addPresetBtnText: {
+      color: '#FFFFFF',
+      fontSize: 13,
+      fontWeight: '700',
+    },
+    presetItemRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingVertical: 10,
+      borderBottomWidth: 1,
+      borderColor: colors.border,
+    },
+    presetTitle: {
+      fontSize: 13,
+      fontWeight: '700',
+      color: colors.textPrimary,
+    },
+    presetCategory: {
+      fontSize: 11,
+      color: colors.textMuted,
+      marginTop: 1,
+    },
+    presetPrice: {
+      fontSize: 13,
+      fontWeight: '800',
+      color: colors.emerald,
+    },
+    // Backup & Legal
+    backupDesc: {
+      fontSize: 13,
+      color: colors.textSecondary,
+      lineHeight: 18,
+      marginBottom: 16,
+    },
+    backupBtn: {
+      backgroundColor: colors.primary,
+      paddingVertical: 14,
+      borderRadius: 10,
+      flexDirection: 'row',
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    backupBtnText: {
+      color: '#FFFFFF',
+      fontSize: 14,
+      fontWeight: '700',
+    },
+    legalBox: {
+      backgroundColor: colors.backgroundSecondary,
+      borderRadius: 10,
+      padding: 14,
+      marginBottom: 16,
+    },
+    legalTitle: {
+      fontSize: 12,
+      fontWeight: '800',
+      color: colors.textPrimary,
+      marginBottom: 4,
+    },
+    legalBody: {
+      fontSize: 12,
+      color: colors.textSecondary,
+      lineHeight: 17,
+    },
+    // Footer
+    aboutFooter: {
+      alignItems: 'center',
+      paddingVertical: 20,
+    },
+    versionText: {
+      fontSize: 12,
+      fontWeight: '800',
+      color: colors.textMuted,
+      textAlign: 'center',
+    },
+    versionSub: {
+      fontSize: 10,
+      color: colors.textMuted,
+      textAlign: 'center',
+      marginTop: 2,
+    },
+    diagBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginTop: 12,
+      paddingHorizontal: 12,
+      paddingVertical: 6,
+      borderRadius: 6,
+      backgroundColor: colors.backgroundSecondary,
+    },
+    diagBtnText: {
+      fontSize: 11,
+      color: colors.textSecondary,
+      fontWeight: '600',
+    },
+  });
