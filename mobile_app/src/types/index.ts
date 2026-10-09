@@ -90,6 +90,7 @@ export interface Quote {
   clientEmail?: string;
   clientAddress?: string;
   jobDescription?: string;
+  notes?: string;
   status: QuoteStatus;
   subtotalCents: number;
   taxRateBasisPoints: number; // e.g. 825 for 8.25%, 0 if disabled
@@ -97,8 +98,8 @@ export interface Quote {
   totalAmountCents: number;
   taxLabel?: string;          // e.g. "Sales Tax", "VAT", "GST"
   currencySymbol?: string;    // Currency symbol used when created (e.g. "₹", "$")
-  notes?: string;
   photoUri?: string;          // On-site damage proof photo
+  includePhotoInPdf?: boolean; // Whether worksite photo is attached as Exhibit A to PDF invoice
   signatureSvg?: string;
   signatureTimestamp?: number;
   signatureGpsLat?: number;

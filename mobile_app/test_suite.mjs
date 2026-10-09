@@ -343,6 +343,35 @@ assert(pdfPaymentRaw.includes('regionConfig.auditGoverningStandard'), 'PDFServic
 assert(!pdfPaymentRaw.includes('(512) 843-9201'), 'PDFService eliminated hardcoded foreign phone numbers');
 assert(!pdfPaymentRaw.includes('Apex Field Services LLC'), 'PDFService eliminated hardcoded foreign company names');
 
+// -----------------------------------------------------------------
+// 11. OPTIONAL WORKSITE PHOTO EXHIBIT A CONTROLS & PERSISTENCE
+// -----------------------------------------------------------------
+console.log('\n11. [EXHIBIT A] Optional Worksite Photo Controls & Persistence');
+
+// 1. Data model check
+assert(typesRaw.includes('includePhotoInPdf?: boolean'), 'types/index.ts includes optional includePhotoInPdf');
+
+// 2. DatabaseService check
+const dbServiceCurrentRaw = fs.readFileSync(path.resolve('./src/services/DatabaseService.ts'), 'utf8');
+assert(dbServiceCurrentRaw.includes('ALTER TABLE quotes ADD COLUMN include_photo_in_pdf INTEGER DEFAULT 1'), 'DatabaseService includes SQLite schema migration for include_photo_in_pdf');
+assert(dbServiceCurrentRaw.includes('includePhotoInPdf: r.include_photo_in_pdf === 0 ? false : true'), 'DatabaseService maps include_photo_in_pdf in getAllQuotes');
+assert(dbServiceCurrentRaw.includes('include_photo_in_pdf') && dbServiceCurrentRaw.includes('quote.includePhotoInPdf === false ? 0 : 1'), 'DatabaseService persists include_photo_in_pdf in saveQuote');
+
+// 3. PDFService check
+assert(pdfPaymentRaw.includes('quote.includePhotoInPdf !== false'), 'PDFService conditions photo loading & Exhibit A embedding on includePhotoInPdf');
+
+// 4. QuoteBuilderScreen check
+const quoteBuilderRaw = fs.readFileSync(path.resolve('./src/screens/QuoteBuilderScreen.tsx'), 'utf8');
+assert(quoteBuilderRaw.includes('includePhotoInPdf'), 'QuoteBuilderScreen manages includePhotoInPdf state');
+assert(quoteBuilderRaw.includes('Include photo in PDF Invoice (Exhibit A)'), 'QuoteBuilderScreen renders Exhibit A inclusion toggle checkbox');
+assert(quoteBuilderRaw.includes('includePhotoInPdf: photoUri ? includePhotoInPdf : true'), 'QuoteBuilderScreen persists includePhotoInPdf in created quote');
+
+// 5. QuoteDetailScreen check
+assert(quoteDetailRaw.includes('includePhoto'), 'QuoteDetailScreen manages includePhoto state');
+assert(quoteDetailRaw.includes('handleToggleIncludePhoto'), 'QuoteDetailScreen handles photo inclusion toggle');
+assert(quoteDetailRaw.includes('Exhibit A: Worksite Photo Page'), 'QuoteDetailScreen renders Exhibit A quick toggle in PDF actions card');
+assert(quoteDetailRaw.includes('Attached in PDF'), 'QuoteDetailScreen renders toggle inside Worksite Photo card');
+
 console.log('\n======================================================');
 console.log(`TOTAL TESTS: ${passedCount + failedCount} | PASSED: ${passedCount} | FAILED: ${failedCount}`);
 console.log('======================================================');

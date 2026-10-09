@@ -30,7 +30,7 @@ import { FEATURE_FLAGS } from '../config/featureFlags';
 import { useAppSafeArea } from '../utils/safeArea';
 import { useKeyboard } from '../utils/useKeyboard';
 import { AlertService } from '../services/AlertService';
-import { ChevronLeft, Camera, Image as ImageIcon, Plus, X, PenLine } from 'lucide-react-native';
+import { ChevronLeft, Camera, Image as ImageIcon, Plus, X, PenLine, Check } from 'lucide-react-native';
 
 const makeStyles = (colors: ThemeColors) =>
   StyleSheet.create({
@@ -108,6 +108,46 @@ const makeStyles = (colors: ThemeColors) =>
       color: colors.rose,
       fontSize: 13,
       fontWeight: 'bold',
+    },
+    photoCheckboxRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginTop: 12,
+      width: '100%',
+      padding: 12,
+      borderRadius: Theme.borderRadius.sm,
+      borderWidth: 1.5,
+    },
+    photoCheckboxRowActive: {
+      backgroundColor: colors.primaryLight,
+      borderColor: colors.primary,
+    },
+    photoCheckboxRowInactive: {
+      backgroundColor: colors.backgroundSecondary,
+      borderColor: colors.border,
+    },
+    checkboxBox: {
+      width: 22,
+      height: 22,
+      borderRadius: 6,
+      borderWidth: 1.5,
+      borderColor: colors.textMuted,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: colors.backgroundSecondary,
+    },
+    checkboxBoxChecked: {
+      backgroundColor: colors.primary,
+      borderColor: colors.primary,
+    },
+    checkboxTitle: {
+      fontSize: 13,
+      fontWeight: '700',
+    },
+    checkboxDesc: {
+      fontSize: 11,
+      marginTop: 2,
+      lineHeight: 15,
     },
     photoActionsRow: {
       flexDirection: 'row',
@@ -426,6 +466,7 @@ export const QuoteBuilderScreen: React.FC<{ onBack: () => void }> = ({ onBack })
   const [customDesc, setCustomDesc] = useState('');
   const [customPrice, setCustomPrice] = useState('');
   const [photoUri, setPhotoUri] = useState<string | null>(null);
+  const [includePhotoInPdf, setIncludePhotoInPdf] = useState<boolean>(true);
   const [items, setItems] = useState<LineItem[]>([]);
   const [isTaxEnabled, setIsTaxEnabled] = useState<boolean>(
     profile.taxEnabledByDefault ?? true
@@ -641,6 +682,7 @@ export const QuoteBuilderScreen: React.FC<{ onBack: () => void }> = ({ onBack })
       jobDescription: jobDescription.trim() || undefined,
       notes: notes.trim() || undefined,
       photoUri: photoUri || undefined,
+      includePhotoInPdf: photoUri ? includePhotoInPdf : true,
       status: 'SIGNED_LOCKED',
       subtotalCents,
       taxRateBasisPoints: taxBasisPoints,
@@ -793,9 +835,50 @@ export const QuoteBuilderScreen: React.FC<{ onBack: () => void }> = ({ onBack })
           {photoUri ? (
             <View style={styles.photoPreviewBox}>
               <Image source={{ uri: photoUri }} style={styles.photoPreview} />
-              <TouchableOpacity style={styles.removePhotoBtn} onPress={() => setPhotoUri(null)}>
-                <Text style={styles.removePhotoText}>Remove</Text>
+
+              <TouchableOpacity
+                style={[
+                  styles.photoCheckboxRow,
+                  includePhotoInPdf ? styles.photoCheckboxRowActive : styles.photoCheckboxRowInactive,
+                ]}
+                activeOpacity={0.8}
+                onPress={() => {
+                  Haptics.selectionAsync();
+                  setIncludePhotoInPdf(!includePhotoInPdf);
+                }}
+              >
+                <View style={[styles.checkboxBox, includePhotoInPdf && styles.checkboxBoxChecked]}>
+                  {includePhotoInPdf && <Check size={14} color="#FFFFFF" strokeWidth={3} />}
+                </View>
+                <View style={{ flex: 1, marginLeft: 10 }}>
+                  <Text style={[styles.checkboxTitle, { color: colors.textPrimary }]}>
+                    Include photo in PDF Invoice (Exhibit A)
+                  </Text>
+                  <Text style={[styles.checkboxDesc, { color: colors.textSecondary }]}>
+                    {includePhotoInPdf
+                      ? 'Appends a high-resolution Exhibit A evidence page to the invoice.'
+                      : 'Saved in local app records only. Omitted from the client contract.'}
+                  </Text>
+                </View>
               </TouchableOpacity>
+
+              <View style={{ flexDirection: 'row', gap: 10, marginTop: 10, width: '100%', justifyContent: 'flex-end', alignItems: 'center' }}>
+                <TouchableOpacity
+                  style={{ paddingVertical: 6, paddingHorizontal: 12, borderRadius: 6, backgroundColor: colors.backgroundSecondary, borderWidth: 1, borderColor: colors.border }}
+                  onPress={handleCapturePhoto}
+                >
+                  <Text style={{ color: colors.textPrimary, fontSize: 12, fontWeight: '700' }}>Retake</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={{ paddingVertical: 6, paddingHorizontal: 12, borderRadius: 6, backgroundColor: colors.backgroundSecondary, borderWidth: 1, borderColor: colors.border }}
+                  onPress={handlePickFromGallery}
+                >
+                  <Text style={{ color: colors.textPrimary, fontSize: 12, fontWeight: '700' }}>Gallery</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.removePhotoBtn} onPress={() => setPhotoUri(null)}>
+                  <Text style={styles.removePhotoText}>Remove</Text>
+                </TouchableOpacity>
+              </View>
             </View>
           ) : (
             <View style={styles.photoActionsRow}>

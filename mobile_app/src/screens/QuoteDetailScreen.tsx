@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -386,7 +386,7 @@ const makeStyles = (colors: ThemeColors) =>
   });
 
 export const QuoteDetailScreen: React.FC<QuoteDetailScreenProps> = ({ quote: initialQuote, onBack }) => {
-  const { quotes, profile, deleteQuote } = useQuoteStore();
+  const { quotes, profile, deleteQuote, addQuote } = useQuoteStore();
   const isDarkMode = useQuoteStore((state) => state.isDarkMode);
   const colors = getThemeColors(isDarkMode);
   const quote = quotes.find((q) => q.id === initialQuote.id) || initialQuote;
@@ -404,9 +404,31 @@ export const QuoteDetailScreen: React.FC<QuoteDetailScreenProps> = ({ quote: ini
   const isLocked = quote.status === 'SIGNED_LOCKED';
 
   const [pendingPdfAction, setPendingPdfAction] = useState<'VIEW' | 'SHARE'>('VIEW');
+  const [includePhoto, setIncludePhoto] = useState<boolean>(quote.includePhotoInPdf !== false);
+
+  useEffect(() => {
+    setIncludePhoto(quote.includePhotoInPdf !== false);
+  }, [quote.includePhotoInPdf]);
+
+  const handleToggleIncludePhoto = async () => {
+    const nextVal = !includePhoto;
+    setIncludePhoto(nextVal);
+    Haptics.selectionAsync();
+    const updatedQuote: Quote = {
+      ...quote,
+      includePhotoInPdf: nextVal,
+    };
+    await addQuote(updatedQuote);
+  };
+
+  const getQuoteForPdf = () => ({
+    ...quote,
+    includePhotoInPdf: includePhoto,
+  });
 
   const handleSharePDF = async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    const quoteForPdf = getQuoteForPdf();
     const needsCompanyName =
       !profile.hasCustomBusinessName &&
       (!profile.businessName || profile.businessName.trim() === '' || profile.businessName === 'Apex Field Services LLC');
@@ -414,12 +436,13 @@ export const QuoteDetailScreen: React.FC<QuoteDetailScreenProps> = ({ quote: ini
       setPendingPdfAction('SHARE');
       setShowCompanyModal(true);
     } else {
-      await PDFService.generateAndSharePDF(quote, profile);
+      await PDFService.generateAndSharePDF(quoteForPdf, profile);
     }
   };
 
   const handleViewPDF = async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    const quoteForPdf = getQuoteForPdf();
     const needsCompanyName =
       !profile.hasCustomBusinessName &&
       (!profile.businessName || profile.businessName.trim() === '' || profile.businessName === 'Apex Field Services LLC');
@@ -427,12 +450,13 @@ export const QuoteDetailScreen: React.FC<QuoteDetailScreenProps> = ({ quote: ini
       setPendingPdfAction('VIEW');
       setShowCompanyModal(true);
     } else {
-      await PDFService.viewPDF(quote, profile);
+      await PDFService.viewPDF(quoteForPdf, profile);
     }
   };
 
   const handleCompanySave = async (enteredName: string, enteredAddress: string) => {
     setShowCompanyModal(false);
+    const quoteForPdf = getQuoteForPdf();
     const updated = {
       ...profile,
       businessName: enteredName || profile.businessName,
@@ -441,18 +465,19 @@ export const QuoteDetailScreen: React.FC<QuoteDetailScreenProps> = ({ quote: ini
     };
     updateProfile(updated);
     if (pendingPdfAction === 'VIEW') {
-      await PDFService.viewPDF(quote, updated);
+      await PDFService.viewPDF(quoteForPdf, updated);
     } else {
-      await PDFService.generateAndSharePDF(quote, updated);
+      await PDFService.generateAndSharePDF(quoteForPdf, updated);
     }
   };
 
   const handleCompanySkip = async () => {
     setShowCompanyModal(false);
+    const quoteForPdf = getQuoteForPdf();
     if (pendingPdfAction === 'VIEW') {
-      await PDFService.viewPDF(quote, profile);
+      await PDFService.viewPDF(quoteForPdf, profile);
     } else {
-      await PDFService.generateAndSharePDF(quote, profile);
+      await PDFService.generateAndSharePDF(quoteForPdf, profile);
     }
   };
 
@@ -574,6 +599,57 @@ export const QuoteDetailScreen: React.FC<QuoteDetailScreenProps> = ({ quote: ini
               </Text>
             </TouchableOpacity>
           </View>
+
+          {quote.photoUri && (
+            <TouchableOpacity
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                marginTop: 10,
+                paddingHorizontal: 12,
+                paddingVertical: 10,
+                borderRadius: 8,
+                backgroundColor: includePhoto ? colors.primaryLight : colors.backgroundSecondary,
+                borderWidth: 1,
+                borderColor: includePhoto ? colors.primary : colors.border,
+              }}
+              activeOpacity={0.7}
+              onPress={handleToggleIncludePhoto}
+            >
+              <View
+                style={{
+                  width: 20,
+                  height: 20,
+                  borderRadius: 5,
+                  borderWidth: 1.5,
+                  borderColor: includePhoto ? colors.primary : colors.textMuted,
+                  backgroundColor: includePhoto ? colors.primary : colors.surface,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                {includePhoto && <Check size={13} color="#FFFFFF" strokeWidth={3} />}
+              </View>
+              <View style={{ flex: 1, marginLeft: 10 }}>
+                <Text style={{ fontSize: 12, fontWeight: '700', color: colors.textPrimary }}>
+                  Exhibit A: Worksite Photo Page
+                </Text>
+                <Text style={{ fontSize: 11, color: colors.textSecondary }}>
+                  {includePhoto ? 'Attached to PDF invoice' : 'Excluded from PDF (internal record only)'}
+                </Text>
+              </View>
+              <Text
+                style={{
+                  fontSize: 11,
+                  fontWeight: '800',
+                  color: includePhoto ? colors.primary : colors.textMuted,
+                  textTransform: 'uppercase',
+                }}
+              >
+                {includePhoto ? 'Included' : 'Excluded'}
+              </Text>
+            </TouchableOpacity>
+          )}
         </View>
 
         {/* Client & Scope Card */}
@@ -618,14 +694,57 @@ export const QuoteDetailScreen: React.FC<QuoteDetailScreenProps> = ({ quote: ini
         {/* Worksite Evidence Photo (If captured) */}
         {quote.photoUri && (
           <View style={styles.card}>
-            <Text style={styles.cardLabel}>Worksite Photo</Text>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+              <Text style={styles.cardLabel}>Worksite Photo</Text>
+              <TouchableOpacity
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 6,
+                  paddingHorizontal: 10,
+                  paddingVertical: 5,
+                  borderRadius: 6,
+                  backgroundColor: includePhoto ? colors.primaryLight : colors.backgroundSecondary,
+                  borderWidth: 1,
+                  borderColor: includePhoto ? colors.primary : colors.border,
+                }}
+                activeOpacity={0.7}
+                onPress={handleToggleIncludePhoto}
+              >
+                <View
+                  style={{
+                    width: 16,
+                    height: 16,
+                    borderRadius: 4,
+                    borderWidth: 1.5,
+                    borderColor: includePhoto ? colors.primary : colors.textMuted,
+                    backgroundColor: includePhoto ? colors.primary : colors.surface,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  {includePhoto && <Check size={11} color="#FFFFFF" strokeWidth={3} />}
+                </View>
+                <Text
+                  style={{
+                    fontSize: 11,
+                    fontWeight: '700',
+                    color: includePhoto ? colors.primary : colors.textSecondary,
+                  }}
+                >
+                  {includePhoto ? 'Attached in PDF' : 'Excluded from PDF'}
+                </Text>
+              </TouchableOpacity>
+            </View>
             <Image
               source={{ uri: quote.photoUri }}
               style={styles.photoPreview}
               resizeMode="cover"
             />
             <Text style={styles.photoCaption}>
-              Captured before work started. Sealed inside PDF Exhibit A.
+              {includePhoto
+                ? 'Captured before work started. Sealed inside PDF Exhibit A.'
+                : 'Captured before work started. Saved for internal records (excluded from PDF).'}
             </Text>
           </View>
         )}

@@ -126,7 +126,7 @@ export class PDFService {
     }
 
     let photoBase64 = '';
-    if (quote.photoUri) {
+    if (quote.photoUri && quote.includePhotoInPdf !== false) {
       try {
         if (quote.photoUri.startsWith('data:')) {
           photoBase64 = quote.photoUri;
