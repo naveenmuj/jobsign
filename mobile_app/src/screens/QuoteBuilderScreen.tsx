@@ -31,6 +31,7 @@ import { useAppSafeArea } from '../utils/safeArea';
 import { useKeyboard } from '../utils/useKeyboard';
 import { AlertService } from '../services/AlertService';
 import { RegionPaymentService } from '../services/RegionPaymentService';
+import { CurrencyService } from '../services/CurrencyService';
 import { ChevronLeft, Camera, Image as ImageIcon, Plus, X, PenLine, Check } from 'lucide-react-native';
 
 const makeStyles = (colors: ThemeColors) =>
@@ -343,15 +344,16 @@ const makeStyles = (colors: ThemeColors) =>
       borderColor: colors.border,
       borderRadius: Theme.borderRadius.sm,
       paddingHorizontal: 10,
-      paddingVertical: 4,
+      paddingVertical: 6,
     },
     taxRateInput: {
       fontSize: 13,
       fontWeight: '700',
       color: colors.textPrimary,
-      minWidth: 46,
+      minWidth: 64,
       textAlign: 'right',
-      padding: 0,
+      paddingVertical: 2,
+      paddingHorizontal: 4,
     },
     setDefaultTaxBtn: {
       flexDirection: 'row',
@@ -562,7 +564,8 @@ export const QuoteBuilderScreen: React.FC<{ onBack: () => void; initialQuote?: Q
   const handleSetAsDefault = () => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     const parsedRate = parseFloat(taxRateInput);
-    const savedBasisPoints = Math.round((isNaN(parsedRate) ? 8.25 : parsedRate) * 100);
+    const clampedRate = Math.max(0, Math.min(100, isNaN(parsedRate) ? 8.25 : parsedRate));
+    const savedBasisPoints = Math.round(clampedRate * 100);
     updateProfile({
       taxEnabledByDefault: isTaxEnabled,
       defaultTaxBasisPoints: isTaxEnabled ? savedBasisPoints : profile.defaultTaxBasisPoints,
@@ -571,7 +574,7 @@ export const QuoteBuilderScreen: React.FC<{ onBack: () => void; initialQuote?: Q
     AlertService.alert(
       'Default Preference Saved',
       isTaxEnabled
-        ? `Tax is now enabled by default at ${taxRateInput}% (${taxLabelInput}) for all future estimates.`
+        ? `Tax is now enabled by default at ${clampedRate.toFixed(2)}% (${taxLabelInput}) for all future estimates.`
         : 'All future estimates will now start tax-free / exempt by default.',
       undefined,
       'SUCCESS'
@@ -580,36 +583,44 @@ export const QuoteBuilderScreen: React.FC<{ onBack: () => void; initialQuote?: Q
 
   // Take damage proof photo
   const handleCapturePhoto = async () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    const { status } = await ImagePicker.requestCameraPermissionsAsync();
-    if (status !== 'granted') {
-      AlertService.alert('Camera Permission', 'Please allow camera access to take worksite damage photos.', undefined, 'WARNING');
-      return;
-    }
+    try {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      const { status } = await ImagePicker.requestCameraPermissionsAsync();
+      if (status !== 'granted') {
+        AlertService.alert('Camera Permission', 'Please allow camera access to take worksite damage photos.', undefined, 'WARNING');
+        return;
+      }
 
-    const result = await ImagePicker.launchCameraAsync({
-      mediaTypes: ['images'],
-      allowsEditing: true,
-      aspect: [4, 3],
-      quality: 0.7,
-    });
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        aspect: [4, 3],
+        quality: 0.7,
+      });
 
-    if (!result.canceled && result.assets[0]) {
-      setPhotoUri(result.assets[0].uri);
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        setPhotoUri(result.assets[0].uri);
+      }
+    } catch {
+      AlertService.alert('Camera Error', 'Could not open camera. Please try again.', undefined, 'DANGER');
     }
   };
 
   const handlePickFromGallery = async () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
-      allowsEditing: true,
-      aspect: [4, 3],
-      quality: 0.7,
-    });
+    try {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        aspect: [4, 3],
+        quality: 0.7,
+      });
 
-    if (!result.canceled && result.assets[0]) {
-      setPhotoUri(result.assets[0].uri);
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        setPhotoUri(result.assets[0].uri);
+      }
+    } catch {
+      AlertService.alert('Gallery Error', 'Could not access photo library. Please try again.', undefined, 'DANGER');
     }
   };
 
@@ -633,13 +644,21 @@ export const QuoteBuilderScreen: React.FC<{ onBack: () => void; initialQuote?: Q
       AlertService.alert('Description Required', 'Please enter a description for the item.', undefined, 'WARNING');
       return;
     }
-    const unitCents = Math.round((parseFloat(customPrice) || 0) * 100);
-    if (unitCents <= 0) {
-      AlertService.alert('Valid Price Required', 'Please enter a valid price amount.', undefined, 'WARNING');
+    const parsedPrice = parseFloat(customPrice);
+    if (isNaN(parsedPrice) || parsedPrice <= 0) {
+      AlertService.alert('Valid Price Required', 'Please enter a valid price amount greater than 0.', undefined, 'WARNING');
       return;
     }
-    const qty = Math.max(0.01, parseFloat(customQty) || 1);
-    const discount = Math.max(0, Math.min(100, parseFloat(customDiscount) || 0));
+    const unitCents = Math.round(parsedPrice * 100);
+    const parsedQty = parseFloat(customQty);
+    const qty = Math.max(0.01, isNaN(parsedQty) ? 1 : parsedQty);
+
+    const parsedDiscount = parseFloat(customDiscount);
+    if (!isNaN(parsedDiscount) && parsedDiscount > 100) {
+      AlertService.alert('Invalid Discount', 'Discount percentage cannot exceed 100%.', undefined, 'WARNING');
+      return;
+    }
+    const discount = isNaN(parsedDiscount) ? 0 : Math.max(0, Math.min(100, parsedDiscount));
     const grossCents = Math.round(qty * unitCents);
     const discountCents = discount > 0 ? Math.round((grossCents * discount) / 100) : 0;
     const itemTotalCents = Math.max(0, grossCents - discountCents);
@@ -670,9 +689,10 @@ export const QuoteBuilderScreen: React.FC<{ onBack: () => void; initialQuote?: Q
   // Calculations
   const subtotalCents = items.reduce((sum, item) => sum + item.totalCents, 0);
   const parsedTax = parseFloat(taxRateInput);
-  const taxBasisPoints = isTaxEnabled
-    ? Math.max(0, Math.round((isNaN(parsedTax) ? ((profile.defaultTaxBasisPoints ?? 825) / 100) : parsedTax) * 100))
+  const safeTaxPercent = isTaxEnabled
+    ? Math.max(0, Math.min(100, isNaN(parsedTax) ? ((profile.defaultTaxBasisPoints ?? 825) / 100) : parsedTax))
     : 0;
+  const taxBasisPoints = Math.round(safeTaxPercent * 100);
   const taxAmountCents = isTaxEnabled
     ? Math.round((subtotalCents * taxBasisPoints) / 10000)
     : 0;
@@ -694,12 +714,13 @@ export const QuoteBuilderScreen: React.FC<{ onBack: () => void; initialQuote?: Q
     return presets;
   }, [isIndia, presets]);
 
-  const parsedDeposit = parseFloat(depositInput) || 0;
-  const depositAmountCents = Math.min(totalAmountCents, Math.round(parsedDeposit * 100));
+  const parsedDeposit = parseFloat(depositInput);
+  const safeDeposit = isNaN(parsedDeposit) ? 0 : Math.max(0, parsedDeposit);
+  const depositAmountCents = Math.min(totalAmountCents, Math.round(safeDeposit * 100));
   const balanceDueCents = Math.max(0, totalAmountCents - depositAmountCents);
 
-  const currencySymbol = profile.currencySymbol || '$';
-  const totalFormatted = `${currencySymbol}${(totalAmountCents / 100).toFixed(2)}`;
+  const currencySymbol = profile.currencySymbol || (isIndia ? '₹' : '$');
+  const totalFormatted = CurrencyService.format(totalAmountCents, currencySymbol, profile.currencyCode);
 
   const handleStartSignature = () => {
     // Check free tier limits (3 quotes/mo) if payment enabled and not in free mode
@@ -724,6 +745,10 @@ export const QuoteBuilderScreen: React.FC<{ onBack: () => void; initialQuote?: Q
     }
     if (items.length === 0) {
       AlertService.alert('No Line Items', 'Please add at least one line item to the estimate.', undefined, 'WARNING');
+      return;
+    }
+    if (safeDeposit > (totalAmountCents / 100)) {
+      AlertService.alert('Deposit Exceeds Total', 'Advance deposit cannot be greater than the total amount.', undefined, 'WARNING');
       return;
     }
     TelemetryService.logAction('START_SIGNATURE', 'QUOTE_BUILDER', {

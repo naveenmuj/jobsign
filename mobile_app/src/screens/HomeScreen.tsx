@@ -17,6 +17,7 @@ import { useQuoteStore } from '../store/useQuoteStore';
 import { PDFService } from '../services/PDFService';
 import { ExportService } from '../services/ExportService';
 import { AlertService } from '../services/AlertService';
+import { CurrencyService } from '../services/CurrencyService';
 import { JobCard } from '../components/JobCard';
 import { PaymentQRModal } from '../components/PaymentQRModal';
 import { OfflineOutboxModal } from '../components/OfflineOutboxModal';
@@ -332,8 +333,40 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
     };
   }, []);
 
+  const tabCounts = React.useMemo(() => {
+    const counts: Record<string, number> = {
+      ALL: quotes.length,
+      OVERDUE: 0,
+      SIGNED_LOCKED: 0,
+      INVOICED: 0,
+      PAID: 0,
+      DRAFT: 0,
+    };
+    const now = Date.now();
+    for (const q of quotes) {
+      if (q.status === 'PAID') {
+        counts.PAID++;
+      } else {
+        if (q.dueDateTimestamp && q.dueDateTimestamp > 0 && q.dueDateTimestamp < now) {
+          counts.OVERDUE++;
+        }
+        if (q.status === 'SIGNED_LOCKED') counts.SIGNED_LOCKED++;
+        else if (q.status === 'INVOICED') counts.INVOICED++;
+        else if (q.status === 'DRAFT') counts.DRAFT++;
+      }
+    }
+    return counts;
+  }, [quotes]);
+
   const filteredQuotes = quotes.filter((q) => {
-    const matchesStatus = activeFilter === 'ALL' || q.status === activeFilter;
+    const now = Date.now();
+    const isOverdue = q.status !== 'PAID' && Boolean(q.dueDateTimestamp && q.dueDateTimestamp > 0 && q.dueDateTimestamp < now);
+    const matchesStatus =
+      activeFilter === 'ALL'
+        ? true
+        : (activeFilter as string) === 'OVERDUE'
+        ? isOverdue
+        : q.status === activeFilter;
     if (!matchesStatus) return false;
     if (!searchQuery.trim()) return true;
     const query = searchQuery.toLowerCase().trim();
@@ -478,8 +511,16 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   };
 
   const handleExportCSV = async () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    await ExportService.exportQuotesToCSV(quotes, profile);
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    const res = await ExportService.exportQuotesToCSV(quotes, profile);
+    if (res.success) {
+      AlertService.alert(
+        'Export Ready',
+        `Successfully generated Daybook accounting spreadsheet for ${quotes.length} record(s). Ready to open in Excel or share.`,
+        undefined,
+        'SUCCESS'
+      );
+    }
   };
 
   return (
@@ -562,7 +603,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
         <View style={styles.metricCard}>
           <Text style={styles.metricLabel}>Outstanding</Text>
           <Text style={[styles.metricVal, { color: colors.amber }]}>
-            {curSymbol}{(totalUncollected / 100).toFixed(0)}
+            {CurrencyService.format(totalUncollected, curSymbol, profile.currencyCode)}
           </Text>
           <Text style={styles.metricSub}>Awaiting collection</Text>
         </View>
@@ -570,7 +611,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
         <View style={styles.metricCard}>
           <Text style={styles.metricLabel}>Collected</Text>
           <Text style={[styles.metricVal, { color: colors.emerald }]}>
-            {curSymbol}{(totalCollected / 100).toFixed(0)}
+            {CurrencyService.format(totalCollected, curSymbol, profile.currencyCode)}
           </Text>
           <Text style={styles.metricSub}>Zero-fee direct payment</Text>
         </View>
@@ -618,30 +659,46 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
         )}
       </View>
 
-      {/* Segmented Filter Pills */}
+      {/* Segmented Filter Pills with Live Counts and Overdue Alert */}
       <View style={styles.filterRow}>
-        {(['ALL', 'SIGNED_LOCKED', 'INVOICED', 'PAID', 'DRAFT'] as const).map((tab) => (
-          <TouchableOpacity
-            key={tab}
-            style={[styles.filterChip, activeFilter === tab && styles.filterChipActive]}
-            onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              setFilter(tab);
-            }}
-          >
-            <Text style={[styles.filterChipText, activeFilter === tab && styles.filterChipTextActive]}>
-              {tab === 'SIGNED_LOCKED'
-                ? 'Signed'
-                : tab === 'INVOICED'
-                ? 'Invoiced'
-                : tab === 'PAID'
-                ? 'Paid'
-                : tab === 'DRAFT'
-                ? 'Draft'
-                : 'All'}
-            </Text>
-          </TouchableOpacity>
-        ))}
+        {(['ALL', 'OVERDUE', 'SIGNED_LOCKED', 'INVOICED', 'PAID', 'DRAFT'] as const).map((tab) => {
+          const count = tabCounts[tab] || 0;
+          const isOverdueTab = tab === 'OVERDUE';
+          return (
+            <TouchableOpacity
+              key={tab}
+              style={[
+                styles.filterChip,
+                activeFilter === (tab as any) && styles.filterChipActive,
+                isOverdueTab && count > 0 && { borderColor: colors.rose, borderWidth: 1.5 },
+              ]}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                setFilter(tab as any);
+              }}
+            >
+              <Text
+                style={[
+                  styles.filterChipText,
+                  activeFilter === (tab as any) && styles.filterChipTextActive,
+                  isOverdueTab && count > 0 && activeFilter !== (tab as any) && { color: colors.rose, fontWeight: '800' },
+                ]}
+              >
+                {tab === 'ALL'
+                  ? `All (${count})`
+                  : tab === 'OVERDUE'
+                  ? `Overdue (${count})`
+                  : tab === 'SIGNED_LOCKED'
+                  ? `Signed (${count})`
+                  : tab === 'INVOICED'
+                  ? `Invoiced (${count})`
+                  : tab === 'PAID'
+                  ? `Paid (${count})`
+                  : `Draft (${count})`}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
       </View>
 
       {/* Active Jobs Pipeline */}

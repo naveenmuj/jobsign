@@ -71,7 +71,7 @@ interface QuoteStore {
   isPro: boolean;
   isDarkMode: boolean;
   isSunlightMode: boolean;
-  activeFilter: 'ALL' | 'DRAFT' | 'SIGNED_LOCKED' | 'INVOICED' | 'PAID';
+  activeFilter: 'ALL' | 'DRAFT' | 'SIGNED_LOCKED' | 'INVOICED' | 'PAID' | 'OVERDUE';
   isLoading: boolean;
   loadQuotes: () => Promise<void>;
   addQuote: (quote: Quote) => Promise<void>;
@@ -80,7 +80,7 @@ interface QuoteStore {
   addPreset: (preset: Omit<ItemPreset, 'id'>) => void;
   removePreset: (id: string) => void;
   setProStatus: (status: boolean) => void;
-  setFilter: (filter: 'ALL' | 'DRAFT' | 'SIGNED_LOCKED' | 'INVOICED' | 'PAID') => void;
+  setFilter: (filter: 'ALL' | 'DRAFT' | 'SIGNED_LOCKED' | 'INVOICED' | 'PAID' | 'OVERDUE') => void;
   toggleDarkMode: () => void;
   toggleSunlightMode: () => void;
   getMonthlyQuoteUsage: () => {

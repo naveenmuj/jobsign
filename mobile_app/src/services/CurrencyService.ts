@@ -159,11 +159,24 @@ export class CurrencyService {
   }
 
   /**
-   * Universal currency formatter with active symbol.
+   * Universal currency formatter with active symbol and regional number grouping.
+   * Supports Indian number formatting (e.g. ₹1,50,000.00) and Western formatting (e.g. $150,000.00).
    */
-  public static format(cents: number, symbol?: string): string {
-    const activeSymbol = symbol !== undefined && symbol !== null ? symbol : '$';
-    const amount = (cents / 100).toFixed(2);
-    return `${activeSymbol}${amount}`;
+  public static format(cents: number, symbol?: string, currencyCode?: string): string {
+    const activeSymbol = symbol !== undefined && symbol !== null ? symbol : (currencyCode === 'INR' ? '₹' : '$');
+    const safeCents = typeof cents === 'number' && !isNaN(cents) ? cents : 0;
+    const value = safeCents / 100;
+    const isIndia = activeSymbol === '₹' || currencyCode === 'INR';
+
+    try {
+      const locale = isIndia ? 'en-IN' : 'en-US';
+      const formattedNumber = new Intl.NumberFormat(locale, {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      }).format(value);
+      return `${activeSymbol}${formattedNumber}`;
+    } catch {
+      return `${activeSymbol}${value.toFixed(2)}`;
+    }
   }
 }

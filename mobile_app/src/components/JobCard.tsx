@@ -131,12 +131,28 @@ export const JobCard: React.FC<JobCardProps> = ({
           <Text style={[styles.statusText, { color: badgeTextColor }]}>{badgeLabel}</Text>
         </View>
 
-        {quote.dueDateTimestamp && !isPaid && (
-          <View style={[styles.coBadge, { backgroundColor: colors.primaryLight }]}>
-            <Text style={[styles.coText, { color: colors.primary }]}>
-              Due: {new Date(quote.dueDateTimestamp).toLocaleDateString(undefined, { month: 'numeric', day: 'numeric' })}
-            </Text>
-          </View>
+        {Boolean(quote.dueDateTimestamp && quote.dueDateTimestamp > 86400000 && !isPaid) && (
+          (() => {
+            const isOverdue = quote.dueDateTimestamp! < Date.now();
+            return (
+              <View
+                style={[
+                  styles.coBadge,
+                  { backgroundColor: isOverdue ? (isDarkMode ? 'rgba(239, 68, 68, 0.2)' : '#FEE2E2') : colors.primaryLight },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.coText,
+                    { color: isOverdue ? colors.rose : colors.primary, fontWeight: isOverdue ? '800' : '700' },
+                  ]}
+                >
+                  {isOverdue ? '⚠️ Overdue: ' : 'Due: '}
+                  {new Date(quote.dueDateTimestamp!).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                </Text>
+              </View>
+            );
+          })()
         )}
 
         {quote.changeOrders && quote.changeOrders.length > 0 && (

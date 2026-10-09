@@ -14,6 +14,7 @@ import { Quote } from '../types';
 import { PDFService } from '../services/PDFService';
 import { AlertService } from '../services/AlertService';
 import { RegionPaymentService } from '../services/RegionPaymentService';
+import { CurrencyService } from '../services/CurrencyService';
 import { ChangeOrderModal } from '../components/ChangeOrderModal';
 import { PaymentQRModal } from '../components/PaymentQRModal';
 import { CompanyNamePromptModal } from '../components/CompanyNamePromptModal';
@@ -788,12 +789,27 @@ export const QuoteDetailScreen: React.FC<QuoteDetailScreenProps> = ({
                 </Text>
               </View>
             )}
-            {quote.dueDateTimestamp && !isPaid && (
-              <View style={{ backgroundColor: colors.primaryLight, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6, borderWidth: 1, borderColor: colors.primary + '40' }}>
-                <Text style={{ fontSize: 11, fontWeight: '700', color: colors.primary }}>
-                  📅 Due: {new Date(quote.dueDateTimestamp).toLocaleDateString()}
-                </Text>
-              </View>
+            {Boolean(quote.dueDateTimestamp && quote.dueDateTimestamp > 86400000 && !isPaid) && (
+              (() => {
+                const isOverdue = quote.dueDateTimestamp! < Date.now();
+                return (
+                  <View
+                    style={{
+                      backgroundColor: isOverdue ? (isDarkMode ? 'rgba(239, 68, 68, 0.2)' : '#FEE2E2') : colors.primaryLight,
+                      paddingHorizontal: 8,
+                      paddingVertical: 4,
+                      borderRadius: 6,
+                      borderWidth: 1,
+                      borderColor: isOverdue ? colors.rose : colors.primary + '40',
+                    }}
+                  >
+                    <Text style={{ fontSize: 11, fontWeight: '700', color: isOverdue ? colors.rose : colors.primary }}>
+                      {isOverdue ? '⚠️ Overdue: ' : '📅 Due: '}
+                      {new Date(quote.dueDateTimestamp!).toLocaleDateString()}
+                    </Text>
+                  </View>
+                );
+              })()
             )}
           </View>
 
@@ -1136,18 +1152,18 @@ export const QuoteDetailScreen: React.FC<QuoteDetailScreenProps> = ({
         <View style={styles.card}>
           <View style={styles.summaryRow}>
             <Text style={styles.sumLabel}>Original Scope</Text>
-            <Text style={styles.sumVal}>{curSymbol}{(quote.subtotalCents / 100).toFixed(2)}</Text>
+            <Text style={styles.sumVal}>{CurrencyService.format(quote.subtotalCents, curSymbol, profile?.currencyCode)}</Text>
           </View>
 
           {regionConfig.region === 'IN' && quote.isGstSplit !== false && quote.taxAmountCents > 0 ? (
             <>
               <View style={styles.summaryRow}>
                 <Text style={styles.sumLabel}>CGST ({(quote.taxRateBasisPoints / 200).toFixed(2)}%)</Text>
-                <Text style={styles.sumVal}>{curSymbol}{((quote.taxAmountCents / 2) / 100).toFixed(2)}</Text>
+                <Text style={styles.sumVal}>{CurrencyService.format(Math.round(quote.taxAmountCents / 2), curSymbol, profile?.currencyCode)}</Text>
               </View>
               <View style={styles.summaryRow}>
                 <Text style={styles.sumLabel}>SGST ({(quote.taxRateBasisPoints / 200).toFixed(2)}%)</Text>
-                <Text style={styles.sumVal}>{curSymbol}{((quote.taxAmountCents / 2) / 100).toFixed(2)}</Text>
+                <Text style={styles.sumVal}>{CurrencyService.format(Math.round(quote.taxAmountCents / 2), curSymbol, profile?.currencyCode)}</Text>
               </View>
             </>
           ) : (
@@ -1155,13 +1171,13 @@ export const QuoteDetailScreen: React.FC<QuoteDetailScreenProps> = ({
               <Text style={styles.sumLabel}>
                 {quote.taxLabel || regionConfig.defaultTaxLabel} ({((quote.taxRateBasisPoints ?? 825) / 100).toFixed(2)}%)
               </Text>
-              <Text style={styles.sumVal}>{curSymbol}{(quote.taxAmountCents / 100).toFixed(2)}</Text>
+              <Text style={styles.sumVal}>{CurrencyService.format(quote.taxAmountCents, curSymbol, profile?.currencyCode)}</Text>
             </View>
           )}
 
           <View style={[styles.summaryRow, styles.totalRow]}>
             <Text style={styles.totalLabel}>TOTAL CONTRACT</Text>
-            <Text style={styles.totalVal}>{curSymbol}{(quote.totalAmountCents / 100).toFixed(2)}</Text>
+            <Text style={styles.totalVal}>{CurrencyService.format(quote.totalAmountCents, curSymbol, profile?.currencyCode)}</Text>
           </View>
 
           {depositCents > 0 && (
@@ -1171,7 +1187,7 @@ export const QuoteDetailScreen: React.FC<QuoteDetailScreenProps> = ({
                   Less: {regionConfig.depositLabel}
                 </Text>
                 <Text style={[styles.sumVal, { color: colors.emerald, fontWeight: '700' }]}>
-                  -{curSymbol}{(depositCents / 100).toFixed(2)}
+                  -{CurrencyService.format(depositCents, curSymbol, profile?.currencyCode)}
                 </Text>
               </View>
               <View style={[styles.summaryRow, { marginTop: 4 }]}>
@@ -1179,7 +1195,7 @@ export const QuoteDetailScreen: React.FC<QuoteDetailScreenProps> = ({
                   {isPaid ? 'PAID IN FULL (0.00 DUE)' : `${regionConfig.balanceDueLabel.toUpperCase()}:`}
                 </Text>
                 <Text style={[styles.totalVal, { color: isPaid ? colors.emerald : colors.amber, fontSize: 17 }]}>
-                  {isPaid ? `${curSymbol}0.00` : `${curSymbol}${(balanceDueCents / 100).toFixed(2)}`}
+                  {isPaid ? CurrencyService.format(0, curSymbol, profile?.currencyCode) : CurrencyService.format(balanceDueCents, curSymbol, profile?.currencyCode)}
                 </Text>
               </View>
             </View>
@@ -1196,12 +1212,12 @@ export const QuoteDetailScreen: React.FC<QuoteDetailScreenProps> = ({
           {(quote.dueDateTimestamp || quote.paymentTerms) && (
             <View style={{ marginTop: 8, paddingTop: 6, borderTopWidth: 1, borderColor: colors.borderSubtle, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
               <Text style={{ fontSize: 12, color: colors.textSecondary }}>Payment Terms / Due Date:</Text>
-              <Text style={{ fontSize: 12, fontWeight: '800', color: quote.dueDateTimestamp && !isPaid ? colors.rose : colors.textPrimary }}>
-                {quote.dueDateTimestamp
-                  ? new Date(quote.dueDateTimestamp).toLocaleDateString()
+              <Text style={{ fontSize: 12, fontWeight: '800', color: quote.dueDateTimestamp && quote.dueDateTimestamp > 86400000 && quote.dueDateTimestamp < Date.now() && !isPaid ? colors.rose : colors.textPrimary }}>
+                {quote.dueDateTimestamp && quote.dueDateTimestamp > 86400000
+                  ? (quote.dueDateTimestamp < Date.now() && !isPaid ? '⚠️ Overdue: ' : '') + new Date(quote.dueDateTimestamp).toLocaleDateString()
                   : quote.paymentTerms === 'DUE_ON_RECEIPT'
                   ? 'Due on Receipt'
-                  : quote.paymentTerms}
+                  : quote.paymentTerms || 'Due on Receipt'}
               </Text>
             </View>
           )}
