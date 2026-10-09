@@ -23,6 +23,7 @@ import { useQuoteStore } from '../store/useQuoteStore';
 import { useAppSafeArea } from '../utils/safeArea';
 import { ChevronLeft, Trash2, FileText, Phone, MessageSquare, Plus, Check, Eye, Share2, Camera, Image as ImageIcon, MessageCircle, FileCheck, Copy } from 'lucide-react-native';
 import { formatAmountInWords } from '../utils/numberToIndianWords';
+import { isQuoteOverdue, isValidTimestamp } from '../utils/dateUtils';
 
 interface QuoteDetailScreenProps {
   quote: Quote;
@@ -789,27 +790,22 @@ export const QuoteDetailScreen: React.FC<QuoteDetailScreenProps> = ({
                 </Text>
               </View>
             )}
-            {Boolean(quote.dueDateTimestamp && quote.dueDateTimestamp > 86400000 && !isPaid) && (
-              (() => {
-                const isOverdue = quote.dueDateTimestamp! < Date.now();
-                return (
-                  <View
-                    style={{
-                      backgroundColor: isOverdue ? (isDarkMode ? 'rgba(239, 68, 68, 0.2)' : '#FEE2E2') : colors.primaryLight,
-                      paddingHorizontal: 8,
-                      paddingVertical: 4,
-                      borderRadius: 6,
-                      borderWidth: 1,
-                      borderColor: isOverdue ? colors.rose : colors.primary + '40',
-                    }}
-                  >
-                    <Text style={{ fontSize: 11, fontWeight: '700', color: isOverdue ? colors.rose : colors.primary }}>
-                      {isOverdue ? '⚠️ Overdue: ' : '📅 Due: '}
-                      {new Date(quote.dueDateTimestamp!).toLocaleDateString()}
-                    </Text>
-                  </View>
-                );
-              })()
+            {isValidTimestamp(quote.dueDateTimestamp) && !isPaid && (
+              <View
+                style={{
+                  backgroundColor: isQuoteOverdue(quote) ? (isDarkMode ? 'rgba(239, 68, 68, 0.2)' : '#FEE2E2') : colors.primaryLight,
+                  paddingHorizontal: 8,
+                  paddingVertical: 4,
+                  borderRadius: 6,
+                  borderWidth: 1,
+                  borderColor: isQuoteOverdue(quote) ? colors.rose : colors.primary + '40',
+                }}
+              >
+                <Text style={{ fontSize: 11, fontWeight: '700', color: isQuoteOverdue(quote) ? colors.rose : colors.primary }}>
+                  {isQuoteOverdue(quote) ? '⚠️ Overdue: ' : '📅 Due: '}
+                  {new Date(quote.dueDateTimestamp).toLocaleDateString()}
+                </Text>
+              </View>
             )}
           </View>
 
@@ -1209,12 +1205,12 @@ export const QuoteDetailScreen: React.FC<QuoteDetailScreenProps> = ({
             </Text>
           </View>
 
-          {(quote.dueDateTimestamp || quote.paymentTerms) && (
+          {(isValidTimestamp(quote.dueDateTimestamp) || quote.paymentTerms) && (
             <View style={{ marginTop: 8, paddingTop: 6, borderTopWidth: 1, borderColor: colors.borderSubtle, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
               <Text style={{ fontSize: 12, color: colors.textSecondary }}>Payment Terms / Due Date:</Text>
-              <Text style={{ fontSize: 12, fontWeight: '800', color: quote.dueDateTimestamp && quote.dueDateTimestamp > 86400000 && quote.dueDateTimestamp < Date.now() && !isPaid ? colors.rose : colors.textPrimary }}>
-                {quote.dueDateTimestamp && quote.dueDateTimestamp > 86400000
-                  ? (quote.dueDateTimestamp < Date.now() && !isPaid ? '⚠️ Overdue: ' : '') + new Date(quote.dueDateTimestamp).toLocaleDateString()
+              <Text style={{ fontSize: 12, fontWeight: '800', color: isQuoteOverdue(quote) ? colors.rose : colors.textPrimary }}>
+                {isValidTimestamp(quote.dueDateTimestamp)
+                  ? (isQuoteOverdue(quote) ? '⚠️ Overdue: ' : '') + new Date(quote.dueDateTimestamp).toLocaleDateString()
                   : quote.paymentTerms === 'DUE_ON_RECEIPT'
                   ? 'Due on Receipt'
                   : quote.paymentTerms || 'Due on Receipt'}

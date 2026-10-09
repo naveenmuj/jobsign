@@ -29,6 +29,7 @@ import { TelemetryService } from '../services/TelemetryService';
 import { FEATURE_FLAGS } from '../config/featureFlags';
 import { useAppSafeArea } from '../utils/safeArea';
 import { useKeyboard } from '../utils/useKeyboard';
+import { isQuoteOverdue } from '../utils/dateUtils';
 
 interface HomeScreenProps {
   onNewQuote: () => void;
@@ -342,12 +343,11 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
       PAID: 0,
       DRAFT: 0,
     };
-    const now = Date.now();
     for (const q of quotes) {
       if (q.status === 'PAID') {
         counts.PAID++;
       } else {
-        if (q.dueDateTimestamp && q.dueDateTimestamp > 0 && q.dueDateTimestamp < now) {
+        if (isQuoteOverdue(q)) {
           counts.OVERDUE++;
         }
         if (q.status === 'SIGNED_LOCKED') counts.SIGNED_LOCKED++;
@@ -359,8 +359,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   }, [quotes]);
 
   const filteredQuotes = quotes.filter((q) => {
-    const now = Date.now();
-    const isOverdue = q.status !== 'PAID' && Boolean(q.dueDateTimestamp && q.dueDateTimestamp > 0 && q.dueDateTimestamp < now);
+    const isOverdue = isQuoteOverdue(q);
     const matchesStatus =
       activeFilter === 'ALL'
         ? true

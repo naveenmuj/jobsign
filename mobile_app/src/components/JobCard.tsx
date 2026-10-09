@@ -6,6 +6,7 @@ import { Theme, getThemeColors } from '../theme';
 import { Quote } from '../types';
 import { useQuoteStore } from '../store/useQuoteStore';
 import { CurrencyService } from '../services/CurrencyService';
+import { isQuoteOverdue, isValidTimestamp } from '../utils/dateUtils';
 
 interface JobCardProps {
   quote: Quote;
@@ -131,28 +132,23 @@ export const JobCard: React.FC<JobCardProps> = ({
           <Text style={[styles.statusText, { color: badgeTextColor }]}>{badgeLabel}</Text>
         </View>
 
-        {Boolean(quote.dueDateTimestamp && quote.dueDateTimestamp > 86400000 && !isPaid) && (
-          (() => {
-            const isOverdue = quote.dueDateTimestamp! < Date.now();
-            return (
-              <View
-                style={[
-                  styles.coBadge,
-                  { backgroundColor: isOverdue ? (isDarkMode ? 'rgba(239, 68, 68, 0.2)' : '#FEE2E2') : colors.primaryLight },
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.coText,
-                    { color: isOverdue ? colors.rose : colors.primary, fontWeight: isOverdue ? '800' : '700' },
-                  ]}
-                >
-                  {isOverdue ? '⚠️ Overdue: ' : 'Due: '}
-                  {new Date(quote.dueDateTimestamp!).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
-                </Text>
-              </View>
-            );
-          })()
+        {isValidTimestamp(quote.dueDateTimestamp) && !isPaid && (
+          <View
+            style={[
+              styles.coBadge,
+              { backgroundColor: isQuoteOverdue(quote) ? (isDarkMode ? 'rgba(239, 68, 68, 0.2)' : '#FEE2E2') : colors.primaryLight },
+            ]}
+          >
+            <Text
+              style={[
+                styles.coText,
+                { color: isQuoteOverdue(quote) ? colors.rose : colors.primary, fontWeight: isQuoteOverdue(quote) ? '800' : '700' },
+              ]}
+            >
+              {isQuoteOverdue(quote) ? '⚠️ Overdue: ' : 'Due: '}
+              {new Date(quote.dueDateTimestamp).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+            </Text>
+          </View>
         )}
 
         {quote.changeOrders && quote.changeOrders.length > 0 && (
