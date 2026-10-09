@@ -490,6 +490,45 @@ assert(settingsUpdatedRaw.includes('29 - Karnataka'), 'SettingsScreen provides I
 assert(settingsUpdatedRaw.includes('Default Document Title'), 'SettingsScreen provides default document title selector');
 assert(settingsUpdatedRaw.includes('Load Indian Trade Presets'), 'SettingsScreen provides 1-tap Indian Trade Presets button');
 
+console.log('\n15. [INVOICE TEMPLATES & TRADE UNITS] myBillBook Competitive Parity');
+// 1. Invoice templates constants
+const invoiceTemplatesRaw = fs.readFileSync(path.resolve('./src/constants/invoiceTemplates.ts'), 'utf8');
+assert(invoiceTemplatesRaw.includes("'advanced_gst'"), 'InvoiceTemplateId includes advanced_gst template');
+assert(invoiceTemplatesRaw.includes("'tally'"), 'InvoiceTemplateId includes tally accounting template');
+assert(invoiceTemplatesRaw.includes('Advanced GST'), 'INVOICE_TEMPLATES includes Advanced GST theme option');
+assert(invoiceTemplatesRaw.includes('Tally Accounting'), 'INVOICE_TEMPLATES includes Tally Accounting theme option');
+
+// 2. LineItem types & trade units
+const typesCurrentRaw = fs.readFileSync(path.resolve('./src/types/index.ts'), 'utf8');
+assert(typesCurrentRaw.includes('hsnSac?: string'), 'LineItem interface supports optional hsnSac');
+assert(typesCurrentRaw.includes('unit?: string'), 'LineItem interface supports optional unit');
+assert(typesCurrentRaw.includes('discountPercent?: number'), 'LineItem interface supports optional discountPercent');
+
+// 3. DatabaseService line items schema & persistence
+const dbLatestRaw = fs.readFileSync(path.resolve('./src/services/DatabaseService.ts'), 'utf8');
+assert(dbLatestRaw.includes('ALTER TABLE line_items ADD COLUMN hsn_sac TEXT'), 'DatabaseService migrates line_items hsn_sac column');
+assert(dbLatestRaw.includes('ALTER TABLE line_items ADD COLUMN unit TEXT'), 'DatabaseService migrates line_items unit column');
+assert(dbLatestRaw.includes('ALTER TABLE line_items ADD COLUMN discount_percent REAL'), 'DatabaseService migrates line_items discount_percent column');
+assert(dbLatestRaw.includes('hsnSac: i.hsn_sac'), 'DatabaseService maps hsnSac in getAllQuotes');
+assert(dbLatestRaw.includes('unit: i.unit'), 'DatabaseService maps unit in getAllQuotes');
+assert(dbLatestRaw.includes('discountPercent: i.discount_percent'), 'DatabaseService maps discountPercent in getAllQuotes');
+
+// 4. PDFService templates & GST breakdown
+const pdfLatestRaw = fs.readFileSync(path.resolve('./src/services/PDFService.ts'), 'utf8');
+assert(pdfLatestRaw.includes('body.theme-advanced_gst'), 'PDFService defines theme-advanced_gst stylesheet');
+assert(pdfLatestRaw.includes('body.theme-tally'), 'PDFService defines theme-tally stylesheet');
+assert(pdfLatestRaw.includes('HSN / SAC Tax Breakup Summary'), 'PDFService renders HSN / SAC Tax Breakup Summary sub-table');
+assert(pdfLatestRaw.includes('Statutory Declaration:'), 'PDFService renders statutory truth declaration on invoices');
+assert(pdfLatestRaw.includes('showDetailedGrid'), 'PDFService conditionally renders detailed HSN/SAC and Unit columns');
+
+// 5. QuoteBuilder trade units and item inputs
+const quoteBuilderLatestRaw = fs.readFileSync(path.resolve('./src/screens/QuoteBuilderScreen.tsx'), 'utf8');
+assert(quoteBuilderLatestRaw.includes('customQty'), 'QuoteBuilderScreen manages customQty state');
+assert(quoteBuilderLatestRaw.includes('customUnit'), 'QuoteBuilderScreen manages customUnit state');
+assert(quoteBuilderLatestRaw.includes('customDiscount'), 'QuoteBuilderScreen manages customDiscount state');
+assert(quoteBuilderLatestRaw.includes('sq.ft'), 'QuoteBuilderScreen renders trade unit chips (sq.ft, nos, mtr, pts)');
+assert(quoteBuilderLatestRaw.includes('Disc %'), 'QuoteBuilderScreen renders line-item trade discount input');
+
 console.log('\n======================================================');
 console.log(`TOTAL TESTS: ${passedCount + failedCount} | PASSED: ${passedCount} | FAILED: ${failedCount}`);
 console.log('======================================================');

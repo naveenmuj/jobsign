@@ -1,4 +1,4 @@
-export type InvoiceTemplateId = 'modern' | 'classic' | 'minimal' | 'contractor';
+export type InvoiceTemplateId = 'advanced_gst' | 'tally' | 'modern' | 'minimal' | 'classic' | 'contractor';
 
 export interface InvoiceTemplateOption {
   id: InvoiceTemplateId;
@@ -14,8 +14,30 @@ export interface InvoiceTemplateOption {
 
 export const INVOICE_TEMPLATES: InvoiceTemplateOption[] = [
   {
+    id: 'advanced_gst',
+    name: 'Advanced GST',
+    subtitle: 'myBillBook Trade Layout',
+    badge: 'India Standard',
+    tagline: 'Itemized HSN/SAC, Unit rates & Tax breakups',
+    description: 'Detailed GST format with dedicated HSN/SAC codes, trade units (sq.ft/nos/mtr), CGST & SGST breakups, vector UPI QR and statutory declaration.',
+    primaryColor: '#0F766E',
+    accentColor: '#059669',
+    fontFamilyName: 'Inter / System Sans',
+  },
+  {
+    id: 'tally',
+    name: 'Tally Accounting',
+    subtitle: 'Classic Boxed Ledger',
+    badge: 'CA Compliant',
+    tagline: 'Bordered accounting ledger & declaration',
+    description: 'Crisp grid-bordered layout favored by Indian accountants, formal supplier/buyer boxes, Rule 46 words and authorized signatory stamp box.',
+    primaryColor: '#1E293B',
+    accentColor: '#334155',
+    fontFamilyName: 'Courier / System Sans',
+  },
+  {
     id: 'modern',
-    name: 'Modern Navy',
+    name: 'Modern Executive',
     subtitle: 'Clean & Contemporary',
     badge: 'Popular',
     tagline: 'Balanced, modern & versatile',
@@ -25,23 +47,12 @@ export const INVOICE_TEMPLATES: InvoiceTemplateOption[] = [
     fontFamilyName: 'Inter / System Sans',
   },
   {
-    id: 'classic',
-    name: 'Classic Executive',
-    subtitle: 'Formal Serif & Legal',
-    badge: 'Executive',
-    tagline: 'Distinguished high-end letterhead',
-    description: 'Timeless serif typography, double accounting borders, formal headers, and refined bordeaux accents.',
-    primaryColor: '#1E293B',
-    accentColor: '#831843',
-    fontFamilyName: 'Georgia / Times Serif',
-  },
-  {
     id: 'minimal',
-    name: 'Minimal Clean',
-    subtitle: 'Monochrome Swiss',
-    badge: 'Ultra Clean',
+    name: 'Compact & Ink Saver',
+    subtitle: 'Single-Sheet Thermal & A4',
+    badge: 'Ink Saver',
     tagline: 'High whitespace & stark clarity',
-    description: 'Swiss-inspired monochrome layout, fine 1px hairlines, pure black contrast, and zero clutter.',
+    description: 'Swiss monochrome layout, fine hairlines, zero ink waste, optimized for mobile thermal and standard office A4 printers.',
     primaryColor: '#000000',
     accentColor: '#475569',
     fontFamilyName: 'Helvetica / Sans-Serif',
@@ -56,5 +67,16 @@ export const INVOICE_TEMPLATES: InvoiceTemplateOption[] = [
     primaryColor: '#18181B',
     accentColor: '#D97706',
     fontFamilyName: 'Heavy Industrial Sans',
+  },
+  {
+    id: 'classic',
+    name: 'Classic Executive',
+    subtitle: 'Formal Serif & Legal',
+    badge: 'Executive',
+    tagline: 'Distinguished high-end letterhead',
+    description: 'Timeless serif typography, double accounting borders, formal headers, and refined bordeaux accents.',
+    primaryColor: '#1E293B',
+    accentColor: '#831843',
+    fontFamilyName: 'Georgia / Times Serif',
   },
 ];

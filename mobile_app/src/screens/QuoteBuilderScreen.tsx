@@ -466,6 +466,10 @@ export const QuoteBuilderScreen: React.FC<{ onBack: () => void }> = ({ onBack })
   const [notes, setNotes] = useState('');
   const [customDesc, setCustomDesc] = useState('');
   const [customPrice, setCustomPrice] = useState('');
+  const [customQty, setCustomQty] = useState('1');
+  const [customUnit, setCustomUnit] = useState('nos');
+  const [customHsn, setCustomHsn] = useState('');
+  const [customDiscount, setCustomDiscount] = useState('');
   const [photoUri, setPhotoUri] = useState<string | null>(null);
   const [includePhotoInPdf, setIncludePhotoInPdf] = useState<boolean>(true);
   const [items, setItems] = useState<LineItem[]>([]);
@@ -603,6 +607,8 @@ export const QuoteBuilderScreen: React.FC<{ onBack: () => void }> = ({ onBack })
       unitPriceCents: preset.priceCents,
       quantity: 1,
       totalCents: preset.priceCents,
+      hsnSac: (preset as any).hsnSac || (isIndia ? '9954' : undefined),
+      unit: (preset as any).unit || (isIndia ? 'nos' : undefined),
     };
     setItems((prev) => [...prev, newItem]);
   };
@@ -612,22 +618,33 @@ export const QuoteBuilderScreen: React.FC<{ onBack: () => void }> = ({ onBack })
       AlertService.alert('Description Required', 'Please enter a description for the item.', undefined, 'WARNING');
       return;
     }
-    const cents = Math.round((parseFloat(customPrice) || 0) * 100);
-    if (cents <= 0) {
+    const unitCents = Math.round((parseFloat(customPrice) || 0) * 100);
+    if (unitCents <= 0) {
       AlertService.alert('Valid Price Required', 'Please enter a valid price amount.', undefined, 'WARNING');
       return;
     }
+    const qty = Math.max(0.01, parseFloat(customQty) || 1);
+    const discount = Math.max(0, Math.min(100, parseFloat(customDiscount) || 0));
+    const grossCents = Math.round(qty * unitCents);
+    const discountCents = discount > 0 ? Math.round((grossCents * discount) / 100) : 0;
+    const itemTotalCents = Math.max(0, grossCents - discountCents);
+
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     const newItem: LineItem = {
       id: Crypto.randomUUID(),
       description: customDesc.trim(),
-      unitPriceCents: cents,
-      quantity: 1,
-      totalCents: cents,
+      unitPriceCents: unitCents,
+      quantity: qty,
+      totalCents: itemTotalCents,
+      unit: customUnit || (isIndia ? 'nos' : undefined),
+      hsnSac: customHsn.trim() || (isIndia ? '9954' : undefined),
+      discountPercent: discount > 0 ? discount : undefined,
     };
     setItems((prev) => [...prev, newItem]);
     setCustomDesc('');
     setCustomPrice('');
+    setCustomQty('1');
+    setCustomDiscount('');
   };
 
   const handleRemoveItem = (id: string) => {
@@ -1028,7 +1045,11 @@ export const QuoteBuilderScreen: React.FC<{ onBack: () => void }> = ({ onBack })
               <View key={item.id} style={styles.itemRow}>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.itemTitle}>{item.description}</Text>
-                  <Text style={styles.itemSub}>Qty: {item.quantity} × {currencySymbol}{(item.unitPriceCents / 100).toFixed(2)}</Text>
+                  <Text style={styles.itemSub}>
+                    Qty: {item.quantity}{item.unit ? ` ${item.unit}` : ''} × {currencySymbol}{(item.unitPriceCents / 100).toFixed(2)}
+                    {item.hsnSac ? ` • SAC: ${item.hsnSac}` : ''}
+                    {item.discountPercent ? ` • -${item.discountPercent}% Disc` : ''}
+                  </Text>
                 </View>
                 <Text style={styles.itemTotal}>{currencySymbol}{(item.totalCents / 100).toFixed(2)}</Text>
                 <TouchableOpacity
@@ -1043,26 +1064,92 @@ export const QuoteBuilderScreen: React.FC<{ onBack: () => void }> = ({ onBack })
           )}
 
           {/* Inline Custom Item Adder */}
-          <View style={styles.addCustomRow}>
-            <TextInput
-              style={[styles.input, styles.customDescInput]}
-              placeholder="Custom item or part..."
-              placeholderTextColor={colors.textMuted}
-              value={customDesc}
-              onChangeText={setCustomDesc}
-            />
-            <TextInput
-              style={[styles.input, styles.customPriceInput]}
-              placeholder={`${currencySymbol}0.00`}
-              placeholderTextColor={colors.textMuted}
-              keyboardType="decimal-pad"
-              value={customPrice}
-              onChangeText={setCustomPrice}
-            />
-            <TouchableOpacity style={styles.addCustomBtn} onPress={handleAddCustomItem}>
-              <Plus size={14} color="#FFFFFF" />
-              <Text style={styles.addCustomBtnText}>Add</Text>
-            </TouchableOpacity>
+          <View style={{ marginTop: 12, borderTopWidth: 1, borderColor: colors.border, paddingTop: 12 }}>
+            <View style={{ flexDirection: 'row', gap: 8, marginBottom: 8 }}>
+              <TextInput
+                style={[styles.input, { flex: 2, fontSize: 13 }]}
+                placeholder="Custom item or part..."
+                placeholderTextColor={colors.textMuted}
+                value={customDesc}
+                onChangeText={setCustomDesc}
+              />
+              <TextInput
+                style={[styles.input, { flex: 1, fontSize: 13, textAlign: 'right' }]}
+                placeholder={`${currencySymbol} Rate`}
+                placeholderTextColor={colors.textMuted}
+                keyboardType="decimal-pad"
+                value={customPrice}
+                onChangeText={setCustomPrice}
+              />
+            </View>
+
+            {/* Qty, Unit Chips, Discount & Add Row */}
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+              <View style={{ width: 68 }}>
+                <TextInput
+                  style={[styles.input, { fontSize: 12, textAlign: 'center', paddingVertical: 8 }]}
+                  placeholder="Qty 1"
+                  placeholderTextColor={colors.textMuted}
+                  keyboardType="decimal-pad"
+                  value={customQty}
+                  onChangeText={setCustomQty}
+                />
+              </View>
+
+              <View style={{ width: 68 }}>
+                <TextInput
+                  style={[styles.input, { fontSize: 12, textAlign: 'center', paddingVertical: 8 }]}
+                  placeholder="Disc %"
+                  placeholderTextColor={colors.textMuted}
+                  keyboardType="decimal-pad"
+                  value={customDiscount}
+                  onChangeText={setCustomDiscount}
+                />
+              </View>
+
+              <View style={{ width: 72 }}>
+                <TextInput
+                  style={[styles.input, { fontSize: 12, textAlign: 'center', paddingVertical: 8 }]}
+                  placeholder="SAC #"
+                  placeholderTextColor={colors.textMuted}
+                  value={customHsn}
+                  onChangeText={setCustomHsn}
+                />
+              </View>
+
+              <TouchableOpacity style={[styles.addCustomBtn, { flex: 1 }]} onPress={handleAddCustomItem}>
+                <Plus size={14} color="#FFFFFF" />
+                <Text style={styles.addCustomBtnText}>Add</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Trade Unit Selector Chips */}
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ flexDirection: 'row', gap: 6, paddingVertical: 2 }}>
+              {['nos', 'sq.ft', 'mtr', 'pts', 'hrs', 'kg', 'set', 'box'].map((u) => {
+                const isSelected = customUnit === u;
+                return (
+                  <TouchableOpacity
+                    key={u}
+                    style={{
+                      paddingHorizontal: 8,
+                      paddingVertical: 4,
+                      borderRadius: 12,
+                      backgroundColor: isSelected ? colors.primary + '15' : colors.backgroundSecondary,
+                      borderWidth: 1,
+                      borderColor: isSelected ? colors.primary : colors.border,
+                    }}
+                    onPress={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      setCustomUnit(u);
+                    }}
+                  >
+                    <Text style={{ fontSize: 10.5, fontWeight: '700', color: isSelected ? colors.primary : colors.textSecondary }}>
+                      {u} {isSelected ? '✓' : ''}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
           </View>
         </View>
 

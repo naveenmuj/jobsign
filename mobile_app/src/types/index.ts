@@ -6,6 +6,9 @@ export interface LineItem {
   unitPriceCents: number;
   quantity: number;
   totalCents: number;
+  hsnSac?: string;         // e.g. '9954', '8536'
+  unit?: string;           // e.g. 'nos', 'sq.ft', 'mtr', 'pts', 'hrs', 'kg', 'set', 'box'
+  discountPercent?: number;// e.g. 5 for 5% trade discount
 }
 
 export interface ChangeOrder {
@@ -26,6 +29,8 @@ export interface ItemPreset {
   priceCents: number;
   category: 'Diagnostic' | 'Labor' | 'Parts' | 'Common';
   iconName?: string;
+  hsnSac?: string;
+  unit?: string;
 }
 
 import { InvoiceTemplateId } from '../constants/invoiceTemplates';

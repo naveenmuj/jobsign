@@ -518,7 +518,11 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onBack }) => {
 
   const renderMiniMockup = (templateId: InvoiceTemplateId) => {
     const accentColor =
-      templateId === 'modern'
+      templateId === 'advanced_gst'
+        ? '#0F766E'
+        : templateId === 'tally'
+        ? '#1E293B'
+        : templateId === 'modern'
         ? '#1E3A8A'
         : templateId === 'classic'
         ? '#831843'

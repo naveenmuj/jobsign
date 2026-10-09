@@ -52,7 +52,10 @@ export class DatabaseService {
         description TEXT NOT NULL,
         unit_price_cents INTEGER NOT NULL,
         quantity REAL NOT NULL DEFAULT 1.0,
-        total_cents INTEGER NOT NULL
+        total_cents INTEGER NOT NULL,
+        hsn_sac TEXT,
+        unit TEXT,
+        discount_percent REAL DEFAULT 0
       );
 
       CREATE TABLE IF NOT EXISTS change_orders (
@@ -163,6 +166,24 @@ export class DatabaseService {
     } catch {
       // Column already exists or freshly created
     }
+
+    try {
+      await db.execAsync('ALTER TABLE line_items ADD COLUMN hsn_sac TEXT;');
+    } catch {
+      // Column already exists
+    }
+
+    try {
+      await db.execAsync('ALTER TABLE line_items ADD COLUMN unit TEXT;');
+    } catch {
+      // Column already exists
+    }
+
+    try {
+      await db.execAsync('ALTER TABLE line_items ADD COLUMN discount_percent REAL DEFAULT 0;');
+    } catch {
+      // Column already exists
+    }
   }
 
   public static async getNextQuoteNumber(): Promise<number> {
@@ -227,6 +248,9 @@ export class DatabaseService {
           unitPriceCents: i.unit_price_cents,
           quantity: i.quantity,
           totalCents: i.total_cents,
+          hsnSac: i.hsn_sac || undefined,
+          unit: i.unit || undefined,
+          discountPercent: i.discount_percent || undefined,
         })),
         changeOrders: cos.map((c) => ({
           id: c.id,
@@ -296,9 +320,19 @@ export class DatabaseService {
       await db.runAsync('DELETE FROM line_items WHERE quote_id = ?', [quote.id]);
       for (const item of quote.lineItems) {
         await db.runAsync(
-          `INSERT INTO line_items (id, quote_id, description, unit_price_cents, quantity, total_cents)
-           VALUES (?, ?, ?, ?, ?, ?)`,
-          [item.id, quote.id, item.description, item.unitPriceCents, item.quantity, item.totalCents]
+          `INSERT INTO line_items (id, quote_id, description, unit_price_cents, quantity, total_cents, hsn_sac, unit, discount_percent)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [
+            item.id,
+            quote.id,
+            item.description,
+            item.unitPriceCents,
+            item.quantity,
+            item.totalCents,
+            item.hsnSac || null,
+            item.unit || null,
+            item.discountPercent || 0,
+          ]
         );
       }
 

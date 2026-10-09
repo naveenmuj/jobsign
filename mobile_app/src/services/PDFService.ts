@@ -214,6 +214,9 @@ export class PDFService {
     }
 
     const templateId: InvoiceTemplateId = (profile?.invoiceTemplate as InvoiceTemplateId) || 'modern';
+    const isGstLayout = templateId === 'advanced_gst' || templateId === 'tally';
+    const hasHsnOrUnit = quote.lineItems.some((i) => i.hsnSac || i.unit || (i.discountPercent && i.discountPercent > 0));
+    const showDetailedGrid = isGstLayout || hasHsnOrUnit;
 
     return `
       <!DOCTYPE html>
@@ -455,6 +458,116 @@ export class PDFService {
             body.theme-contractor .seal-ribbon { background-color: #F4F4F5; border: 1px solid #D4D4D8; border-radius: 4px; padding: 8px 12px; font-size: 11px; color: #52525B; }
             body.theme-contractor .seal-hash { color: #18181B; background: #E4E4E7; }
             body.theme-contractor .audit-page { background-color: #F4F4F5; border: 2px solid #18181B; border-radius: 4px; }
+
+            /* ── THEME 5: ADVANCED GST (MYBILLBOOK TRADE LAYOUT) ── */
+            body.theme-advanced_gst {
+              font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+              color: #0F172A;
+              background-color: #FFFFFF;
+            }
+            body.theme-advanced_gst .header-table {
+              border-bottom: 2.5px solid #0F766E;
+              padding-bottom: 16px;
+              margin-bottom: 20px;
+            }
+            body.theme-advanced_gst .shop-monogram {
+              display: inline-block; width: 44px; height: 44px; line-height: 44px; text-align: center;
+              background-color: #0F766E; color: #FFFFFF; font-size: 18px; font-weight: 900; border-radius: 8px; margin-bottom: 6px;
+            }
+            body.theme-advanced_gst .shop-name { font-size: 22px; font-weight: 900; color: #0F766E; margin: 0 0 3px 0; letter-spacing: -0.3px; }
+            body.theme-advanced_gst .shop-address { font-size: 12px; color: #334155; margin-bottom: 3px; }
+            body.theme-advanced_gst .shop-contacts { font-size: 11.5px; color: #0F766E; font-weight: 600; }
+            body.theme-advanced_gst .doc-badge { border-radius: 6px; background-color: #CCFBF1; color: #0F766E; border: 1px solid #5EEAD4; }
+            body.theme-advanced_gst .doc-badge-paid { background-color: #ECFDF5; color: #065F46; border: 1px solid #A7F3D0; }
+            body.theme-advanced_gst .doc-badge-estimate { background-color: #F0FDF4; color: #166534; border: 1px solid #BBF7D0; }
+            body.theme-advanced_gst .doc-title { font-size: 22px; font-weight: 900; color: #0F766E; margin: 0 0 6px 0; }
+            body.theme-advanced_gst .meta-line { font-size: 12px; color: #475569; margin-bottom: 2px; }
+            body.theme-advanced_gst .meta-line strong { color: #0F172A; }
+            body.theme-advanced_gst .info-card { background: #F0FDFA; border: 1.5px solid #CCFBF1; border-radius: 6px; padding: 12px 14px; vertical-align: top; }
+            body.theme-advanced_gst .card-title { color: #0F766E; font-weight: 800; font-size: 11px; text-transform: uppercase; margin-bottom: 6px; letter-spacing: 0.6px; }
+            body.theme-advanced_gst .card-name { font-size: 14px; font-weight: 800; color: #0F172A; margin-bottom: 3px; }
+            body.theme-advanced_gst .card-text { font-size: 12px; color: #334155; line-height: 1.4; }
+            body.theme-advanced_gst .items-table th { background-color: #0F766E; color: #FFFFFF; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; padding: 9px 10px; border: 1px solid #0D9488; }
+            body.theme-advanced_gst .items-table td { padding: 9px 10px; border: 1px solid #E2E8F0; font-size: 12px; color: #1E293B; }
+            body.theme-advanced_gst .items-table tbody tr:nth-child(even) td { background-color: #F8FAFC; }
+            body.theme-advanced_gst .co-callout-row td { background-color: #CCFBF1 !important; color: #0F766E !important; font-weight: 800; padding: 8px 10px; font-size: 11.5px; }
+            body.theme-advanced_gst .summary-table td.label-col { color: #475569; }
+            body.theme-advanced_gst .summary-table td.val-col { color: #0F172A; }
+            body.theme-advanced_gst .total-row td { background-color: #0F766E; color: #FFFFFF; padding: 10px 14px; font-size: 15px; font-weight: 900; }
+            body.theme-advanced_gst .total-row td.label-col { color: #FFFFFF; }
+            body.theme-advanced_gst .total-row td.val-col { color: #A7F3D0; font-size: 18px; }
+            body.theme-advanced_gst .payment-box { background-color: #F0FDFA; border: 1.5px solid #99F6E4; border-radius: 6px; padding: 12px 14px; }
+            body.theme-advanced_gst .payment-title { font-size: 11px; font-weight: 800; color: #0F766E; text-transform: uppercase; }
+            body.theme-advanced_gst .payment-accounts { font-size: 12px; color: #0F172A; font-weight: 600; margin-top: 2px; }
+            body.theme-advanced_gst .photo-box { border: 1.5px solid #CCFBF1; border-radius: 6px; padding: 14px; background: #FFFFFF; }
+            body.theme-advanced_gst .photo-header { font-size: 11px; font-weight: 800; color: #0F766E; text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 8px; }
+            body.theme-advanced_gst .terms-box { background-color: #F0FDFA; border: 1px solid #CCFBF1; border-radius: 6px; padding: 12px 14px; }
+            body.theme-advanced_gst .terms-header { font-size: 11px; font-weight: 800; color: #0F766E; text-transform: uppercase; margin-bottom: 4px; }
+            body.theme-advanced_gst .terms-body { font-size: 11.5px; color: #1E293B; line-height: 1.45; white-space: pre-wrap; }
+            body.theme-advanced_gst .signature-card { border: 1.5px solid #0F766E; border-radius: 6px; padding: 14px 16px; background: #FFFFFF; }
+            body.theme-advanced_gst .signature-header { font-size: 12px; font-weight: 800; color: #0F766E; text-transform: uppercase; margin-bottom: 8px; }
+            body.theme-advanced_gst .legal-consent { font-size: 10.5px; color: #64748B; line-height: 1.45; margin-top: 10px; }
+            body.theme-advanced_gst .waiver-callout { background-color: #ECFDF5; border: 1px solid #A7F3D0; border-radius: 6px; padding: 10px 12px; margin-top: 12px; font-size: 11px; color: #065F46; line-height: 1.4; }
+            body.theme-advanced_gst .seal-ribbon { background-color: #F0FDFA; border: 1px solid #CCFBF1; border-radius: 6px; padding: 8px 12px; font-size: 10.5px; color: #0F766E; }
+            body.theme-advanced_gst .seal-hash { color: #0F766E; background: #CCFBF1; }
+            body.theme-advanced_gst .audit-page { background-color: #F0FDFA; border: 1.5px solid #0F766E; border-radius: 6px; }
+
+            /* ── THEME 6: TALLY ACCOUNTING (CLASSIC BOXED LEDGER) ── */
+            body.theme-tally {
+              font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Courier New", monospace;
+              color: #1E293B;
+              background-color: #FFFFFF;
+            }
+            body.theme-tally .header-table {
+              border: 2px solid #1E293B;
+              padding: 12px 16px;
+              margin-bottom: 0;
+              border-bottom: 1px solid #1E293B;
+            }
+            body.theme-tally .shop-monogram {
+              display: inline-block; width: 40px; height: 40px; line-height: 40px; text-align: center;
+              background-color: #1E293B; color: #FFFFFF; font-size: 16px; font-weight: 900; border-radius: 0; margin-bottom: 4px;
+            }
+            body.theme-tally .shop-name { font-size: 20px; font-weight: 900; color: #1E293B; margin: 0 0 2px 0; }
+            body.theme-tally .shop-address, body.theme-tally .shop-contacts { font-size: 11.5px; color: #475569; }
+            body.theme-tally .doc-badge { border-radius: 0; background-color: #1E293B; color: #FFFFFF; border: none; font-size: 10px; font-weight: 900; }
+            body.theme-tally .doc-badge-paid { background-color: #1E293B; color: #FFFFFF; }
+            body.theme-tally .doc-badge-estimate { background-color: #475569; color: #FFFFFF; }
+            body.theme-tally .doc-title { font-size: 20px; font-weight: 900; color: #1E293B; margin: 0 0 4px 0; letter-spacing: 0.5px; }
+            body.theme-tally .meta-line { font-size: 11.5px; color: #475569; margin-bottom: 2px; }
+            body.theme-tally .meta-line strong { color: #1E293B; }
+            body.theme-tally .cards-grid { border-collapse: collapse; margin-bottom: 0; border: none; }
+            body.theme-tally .info-card { background: #FFFFFF; border: 2px solid #1E293B; border-top: none; border-radius: 0; padding: 10px 12px; vertical-align: top; }
+            body.theme-tally .card-title { color: #1E293B; font-weight: 800; font-size: 10.5px; text-transform: uppercase; border-bottom: 1px solid #CBD5E1; padding-bottom: 3px; margin-bottom: 6px; }
+            body.theme-tally .card-name { font-size: 13.5px; font-weight: 800; color: #1E293B; margin-bottom: 2px; }
+            body.theme-tally .card-text { font-size: 11.5px; color: #334155; line-height: 1.35; }
+            body.theme-tally .items-table { border-collapse: collapse; border: 2px solid #1E293B; border-top: none; margin-bottom: 0; }
+            body.theme-tally .items-table th { background-color: #F1F5F9; color: #1E293B; font-size: 10.5px; font-weight: 800; text-transform: uppercase; padding: 8px; border: 1px solid #1E293B; border-top: none; }
+            body.theme-tally .items-table td { padding: 8px; border: 1px solid #1E293B; font-size: 11.5px; color: #1E293B; }
+            body.theme-tally .items-table tbody tr:nth-child(even) td { background-color: #FFFFFF; }
+            body.theme-tally .co-callout-row td { background-color: #F1F5F9 !important; color: #1E293B !important; font-weight: 800; padding: 7px 8px; font-size: 11px; }
+            body.theme-tally .financial-block { border: 2px solid #1E293B; border-top: none; padding: 10px 14px; margin-bottom: 14px; }
+            body.theme-tally .summary-table td.label-col { color: #475569; }
+            body.theme-tally .summary-table td.val-col { color: #1E293B; }
+            body.theme-tally .total-row td { border-top: 1.5px solid #1E293B; border-bottom: 2px solid #1E293B; padding: 8px 10px; font-size: 14.5px; font-weight: 900; }
+            body.theme-tally .total-row td.label-col { color: #1E293B; }
+            body.theme-tally .total-row td.val-col { color: #1E293B; font-size: 16.5px; }
+            body.theme-tally .payment-box { border: 2px solid #1E293B; border-radius: 0; padding: 10px 12px; background: #FAFAFA; }
+            body.theme-tally .payment-title { font-size: 10.5px; font-weight: 800; color: #1E293B; text-transform: uppercase; }
+            body.theme-tally .payment-accounts { font-size: 11.5px; color: #1E293B; font-weight: 600; margin-top: 2px; }
+            body.theme-tally .photo-box { border: 2px solid #1E293B; border-radius: 0; padding: 12px; background: #FFFFFF; }
+            body.theme-tally .photo-header { font-size: 10.5px; font-weight: 800; color: #1E293B; text-transform: uppercase; margin-bottom: 6px; }
+            body.theme-tally .terms-box { border: 2px solid #1E293B; border-radius: 0; padding: 10px 12px; background: #FFFFFF; }
+            body.theme-tally .terms-header { font-size: 10.5px; font-weight: 800; color: #1E293B; text-transform: uppercase; margin-bottom: 3px; }
+            body.theme-tally .terms-body { font-size: 11px; color: #334155; line-height: 1.4; white-space: pre-wrap; }
+            body.theme-tally .signature-card { border: 2px solid #1E293B; border-radius: 0; padding: 14px; background: #FFFFFF; }
+            body.theme-tally .signature-header { font-size: 11px; font-weight: 800; color: #1E293B; text-transform: uppercase; margin-bottom: 6px; }
+            body.theme-tally .legal-consent { font-size: 10px; color: #64748B; line-height: 1.4; margin-top: 8px; }
+            body.theme-tally .waiver-callout { background-color: #F8FAFC; border: 1px solid #CBD5E1; border-radius: 0; padding: 8px 10px; margin-top: 10px; font-size: 10.5px; color: #1E293B; }
+            body.theme-tally .seal-ribbon { background-color: #F8FAFC; border: 1px solid #CBD5E1; border-radius: 0; padding: 6px 10px; font-size: 10px; color: #475569; }
+            body.theme-tally .seal-hash { color: #1E293B; background: #E2E8F0; }
+            body.theme-tally .audit-page { background-color: #FFFFFF; border: 2px solid #1E293B; border-radius: 0; }
+
           </style>
         </head>
         <body class="theme-${templateId}">
@@ -509,40 +622,81 @@ export class PDFService {
           <!-- ── ITEMIZED LINE ITEMS ── -->
           <table class="items-table">
             <thead>
-              <tr>
-                <th style="text-align: left;">Item / Service Description</th>
-                <th style="text-align: center; width: 60px;">Qty</th>
-                <th style="text-align: right; width: 110px;">Unit Rate</th>
-                <th style="text-align: right; width: 120px;">Amount</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${quote.lineItems
-                .map(
-                  (item) => `
+              ${
+                showDetailedGrid
+                  ? `
                 <tr>
-                  <td><strong>${escapeHtml(item.description)}</strong></td>
-                  <td style="text-align: center;">${item.quantity}</td>
-                  <td style="text-align: right;">${curSymbol}${(item.unitPriceCents / 100).toFixed(2)}</td>
-                  <td style="text-align: right;"><strong>${curSymbol}${(item.totalCents / 100).toFixed(2)}</strong></td>
+                  <th style="text-align: center; width: 32px;">#</th>
+                  <th style="text-align: left;">Item / Service Description</th>
+                  <th style="text-align: center; width: 75px;">HSN/SAC</th>
+                  <th style="text-align: center; width: 85px;">Qty & Unit</th>
+                  <th style="text-align: right; width: 95px;">Unit Rate</th>
+                  ${quote.lineItems.some((i) => i.discountPercent && i.discountPercent > 0) ? '<th style="text-align: right; width: 65px;">Disc %</th>' : ''}
+                  <th style="text-align: right; width: 110px;">Amount</th>
                 </tr>
               `
-                )
-                .join('')}
+                  : `
+                <tr>
+                  <th style="text-align: left;">Item / Service Description</th>
+                  <th style="text-align: center; width: 60px;">Qty</th>
+                  <th style="text-align: right; width: 110px;">Unit Rate</th>
+                  <th style="text-align: right; width: 120px;">Amount</th>
+                </tr>
+              `
+              }
+            </thead>
+            <tbody>
+              ${
+                showDetailedGrid
+                  ? quote.lineItems
+                      .map(
+                        (item, idx) => `
+                    <tr>
+                      <td style="text-align: center; color: #64748B;">${idx + 1}</td>
+                      <td>
+                        <strong>${escapeHtml(item.description)}</strong>
+                      </td>
+                      <td style="text-align: center; font-family: monospace; font-size: 11px;">${escapeHtml(item.hsnSac || '9954')}</td>
+                      <td style="text-align: center;"><strong>${item.quantity}</strong> ${escapeHtml(item.unit || 'nos')}</td>
+                      <td style="text-align: right;">${curSymbol}${(item.unitPriceCents / 100).toFixed(2)}</td>
+                      ${quote.lineItems.some((i) => i.discountPercent && i.discountPercent > 0) ? `<td style="text-align: right; color: #059669; font-weight: 700;">${item.discountPercent ? `${item.discountPercent}%` : '-'}</td>` : ''}
+                      <td style="text-align: right;"><strong>${curSymbol}${(item.totalCents / 100).toFixed(2)}</strong></td>
+                    </tr>
+                  `
+                      )
+                      .join('')
+                  : quote.lineItems
+                      .map(
+                        (item) => `
+                    <tr>
+                      <td>
+                        <strong>${escapeHtml(item.description)}</strong>
+                        ${item.hsnSac ? `<span style="font-size: 10px; color: #64748B; margin-left: 6px;">[SAC: ${escapeHtml(item.hsnSac)}]</span>` : ''}
+                      </td>
+                      <td style="text-align: center;">${item.quantity}${item.unit ? ` ${escapeHtml(item.unit)}` : ''}</td>
+                      <td style="text-align: right;">${curSymbol}${(item.unitPriceCents / 100).toFixed(2)}</td>
+                      <td style="text-align: right;"><strong>${curSymbol}${(item.totalCents / 100).toFixed(2)}</strong></td>
+                    </tr>
+                  `
+                      )
+                      .join('')
+              }
 
               ${
                 quote.changeOrders && quote.changeOrders.length > 0
                   ? `
                 <tr class="co-callout-row">
-                  <td colspan="4">APPROVED MID-JOB ADD-ONS & CHANGE ORDERS</td>
+                  <td colspan="${showDetailedGrid ? (quote.lineItems.some((i) => i.discountPercent && i.discountPercent > 0) ? 7 : 6) : 4}">APPROVED MID-JOB ADD-ONS & CHANGE ORDERS</td>
                 </tr>
                 ${quote.changeOrders
                   .map(
-                    (co) => `
+                    (co, idx) => `
                   <tr>
+                    ${showDetailedGrid ? `<td style="text-align: center; color: #64748B;">+${idx + 1}</td>` : ''}
                     <td><strong>Add-On #${co.orderNumber}: ${escapeHtml(co.reason)}</strong></td>
-                    <td style="text-align: center;">1.0</td>
+                    ${showDetailedGrid ? '<td style="text-align: center; font-family: monospace; font-size: 11px;">9954</td><td style="text-align: center;">1.0 set</td>' : '<td style="text-align: center;">1.0</td>'}
                     <td style="text-align: right;">${curSymbol}${(co.addedTotalCents / 100).toFixed(2)}</td>
+                    ${showDetailedGrid && quote.lineItems.some((i) => i.discountPercent && i.discountPercent > 0) ? '<td style="text-align: right;">-</td>' : ''}
                     <td style="text-align: right; color: #6B21A8;"><strong>+${curSymbol}${(co.addedTotalCents / 100).toFixed(2)}</strong></td>
                   </tr>
                 `
@@ -614,6 +768,65 @@ export class PDFService {
                   : ''
               }
             </div>
+
+            <!-- ── HSN / SAC TAX BREAKDOWN TABLE (MYBILLBOOK PARITY) ── -->
+            ${
+              templateId === 'advanced_gst' && quote.taxAmountCents > 0
+                ? `
+              <div style="margin-top: 14px; padding: 10px 14px; background: #F0FDFA; border: 1.5px solid #CCFBF1; border-radius: 6px;">
+                <div style="font-size: 10.5px; font-weight: 800; color: #0F766E; text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 6px;">
+                  HSN / SAC Tax Breakup Summary (कर विवरण)
+                </div>
+                <table style="width: 100%; border-collapse: collapse; font-size: 11px;">
+                  <thead>
+                    <tr style="background-color: #CCFBF1; border-bottom: 1.5px solid #0F766E;">
+                      <th style="padding: 6px 8px; text-align: left; color: #0F766E;">HSN/SAC</th>
+                      <th style="padding: 6px 8px; text-align: right; color: #0F766E;">Taxable Value</th>
+                      ${
+                        quote.isGstSplit !== false
+                          ? `
+                        <th style="padding: 6px 8px; text-align: right; color: #0F766E;">Central Tax (CGST)</th>
+                        <th style="padding: 6px 8px; text-align: right; color: #0F766E;">State Tax (SGST)</th>
+                      `
+                          : `
+                        <th style="padding: 6px 8px; text-align: right; color: #0F766E;">Integrated Tax (IGST)</th>
+                      `
+                      }
+                      <th style="padding: 6px 8px; text-align: right; color: #0F766E;">Total Tax</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td style="padding: 6px 8px; font-family: monospace; font-weight: 700; color: #0F766E;">${escapeHtml(quote.lineItems[0]?.hsnSac || '9954 (Trade Services)')}</td>
+                      <td style="padding: 6px 8px; text-align: right; font-weight: 700;">${curSymbol}${(quote.subtotalCents / 100).toFixed(2)}</td>
+                      ${
+                        quote.isGstSplit !== false
+                          ? `
+                        <td style="padding: 6px 8px; text-align: right;">${(quote.taxRateBasisPoints / 200).toFixed(2)}% (${curSymbol}${((quote.taxAmountCents / 2) / 100).toFixed(2)})</td>
+                        <td style="padding: 6px 8px; text-align: right;">${(quote.taxRateBasisPoints / 200).toFixed(2)}% (${curSymbol}${((quote.taxAmountCents / 2) / 100).toFixed(2)})</td>
+                      `
+                          : `
+                        <td style="padding: 6px 8px; text-align: right;">${(quote.taxRateBasisPoints / 100).toFixed(2)}% (${curSymbol}${(quote.taxAmountCents / 100).toFixed(2)})</td>
+                      `
+                      }
+                      <td style="padding: 6px 8px; text-align: right; font-weight: 800; color: #0F766E;">${curSymbol}${(quote.taxAmountCents / 100).toFixed(2)}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            `
+                : ''
+            }
+
+            ${
+              isGstLayout
+                ? `
+              <div style="margin-top: 10px; font-size: 10.5px; color: #475569; font-style: italic; line-height: 1.4;">
+                <strong>Statutory Declaration:</strong> We declare that this invoice shows the actual price of the goods/services described and that all particulars are true and correct.
+              </div>
+            `
+                : ''
+            }
           </div>
 
           <!-- ── PAYMENT SETTLEMENT DETAILS (IF CONFIGURED) ── -->

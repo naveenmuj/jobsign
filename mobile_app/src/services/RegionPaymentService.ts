@@ -391,21 +391,21 @@ export class RegionPaymentService {
    * Top trade contractor service presets for the Indian market in INR (₹).
    */
   public static readonly INDIAN_TRADE_PRESETS = [
-    { title: 'Electrical Wiring (Per Point)', priceCents: 25000, category: 'Labor' },
-    { title: 'Switchboard / Socket Installation', priceCents: 35000, category: 'Labor' },
-    { title: 'Ceiling Fan / Exhaust Fitting', priceCents: 30000, category: 'Labor' },
-    { title: 'MCB / Distribution Board Repair', priceCents: 120000, category: 'Diagnostic' },
-    { title: 'Inverter & Battery Wiring Setup', priceCents: 150000, category: 'Labor' },
-    { title: 'Plumbing Leakage & Pipe Joint Repair', priceCents: 65000, category: 'Diagnostic' },
-    { title: 'Tap / Cock / Bib Cock Replacement', priceCents: 30000, category: 'Labor' },
-    { title: 'Water Tank Fitting & Valve Setup', priceCents: 180000, category: 'Labor' },
-    { title: 'Wall Putty & Primer Coat (Per Sq.Ft)', priceCents: 1200, category: 'Labor' },
-    { title: 'Interior Emulsion Painting 2 Coats (Per Sq.Ft)', priceCents: 1800, category: 'Labor' },
-    { title: 'AC General Service & Jet Wash', priceCents: 80000, category: 'Diagnostic' },
-    { title: 'AC Gas Charging & Refrigerant Top-up', priceCents: 220000, category: 'Parts' },
-    { title: 'Door Lock / Handle Fitting & Repair', priceCents: 45000, category: 'Labor' },
-    { title: 'Bathroom Tile Laying (Per Sq.Ft)', priceCents: 3500, category: 'Labor' },
-    { title: 'Granite Countertop Cutting & Fitting', priceCents: 250000, category: 'Labor' },
+    { title: 'Electrical Wiring (Per Point)', priceCents: 25000, category: 'Labor', hsnSac: '9954', unit: 'pts' },
+    { title: 'Switchboard / Socket Installation', priceCents: 35000, category: 'Labor', hsnSac: '9954', unit: 'nos' },
+    { title: 'Ceiling Fan / Exhaust Fitting', priceCents: 30000, category: 'Labor', hsnSac: '9954', unit: 'nos' },
+    { title: 'MCB / Distribution Board Repair', priceCents: 120000, category: 'Diagnostic', hsnSac: '9954', unit: 'set' },
+    { title: 'Inverter & Battery Wiring Setup', priceCents: 150000, category: 'Labor', hsnSac: '9954', unit: 'set' },
+    { title: 'Plumbing Leakage & Pipe Joint Repair', priceCents: 65000, category: 'Diagnostic', hsnSac: '9954', unit: 'nos' },
+    { title: 'Tap / Cock / Bib Cock Replacement', priceCents: 30000, category: 'Labor', hsnSac: '9954', unit: 'nos' },
+    { title: 'Water Tank Fitting & Valve Setup', priceCents: 180000, category: 'Labor', hsnSac: '9954', unit: 'set' },
+    { title: 'Wall Putty & Primer Coat (Per Sq.Ft)', priceCents: 1200, category: 'Labor', hsnSac: '9954', unit: 'sq.ft' },
+    { title: 'Interior Emulsion Painting 2 Coats (Per Sq.Ft)', priceCents: 1800, category: 'Labor', hsnSac: '9954', unit: 'sq.ft' },
+    { title: 'AC General Service & Jet Wash', priceCents: 80000, category: 'Diagnostic', hsnSac: '9987', unit: 'nos' },
+    { title: 'AC Gas Charging & Refrigerant Top-up', priceCents: 220000, category: 'Parts', hsnSac: '8415', unit: 'kg' },
+    { title: 'Door Lock / Handle Fitting & Repair', priceCents: 45000, category: 'Labor', hsnSac: '9954', unit: 'nos' },
+    { title: 'Bathroom Tile Laying (Per Sq.Ft)', priceCents: 3500, category: 'Labor', hsnSac: '9954', unit: 'sq.ft' },
+    { title: 'Granite Countertop Cutting & Fitting', priceCents: 250000, category: 'Labor', hsnSac: '9954', unit: 'sq.ft' },
   ];
 
   /**
