@@ -29,9 +29,14 @@ export const JobCard: React.FC<JobCardProps> = ({
   const isInvoiced = quote.status === 'INVOICED';
   const isSigned = quote.status === 'SIGNED_LOCKED';
   const isDraft = quote.status === 'DRAFT';
+  const depositCents = quote.depositAmountCents || 0;
+  const isPartiallyPaid = !isPaid && depositCents > 0 && depositCents < quote.totalAmountCents;
+  const balanceDueCents = Math.max(0, quote.totalAmountCents - depositCents);
 
   const badgeBg = isPaid
     ? colors.successLight
+    : isPartiallyPaid
+    ? (isDarkMode ? 'rgba(245, 158, 11, 0.15)' : '#FEF3C7')
     : isInvoiced
     ? colors.primaryLight
     : isSigned
@@ -40,16 +45,43 @@ export const JobCard: React.FC<JobCardProps> = ({
 
   const badgeTextColor = isPaid
     ? colors.emerald
+    : isPartiallyPaid
+    ? colors.amber
     : isInvoiced
     ? colors.primary
     : isSigned
     ? colors.amber
     : colors.slateInfo;
 
-  const badgeLabel = isPaid ? 'Paid' : isInvoiced ? 'Invoice Issued' : isSigned ? 'Signed & Locked' : 'Draft';
+  const badgeLabel = isPaid
+    ? 'Paid'
+    : isPartiallyPaid
+    ? 'Partially Paid'
+    : isInvoiced
+    ? 'Invoice Issued'
+    : isSigned
+    ? 'Signed & Locked'
+    : 'Draft';
+
+  const docTypeShort =
+    quote.documentType === 'TAX_INVOICE'
+      ? 'Tax Inv'
+      : quote.documentType === 'BILL_OF_SUPPLY'
+      ? 'Bill Supply'
+      : quote.documentType === 'DELIVERY_CHALLAN'
+      ? 'Challan'
+      : isInvoiced
+      ? 'Invoice'
+      : 'Estimate';
 
   const profile = useQuoteStore((state) => state.profile);
   const curSymbol = quote.currencySymbol || profile?.currencySymbol || '$';
+
+  const showWhatsApp = Boolean(onShareWhatsApp);
+  const showCollect = !isPaid;
+  const pdfFlex = showWhatsApp && showCollect ? 0.75 : 1;
+  const waFlex = showCollect ? 1.05 : 1;
+  const payFlex = showWhatsApp ? 1.45 : 1.6;
 
   return (
     <TouchableOpacity
@@ -73,7 +105,7 @@ export const JobCard: React.FC<JobCardProps> = ({
             {quote.clientName}
           </Text>
           <Text style={[styles.subText, { color: colors.textSecondary }]} numberOfLines={1}>
-            #{quote.quoteNumber} • {quote.jobDescription || 'Standard Service'}
+            [{docTypeShort}] #{quote.quoteNumber} • {quote.jobDescription || 'Standard Service'}
           </Text>
         </View>
 
@@ -81,6 +113,11 @@ export const JobCard: React.FC<JobCardProps> = ({
           <Text style={[styles.amountText, { color: colors.textPrimary }]}>
             {CurrencyService.format(quote.totalAmountCents, curSymbol)}
           </Text>
+          {isPartiallyPaid && (
+            <Text style={{ fontSize: 11, fontWeight: '700', color: colors.amber, marginTop: 1 }}>
+              Bal: {CurrencyService.format(balanceDueCents, curSymbol)}
+            </Text>
+          )}
           <Text style={[styles.dateText, { color: colors.textMuted }]}>
             {new Date(quote.createdAt).toLocaleDateString()}
           </Text>
@@ -93,6 +130,14 @@ export const JobCard: React.FC<JobCardProps> = ({
           <View style={[styles.statusDot, { backgroundColor: badgeTextColor }]} />
           <Text style={[styles.statusText, { color: badgeTextColor }]}>{badgeLabel}</Text>
         </View>
+
+        {quote.dueDateTimestamp && !isPaid && (
+          <View style={[styles.coBadge, { backgroundColor: colors.primaryLight }]}>
+            <Text style={[styles.coText, { color: colors.primary }]}>
+              Due: {new Date(quote.dueDateTimestamp).toLocaleDateString(undefined, { month: 'numeric', day: 'numeric' })}
+            </Text>
+          </View>
+        )}
 
         {quote.changeOrders && quote.changeOrders.length > 0 && (
           <View style={[styles.coBadge, { backgroundColor: colors.purpleLight }]}>
@@ -119,6 +164,7 @@ export const JobCard: React.FC<JobCardProps> = ({
           style={[
             styles.actionBtnSecondary,
             {
+              flex: pdfFlex,
               backgroundColor: isDarkMode ? 'rgba(255, 255, 255, 0.05)' : colors.backgroundSecondary,
               borderColor: colors.cardBorder,
             },
@@ -129,45 +175,53 @@ export const JobCard: React.FC<JobCardProps> = ({
           }}
           activeOpacity={0.8}
         >
-          <FileText size={14} color={colors.textSecondary} style={{ marginRight: 4 }} />
-          <Text style={[styles.actionBtnSecondaryText, { color: colors.textSecondary }]}>
+          <FileText size={13} color={colors.textSecondary} style={{ marginRight: 4 }} />
+          <Text style={[styles.actionBtnSecondaryText, { color: colors.textSecondary }]} numberOfLines={1}>
             PDF
           </Text>
         </TouchableOpacity>
 
-        {onShareWhatsApp && (
+        {showWhatsApp && (
           <TouchableOpacity
             style={[
               styles.actionBtnSecondary,
               {
+                flex: waFlex,
                 backgroundColor: '#25D366' + '18',
                 borderColor: '#25D366' + '50',
               },
             ]}
             onPress={(e) => {
               e.stopPropagation();
-              onShareWhatsApp();
+              onShareWhatsApp?.();
             }}
             activeOpacity={0.8}
           >
-            <MessageCircle size={14} color="#25D366" style={{ marginRight: 4 }} />
-            <Text style={[styles.actionBtnSecondaryText, { color: '#25D366', fontWeight: '800' }]}>
+            <MessageCircle size={13} color="#25D366" style={{ marginRight: 4 }} />
+            <Text style={[styles.actionBtnSecondaryText, { color: '#25D366', fontWeight: '800' }]} numberOfLines={1}>
               WhatsApp
             </Text>
           </TouchableOpacity>
         )}
 
-        {!isPaid && (
+        {showCollect && (
           <TouchableOpacity
-            style={[styles.actionBtnPrimary, { backgroundColor: colors.emerald }]}
+            style={[styles.actionBtnPrimary, { flex: payFlex, backgroundColor: colors.emerald }]}
             onPress={(e) => {
               e.stopPropagation();
               onCollectPay();
             }}
             activeOpacity={0.85}
           >
-            <CreditCard size={14} color="#FFFFFF" style={{ marginRight: 5 }} />
-            <Text style={styles.actionBtnPrimaryText}>Collect Payment</Text>
+            <CreditCard size={13} color="#FFFFFF" style={{ marginRight: 5 }} />
+            <Text
+              style={styles.actionBtnPrimaryText}
+              numberOfLines={1}
+              adjustsFontSizeToFit
+              minimumFontScale={0.85}
+            >
+              Collect Payment
+            </Text>
           </TouchableOpacity>
         )}
       </View>
@@ -248,34 +302,35 @@ const styles = StyleSheet.create({
   },
   actionRow: {
     flexDirection: 'row',
-    gap: 10,
+    alignItems: 'center',
+    gap: 8,
     marginTop: 14,
     paddingTop: 12,
     borderTopWidth: 1,
   },
   actionBtnSecondary: {
-    flex: 1,
     flexDirection: 'row',
     borderWidth: 1,
-    minHeight: 44,
+    minHeight: 40,
     borderRadius: Theme.borderRadius.md,
     justifyContent: 'center',
     alignItems: 'center',
+    paddingHorizontal: 6,
   },
   actionBtnSecondaryText: {
-    fontSize: 13,
-    fontWeight: '600',
+    fontSize: 12.5,
+    fontWeight: '700',
   },
   actionBtnPrimary: {
-    flex: 1,
     flexDirection: 'row',
-    minHeight: 44,
+    minHeight: 40,
     borderRadius: Theme.borderRadius.md,
     justifyContent: 'center',
     alignItems: 'center',
+    paddingHorizontal: 8,
   },
   actionBtnPrimaryText: {
-    fontSize: 13,
+    fontSize: 12.5,
     fontWeight: '700',
     color: '#FFFFFF',
   },

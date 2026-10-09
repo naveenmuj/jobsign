@@ -137,6 +137,15 @@ export const PaymentQRModal: React.FC<{ quote: Quote; onClose: () => void }> = (
     ? `${curSymbol}${amountDecimal} (${regionConfig.balanceDueLabel})`
     : `${curSymbol}${amountDecimal}`;
 
+  const [paymentAmountStr, setPaymentAmountStr] = useState(amountDecimal);
+  const [settlementMode, setSettlementMode] = useState<'UPI' | 'CASH' | 'BANK' | 'CHEQUE'>('UPI');
+  const [paymentRefInput, setPaymentRefInput] = useState('');
+
+  const enteredAmountNum = parseFloat(paymentAmountStr) || 0;
+  const enteredAmountCents = Math.round(enteredAmountNum * 100);
+  const isPartialPayment = enteredAmountCents > 0 && enteredAmountCents < amountToCollectCents;
+  const remainingAfterPaymentCents = Math.max(0, amountToCollectCents - enteredAmountCents);
+
   const handleSelectUpi = (acc: SavedUpiAccount) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     updateProfile({
@@ -231,7 +240,8 @@ export const PaymentQRModal: React.FC<{ quote: Quote; onClose: () => void }> = (
   };
 
   const getPayload = (): string => {
-    const amtStr = (quote.totalAmountCents / 100).toFixed(2);
+    const effectiveCollectCents = enteredAmountCents > 0 ? enteredAmountCents : amountToCollectCents;
+    const amtStr = (effectiveCollectCents / 100).toFixed(2);
     switch (activeRail) {
       case 'UPI': {
         const upiId = (profile?.upiId || '').trim();
@@ -278,14 +288,83 @@ export const PaymentQRModal: React.FC<{ quote: Quote; onClose: () => void }> = (
   };
 
   const handleMarkAsPaid = () => {
+    if (enteredAmountCents <= 0) {
+      AlertService.alert('Invalid Amount', 'Please enter a valid payment amount.', undefined, 'WARNING');
+      return;
+    }
+
+    const modeLabels: Record<string, string> = {
+      UPI: 'UPI',
+      CASH: 'Cash',
+      BANK: 'Direct Bank Transfer',
+      CHEQUE: 'Cheque',
+    };
+    const modeLabel = modeLabels[settlementMode] || settlementMode;
+
+    if (isPartialPayment) {
+      AlertService.alert({
+        title: 'Record Partial Payment',
+        message: `Record ${curSymbol}${(enteredAmountCents / 100).toFixed(2)} received via ${modeLabel} for Agreement #${quote.quoteNumber}?\n\nClient balance will update to ${curSymbol}${(remainingAfterPaymentCents / 100).toFixed(2)}.`,
+        type: 'INFO',
+        buttons: [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Confirm Payment',
+            style: 'default',
+            onPress: async () => {
+              if (isProcessing) return;
+              setIsProcessing(true);
+              try {
+                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                const updated: Quote = {
+                  ...quote,
+                  depositAmountCents: (quote.depositAmountCents || 0) + enteredAmountCents,
+                  updatedAt: Date.now(),
+                };
+                await addQuote(updated);
+                await NotificationService.notifyPaymentReceived(
+                  quote.quoteNumber,
+                  quote.clientName,
+                  enteredAmountCents,
+                  true,
+                  remainingAfterPaymentCents
+                );
+                AlertService.alert({
+                  title: 'Partial Payment Recorded',
+                  message: `Received ${curSymbol}${(enteredAmountCents / 100).toFixed(2)} via ${modeLabel}.\nRemaining balance: ${curSymbol}${(remainingAfterPaymentCents / 100).toFixed(2)}.`,
+                  type: 'SUCCESS',
+                });
+                onClose();
+              } catch (err: any) {
+                AlertService.alert({
+                  title: 'Error',
+                  message: err?.message || 'Could not update payment status.',
+                  type: 'DANGER',
+                });
+              } finally {
+                setIsProcessing(false);
+              }
+            },
+          },
+        ],
+      });
+      return;
+    }
+
+    // Full Payment
+    const dischargeText = isIndia
+      ? 'This certifies receipt of funds in full and issues an official zero-balance payment receipt / no-dues confirmation.'
+      : "This certifies receipt of funds and automatically releases the mechanic's lien on the digital receipt.";
+    const confirmBtnText = isIndia ? 'Confirm & Issue Receipt' : 'Confirm & Release Lien';
+
     AlertService.alert({
       title: 'Confirm Payment Received',
-      message: `Mark Agreement #${quote.quoteNumber} (${amountFormatted}) as paid in full?\n\nThis certifies receipt of funds and automatically releases the mechanic's lien on the digital receipt.`,
+      message: `Mark Agreement #${quote.quoteNumber} (${curSymbol}${(enteredAmountCents / 100).toFixed(2)}) as paid in full via ${modeLabel}?\n\n${dischargeText}`,
       type: 'INFO',
       buttons: [
         { text: 'Cancel', style: 'cancel' },
         {
-          text: 'Confirm & Release Lien',
+          text: confirmBtnText,
           style: 'default',
           onPress: async () => {
             if (isProcessing) return;
@@ -295,18 +374,21 @@ export const PaymentQRModal: React.FC<{ quote: Quote; onClose: () => void }> = (
               const updated: Quote = {
                 ...quote,
                 status: 'PAID',
+                depositAmountCents: quote.totalAmountCents,
                 updatedAt: Date.now(),
               };
               await addQuote(updated);
               await NotificationService.notifyPaymentReceived(
                 quote.quoteNumber,
                 quote.clientName,
-                quote.totalAmountCents
+                quote.totalAmountCents,
+                false,
+                0
               );
               await NotificationService.cancelReminder(quote.id);
               AlertService.alert({
                 title: 'Payment Recorded',
-                message: `Agreement #${quote.quoteNumber} has been marked as paid.`,
+                message: `Agreement #${quote.quoteNumber} has been marked as paid in full.`,
                 type: 'SUCCESS',
               });
               onClose();
@@ -775,16 +857,124 @@ export const PaymentQRModal: React.FC<{ quote: Quote; onClose: () => void }> = (
               </>
             )}
 
+            {/* Settlement & Payment Mode Recording Section (myBillBook Parity) */}
+            <View style={styles.settlementCard}>
+              <Text style={styles.settlementSectionTitle}>RECORD SETTLEMENT / PAYMENT MODE</Text>
+
+              {/* Mode Selector */}
+              <View style={styles.modeSelectorRow}>
+                {(['UPI', 'CASH', 'BANK', 'CHEQUE'] as const).map((m) => {
+                  const isSelected = settlementMode === m;
+                  const icon = m === 'UPI' ? '⚡' : m === 'CASH' ? '💵' : m === 'BANK' ? '🏛️' : '📜';
+                  const label = m === 'UPI' ? 'UPI' : m === 'CASH' ? 'Cash' : m === 'BANK' ? 'Bank' : 'Cheque';
+                  return (
+                    <TouchableOpacity
+                      key={m}
+                      style={[styles.modeChip, isSelected && styles.modeChipActive]}
+                      onPress={() => {
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                        setSettlementMode(m);
+                      }}
+                    >
+                      <Text style={[styles.modeChipText, isSelected && styles.modeChipTextActive]}>
+                        {icon} {label}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+
+              {/* Amount to Record Input */}
+              <View style={styles.amountInputContainer}>
+                <Text style={styles.currencyPrefix}>{curSymbol}</Text>
+                <TextInput
+                  style={styles.settlementAmountInput}
+                  value={paymentAmountStr}
+                  onChangeText={setPaymentAmountStr}
+                  keyboardType="decimal-pad"
+                  placeholder="0.00"
+                  placeholderTextColor={colors.textMuted}
+                />
+              </View>
+
+              {/* Quick Amount Presets */}
+              <View style={styles.quickAmountRow}>
+                <TouchableOpacity
+                  style={styles.quickChip}
+                  onPress={() => {
+                    setPaymentAmountStr(amountDecimal);
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  }}
+                >
+                  <Text style={styles.quickChipText}>Full ({curSymbol}{amountDecimal})</Text>
+                </TouchableOpacity>
+                {amountToCollectCents > 200000 && (
+                  <TouchableOpacity
+                    style={styles.quickChip}
+                    onPress={() => {
+                      setPaymentAmountStr(((amountToCollectCents * 0.5) / 100).toFixed(2));
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    }}
+                  >
+                    <Text style={styles.quickChipText}>50% Advance</Text>
+                  </TouchableOpacity>
+                )}
+                {amountToCollectCents > 100000 && (
+                  <TouchableOpacity
+                    style={styles.quickChip}
+                    onPress={() => {
+                      setPaymentAmountStr('5000.00');
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    }}
+                  >
+                    <Text style={styles.quickChipText}>+ {curSymbol}5,000</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+
+              {/* Reference / Note Input for Bank/Cheque */}
+              {(settlementMode === 'BANK' || settlementMode === 'CHEQUE') && (
+                <TextInput
+                  style={styles.refInput}
+                  value={paymentRefInput}
+                  onChangeText={setPaymentRefInput}
+                  placeholder={settlementMode === 'CHEQUE' ? 'Cheque # & Bank Name (e.g. #004123 HDFC)' : 'UTR / IMPS Reference #'}
+                  placeholderTextColor={colors.textMuted}
+                />
+              )}
+
+              {/* Dynamic Status / Balance Summary */}
+              <View style={styles.balanceSummaryBox}>
+                {isPartialPayment ? (
+                  <Text style={[styles.balanceSummaryText, { color: colors.amber }]}>
+                    ⚠️ Partial Payment: {curSymbol}{((enteredAmountCents) / 100).toFixed(2)} • Remaining: {curSymbol}{((remainingAfterPaymentCents) / 100).toFixed(2)}
+                  </Text>
+                ) : (
+                  <Text style={[styles.balanceSummaryText, { color: colors.emerald }]}>
+                    ✓ Full Settlement ({curSymbol}{((enteredAmountCents) / 100).toFixed(2)}) • Balance Due will be {curSymbol}0.00
+                  </Text>
+                )}
+              </View>
+            </View>
+
             {/* 1-Tap Confirmation Button */}
             <TouchableOpacity
-              style={[styles.confirmPaidBtn, isProcessing && { opacity: 0.7 }]}
+              style={[
+                styles.confirmPaidBtn,
+                isPartialPayment && { backgroundColor: colors.primary },
+                isProcessing && { opacity: 0.7 },
+              ]}
               onPress={handleMarkAsPaid}
               disabled={isProcessing}
             >
               {isProcessing ? (
                 <ActivityIndicator color="#FFFFFF" />
               ) : (
-                <Text style={styles.confirmPaidText}>Confirm Paid in Full</Text>
+                <Text style={styles.confirmPaidText}>
+                  {isPartialPayment
+                    ? `Record Partial Payment (${curSymbol}${(enteredAmountCents / 100).toFixed(2)})`
+                    : 'Confirm Paid in Full'}
+                </Text>
               )}
             </TouchableOpacity>
           </ScrollView>
@@ -1271,5 +1461,108 @@ const makeStyles = (colors: ThemeColors) =>
       fontSize: 12,
       color: colors.textPrimary,
       lineHeight: 16,
+    },
+    settlementCard: {
+      backgroundColor: colors.card,
+      borderRadius: Theme.borderRadius.md,
+      borderWidth: 1,
+      borderColor: colors.cardBorder,
+      padding: 14,
+      marginTop: 14,
+      marginBottom: 10,
+    },
+    settlementSectionTitle: {
+      fontSize: 11,
+      fontWeight: '800',
+      color: colors.textSecondary,
+      letterSpacing: 0.8,
+      marginBottom: 10,
+    },
+    modeSelectorRow: {
+      flexDirection: 'row',
+      gap: 6,
+      marginBottom: 12,
+    },
+    modeChip: {
+      flex: 1,
+      paddingVertical: 8,
+      paddingHorizontal: 4,
+      borderRadius: Theme.borderRadius.sm,
+      backgroundColor: colors.backgroundSecondary,
+      borderWidth: 1,
+      borderColor: colors.borderSubtle,
+      alignItems: 'center',
+    },
+    modeChipActive: {
+      backgroundColor: colors.primaryLight,
+      borderColor: colors.primary,
+    },
+    modeChipText: {
+      fontSize: 11,
+      fontWeight: '700',
+      color: colors.textSecondary,
+    },
+    modeChipTextActive: {
+      color: colors.primary,
+      fontWeight: '800',
+    },
+    amountInputContainer: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: colors.backgroundSecondary,
+      borderRadius: Theme.borderRadius.sm,
+      borderWidth: 1,
+      borderColor: colors.border,
+      paddingHorizontal: 12,
+      marginBottom: 8,
+    },
+    currencyPrefix: {
+      fontSize: 18,
+      fontWeight: '800',
+      color: colors.primary,
+      marginRight: 6,
+    },
+    settlementAmountInput: {
+      flex: 1,
+      fontSize: 20,
+      fontWeight: '800',
+      color: colors.textPrimary,
+      paddingVertical: 8,
+    },
+    quickAmountRow: {
+      flexDirection: 'row',
+      gap: 6,
+      marginBottom: 10,
+    },
+    quickChip: {
+      paddingVertical: 6,
+      paddingHorizontal: 10,
+      backgroundColor: colors.backgroundSecondary,
+      borderRadius: 14,
+      borderWidth: 1,
+      borderColor: colors.cardBorder,
+    },
+    quickChipText: {
+      fontSize: 11,
+      fontWeight: '700',
+      color: colors.textSecondary,
+    },
+    refInput: {
+      backgroundColor: colors.backgroundSecondary,
+      borderRadius: Theme.borderRadius.sm,
+      borderWidth: 1,
+      borderColor: colors.border,
+      paddingHorizontal: 12,
+      paddingVertical: 8,
+      fontSize: 12,
+      color: colors.textPrimary,
+      marginBottom: 8,
+    },
+    balanceSummaryBox: {
+      paddingVertical: 4,
+    },
+    balanceSummaryText: {
+      fontSize: 11,
+      fontWeight: '700',
     },
   });

@@ -409,6 +409,16 @@ export const QuoteDetailScreen: React.FC<QuoteDetailScreenProps> = ({ quote: ini
   const isPaid = quote.status === 'PAID';
   const isInvoiced = quote.status === 'INVOICED';
   const isLocked = quote.status === 'SIGNED_LOCKED';
+  const docTypeLabel =
+    quote.documentType === 'TAX_INVOICE'
+      ? 'Tax Invoice'
+      : quote.documentType === 'BILL_OF_SUPPLY'
+      ? 'Bill of Supply'
+      : quote.documentType === 'DELIVERY_CHALLAN'
+      ? 'Delivery Challan'
+      : isInvoiced
+      ? 'Tax Invoice'
+      : 'Quotation';
 
   const [pendingPdfAction, setPendingPdfAction] = useState<'VIEW' | 'SHARE'>('VIEW');
   const [includePhoto, setIncludePhoto] = useState<boolean>(quote.includePhotoInPdf !== false);
@@ -490,8 +500,18 @@ export const QuoteDetailScreen: React.FC<QuoteDetailScreenProps> = ({ quote: ini
 
   const handleShareWhatsApp = async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    const docTypeLabel = quote.documentType === 'TAX_INVOICE' ? 'Tax Invoice'
+      : quote.documentType === 'BILL_OF_SUPPLY' ? 'Bill of Supply'
+      : quote.documentType === 'DELIVERY_CHALLAN' ? 'Delivery Challan'
+      : isInvoiced ? 'Tax Invoice'
+      : 'Quotation / Estimate';
     const amountStr = `${curSymbol}${(quote.totalAmountCents / 100).toFixed(2)}`;
-    const msg = `Hello ${quote.clientName}, regarding Agreement #${quote.quoteNumber} for ${amountStr} from ${profile.businessName || 'our company'}. You can find your official document details and payment instructions here.`;
+    const balStr = `${curSymbol}${(balanceDueCents / 100).toFixed(2)}`;
+    const dueText = quote.dueDateTimestamp ? `\n📅 Due Date: ${new Date(quote.dueDateTimestamp).toLocaleDateString()}` : '';
+    const upiDetails = profile.upiId ? `\n💳 Pay via UPI: ${profile.upiId}` : '';
+    const bankDetails = profile.bankAccountNumber ? `\n🏦 Bank: ${profile.bankName || ''} A/C: ${profile.bankAccountNumber} (IFSC: ${profile.bankIfsc || ''})` : '';
+
+    const msg = `Dear ${quote.clientName},\n\nPlease find your ${docTypeLabel} #${quote.quoteNumber} for ${amountStr} from ${profile.businessName || 'our business'}.\nBalance Due: ${balStr}${dueText}${upiDetails}${bankDetails}\n\nThank you for choosing our services!`;
     const cleanPhone = (quote.clientPhone || '').replace(/[^0-9]/g, '');
     const waUrl = cleanPhone
       ? `whatsapp://send?phone=${cleanPhone}&text=${encodeURIComponent(msg)}`
@@ -662,7 +682,7 @@ export const QuoteDetailScreen: React.FC<QuoteDetailScreenProps> = ({ quote: ini
         >
           <ChevronLeft size={20} color={colors.primary} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Agreement #{quote.quoteNumber}</Text>
+        <Text style={styles.headerTitle}>{docTypeLabel} #{quote.quoteNumber}</Text>
         <View style={styles.headerRightActions}>
           <TouchableOpacity
             style={styles.viewBtn}
@@ -728,6 +748,36 @@ export const QuoteDetailScreen: React.FC<QuoteDetailScreenProps> = ({ quote: ini
               <Text style={styles.hashVal}>{quote.pdfSha256Hash}</Text>
             </View>
           )}
+
+          {/* Document Type & Payment Terms Metadata Badges */}
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 10 }}>
+            <View style={{ backgroundColor: colors.backgroundSecondary, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6, borderWidth: 1, borderColor: colors.borderSubtle }}>
+              <Text style={{ fontSize: 11, fontWeight: '700', color: colors.textPrimary }}>
+                📋 {docTypeLabel}
+              </Text>
+            </View>
+            {quote.placeOfSupply && (
+              <View style={{ backgroundColor: colors.backgroundSecondary, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6, borderWidth: 1, borderColor: colors.borderSubtle }}>
+                <Text style={{ fontSize: 11, fontWeight: '600', color: colors.textSecondary }}>
+                  🏛️ {quote.placeOfSupply}
+                </Text>
+              </View>
+            )}
+            {quote.paymentTerms && (
+              <View style={{ backgroundColor: colors.backgroundSecondary, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6, borderWidth: 1, borderColor: colors.borderSubtle }}>
+                <Text style={{ fontSize: 11, fontWeight: '600', color: colors.textSecondary }}>
+                  ⏱️ {quote.paymentTerms.replace(/_/g, ' ')}
+                </Text>
+              </View>
+            )}
+            {quote.dueDateTimestamp && !isPaid && (
+              <View style={{ backgroundColor: colors.primaryLight, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6, borderWidth: 1, borderColor: colors.primary + '40' }}>
+                <Text style={{ fontSize: 11, fontWeight: '700', color: colors.primary }}>
+                  📅 Due: {new Date(quote.dueDateTimestamp).toLocaleDateString()}
+                </Text>
+              </View>
+            )}
+          </View>
 
           {/* Quick PDF Document Actions */}
           <View style={{ flexDirection: 'row', gap: 10, marginTop: 14 }}>

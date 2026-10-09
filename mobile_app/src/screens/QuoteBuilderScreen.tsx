@@ -486,7 +486,7 @@ export const QuoteBuilderScreen: React.FC<{ onBack: () => void }> = ({ onBack })
   const [depositInput, setDepositInput] = useState<string>('');
   const [isGstSplit, setIsGstSplit] = useState<boolean>(profile.isGstSplitEnabled ?? true);
   const [placeOfSupply, setPlaceOfSupply] = useState<string>(profile.stateCode || '');
-  const [documentType, setDocumentType] = useState<'TAX_INVOICE' | 'BILL_OF_SUPPLY' | 'ESTIMATE'>(
+  const [documentType, setDocumentType] = useState<'TAX_INVOICE' | 'BILL_OF_SUPPLY' | 'ESTIMATE' | 'DELIVERY_CHALLAN'>(
     profile.defaultInvoiceType || 'ESTIMATE'
   );
   const [isSigning, setIsSigning] = useState(false);
@@ -877,6 +877,52 @@ export const QuoteBuilderScreen: React.FC<{ onBack: () => void }> = ({ onBack })
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
       >
+        {/* Document Type Selector (myBillBook Parity) */}
+        <View style={[styles.card, { paddingVertical: 12, marginBottom: 14 }]}>
+          <Text style={styles.label}>Document Type</Text>
+          <View style={{ flexDirection: 'row', gap: 6 }}>
+            {[
+              { id: 'TAX_INVOICE', label: 'Tax Invoice', icon: '📄' },
+              { id: 'ESTIMATE', label: 'Quotation', icon: '📋' },
+              { id: 'BILL_OF_SUPPLY', label: 'Bill of Supply', icon: '🧾' },
+              { id: 'DELIVERY_CHALLAN', label: 'Challan', icon: '🚚' },
+            ].map((doc) => {
+              const isSelected = documentType === doc.id;
+              return (
+                <TouchableOpacity
+                  key={doc.id}
+                  style={[
+                    styles.termChip,
+                    { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 8, paddingHorizontal: 2 },
+                    isSelected && { backgroundColor: colors.primaryLight, borderColor: colors.primary, borderWidth: 1.5 },
+                  ]}
+                  onPress={() => {
+                    Haptics.selectionAsync();
+                    setDocumentType(doc.id as any);
+                    if (doc.id === 'BILL_OF_SUPPLY' || doc.id === 'DELIVERY_CHALLAN') {
+                      setIsTaxEnabled(false);
+                    } else if (doc.id === 'TAX_INVOICE' && !isTaxEnabled) {
+                      setIsTaxEnabled(true);
+                    }
+                  }}
+                >
+                  <Text style={{ fontSize: 13, marginBottom: 2 }}>{doc.icon}</Text>
+                  <Text
+                    style={[
+                      styles.termChipText,
+                      { fontSize: 10, textAlign: 'center', fontWeight: isSelected ? '800' : '600' },
+                      isSelected && { color: colors.primary },
+                    ]}
+                    numberOfLines={1}
+                  >
+                    {doc.label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </View>
+
         {/* Client Input */}
         <View style={styles.card}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
@@ -943,13 +989,70 @@ export const QuoteBuilderScreen: React.FC<{ onBack: () => void }> = ({ onBack })
             onChangeText={setJobDescription}
           />
           {isIndia && (
-            <TextInput
-              style={[styles.input, { marginTop: 10 }]}
-              placeholder="🏛️ Place of Supply / State (e.g. 29 - Karnataka)"
-              placeholderTextColor={colors.textMuted}
-              value={placeOfSupply}
-              onChangeText={setPlaceOfSupply}
-            />
+            <View style={{ marginTop: 10 }}>
+              <TextInput
+                style={styles.input}
+                placeholder="🏛️ Place of Supply / State (e.g. 29 - Karnataka)"
+                placeholderTextColor={colors.textMuted}
+                value={placeOfSupply}
+                onChangeText={(val) => {
+                  setPlaceOfSupply(val);
+                  const contractorState = (profile.stateCode || '').substring(0, 2);
+                  const clientState = val.trim().substring(0, 2);
+                  if (contractorState && clientState && contractorState.length === 2 && clientState.length === 2) {
+                    setIsGstSplit(contractorState === clientState);
+                  }
+                }}
+              />
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={{ flexDirection: 'row', gap: 6, paddingTop: 6 }}
+              >
+                {[
+                  '29 - Karnataka',
+                  '27 - Maharashtra',
+                  '07 - Delhi',
+                  '33 - Tamil Nadu',
+                  '36 - Telangana',
+                  '09 - Uttar Pradesh',
+                  '19 - West Bengal',
+                  '24 - Gujarat',
+                ].map((st) => {
+                  const isSelected = placeOfSupply === st;
+                  return (
+                    <TouchableOpacity
+                      key={st}
+                      style={{
+                        paddingHorizontal: 8,
+                        paddingVertical: 4,
+                        borderRadius: 12,
+                        backgroundColor: isSelected ? colors.primary + '18' : colors.backgroundSecondary,
+                        borderWidth: 1,
+                        borderColor: isSelected ? colors.primary : colors.border,
+                      }}
+                      onPress={() => {
+                        Haptics.selectionAsync();
+                        setPlaceOfSupply(st);
+                        const contractorState = (profile.stateCode || '29').substring(0, 2);
+                        const clientState = st.substring(0, 2);
+                        setIsGstSplit(contractorState === clientState);
+                      }}
+                    >
+                      <Text
+                        style={{
+                          fontSize: 10.5,
+                          fontWeight: isSelected ? '800' : '600',
+                          color: isSelected ? colors.primary : colors.textSecondary,
+                        }}
+                      >
+                        {st} {isSelected ? '✓' : ''}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+            </View>
           )}
         </View>
 
@@ -1324,6 +1427,18 @@ export const QuoteBuilderScreen: React.FC<{ onBack: () => void }> = ({ onBack })
             ))}
           </View>
 
+          {/* Dynamic Due Date Display */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: colors.backgroundSecondary, paddingHorizontal: 10, paddingVertical: 6, borderRadius: Theme.borderRadius.sm, marginBottom: 12, borderWidth: 1, borderColor: colors.borderSubtle }}>
+            <Text style={{ fontSize: 11, fontWeight: '700', color: colors.textSecondary }}>
+              📅 Expected Due Date:
+            </Text>
+            <Text style={{ fontSize: 11, fontWeight: '800', color: colors.primary, marginLeft: 6 }}>
+              {paymentTerms === 'DUE_ON_RECEIPT'
+                ? 'Immediate (Due on Receipt)'
+                : `${new Date(Date.now() + (paymentTerms === 'NET_7' ? 7 : paymentTerms === 'NET_15' ? 15 : 30) * 86400000).toLocaleDateString(regionConfig.locale, { month: 'short', day: 'numeric', year: 'numeric' })} (${paymentTerms === 'NET_7' ? '7 days' : paymentTerms === 'NET_15' ? '15 days' : '30 days'})`}
+            </Text>
+          </View>
+
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
             <View style={{ flex: 1, marginRight: 10 }}>
               <Text style={{ fontSize: 13, fontWeight: '700', color: colors.textPrimary }}>
@@ -1369,8 +1484,8 @@ export const QuoteBuilderScreen: React.FC<{ onBack: () => void }> = ({ onBack })
           <View style={styles.termsChipRow}>
             {[
               'Payment due upon completion',
-              'Lien waiver issued upon payment',
-              'Homeowner supplies fixtures',
+              isIndia ? 'No-Dues Receipt upon payment' : 'Lien waiver issued upon payment',
+              isIndia ? 'Client supplies fixtures/materials' : 'Homeowner supplies fixtures',
               '1-Year Workmanship Warranty',
             ].map((term) => (
               <TouchableOpacity

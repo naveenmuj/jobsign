@@ -336,23 +336,94 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
     if (!matchesStatus) return false;
     if (!searchQuery.trim()) return true;
     const query = searchQuery.toLowerCase().trim();
-    return (
-      q.clientName.toLowerCase().includes(query) ||
-      String(q.quoteNumber).includes(query) ||
-      (q.jobDescription && q.jobDescription.toLowerCase().includes(query)) ||
-      (q.clientPhone && q.clientPhone.includes(query))
-    );
+    const cleanNumQuery = query.replace(/[^0-9.]/g, '');
+
+    // 1. Client Details
+    if (q.clientName.toLowerCase().includes(query)) return true;
+    if (String(q.quoteNumber).includes(cleanNumQuery || query)) return true;
+    if (q.clientPhone && q.clientPhone.includes(cleanNumQuery || query)) return true;
+    if (q.clientEmail && q.clientEmail.toLowerCase().includes(query)) return true;
+    if (q.clientAddress && q.clientAddress.toLowerCase().includes(query)) return true;
+    if (q.placeOfSupply && q.placeOfSupply.toLowerCase().includes(query)) return true;
+
+    // 2. Scope & Notes
+    if (q.jobDescription && q.jobDescription.toLowerCase().includes(query)) return true;
+    if (q.notes && q.notes.toLowerCase().includes(query)) return true;
+    if (q.paymentTerms && q.paymentTerms.toLowerCase().includes(query)) return true;
+
+    // 3. Products / Line Items (Description, HSN/SAC, Unit)
+    if (
+      q.lineItems &&
+      q.lineItems.some(
+        (item) =>
+          item.description.toLowerCase().includes(query) ||
+          (item.hsnSac && item.hsnSac.toLowerCase().includes(query)) ||
+          (item.unit && item.unit.toLowerCase().includes(query))
+      )
+    ) {
+      return true;
+    }
+
+    // 4. Change Order Add-ons
+    if (
+      q.changeOrders &&
+      q.changeOrders.some(
+        (co) =>
+          co.reason.toLowerCase().includes(query) ||
+          co.addedItems.some((item) => item.description.toLowerCase().includes(query))
+      )
+    ) {
+      return true;
+    }
+
+    // 5. Price / Amount / Balance Search
+    if (cleanNumQuery) {
+      const totalRupees = (q.totalAmountCents / 100).toFixed(0);
+      const totalDecimal = (q.totalAmountCents / 100).toFixed(2);
+      if (totalRupees.includes(cleanNumQuery) || totalDecimal.includes(cleanNumQuery)) return true;
+
+      const depositRupees = ((q.depositAmountCents || 0) / 100).toFixed(0);
+      if (q.depositAmountCents && depositRupees.includes(cleanNumQuery)) return true;
+
+      const balanceRupees = (Math.max(0, q.totalAmountCents - (q.depositAmountCents || 0)) / 100).toFixed(0);
+      if (balanceRupees.includes(cleanNumQuery)) return true;
+
+      // Item level prices
+      if (
+        q.lineItems &&
+        q.lineItems.some(
+          (item) =>
+            (item.unitPriceCents / 100).toFixed(0).includes(cleanNumQuery) ||
+            (item.totalCents / 100).toFixed(0).includes(cleanNumQuery)
+        )
+      ) {
+        return true;
+      }
+    }
+
+    // 6. SHA-256 Hash or Status
+    if (q.pdfSha256Hash && q.pdfSha256Hash.toLowerCase().includes(query)) return true;
+    if (q.status.toLowerCase().includes(query)) return true;
+
+    return false;
   });
 
   const curSymbol = profile?.currencySymbol || '$';
 
   const totalUncollected = quotes
     .filter((q) => q.status === 'SIGNED_LOCKED' || q.status === 'INVOICED')
-    .reduce((sum, q) => sum + q.totalAmountCents, 0);
+    .reduce((sum, q) => {
+      const deposit = q.depositAmountCents || 0;
+      return sum + Math.max(0, q.totalAmountCents - deposit);
+    }, 0);
 
   const totalCollected = quotes
-    .filter((q) => q.status === 'PAID')
-    .reduce((sum, q) => sum + q.totalAmountCents, 0);
+    .reduce((sum, q) => {
+      if (q.status === 'PAID') {
+        return sum + q.totalAmountCents;
+      }
+      return sum + (q.depositAmountCents || 0);
+    }, 0);
 
   const handleShareWhatsApp = (quote: Quote) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -414,21 +485,21 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
           <Text style={styles.brandSub}>{profile.businessName || 'Estimates & Invoices'}</Text>
         </View>
         <View style={styles.headerRight}>
-          <TouchableOpacity
-            style={styles.outboxIconBtn}
-            onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              setShowOutboxModal(true);
-            }}
-            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-          >
-            <WifiOff size={18} color={colors.textSecondary} />
-            {pendingOutboxCount > 0 && (
+          {pendingOutboxCount > 0 && (
+            <TouchableOpacity
+              style={styles.outboxIconBtn}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                setShowOutboxModal(true);
+              }}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+            >
+              <WifiOff size={18} color={colors.amber} />
               <View style={styles.outboxBadge}>
                 <Text style={styles.outboxBadgeText}>{pendingOutboxCount}</Text>
               </View>
-            )}
-          </TouchableOpacity>
+            </TouchableOpacity>
+          )}
           {FEATURE_FLAGS.PAYMENT_ENABLED && (
             <TouchableOpacity
               style={[styles.proBadge, isPro && styles.proBadgeActive]}
@@ -517,7 +588,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
         <Search size={16} color={colors.textMuted} style={{ marginRight: 8 }} />
         <TextInput
           style={styles.searchInput}
-          placeholder="Search client, agreement #, or notes..."
+          placeholder="Search client, product, price, bill #..."
           placeholderTextColor={colors.textMuted}
           value={searchQuery}
           onChangeText={setSearchQuery}

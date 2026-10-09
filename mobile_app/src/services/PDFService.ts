@@ -242,13 +242,15 @@ export class PDFService {
             .doc-badge { display: inline-block; font-size: 10.5px; font-weight: 800; padding: 4px 10px; letter-spacing: 0.6px; text-transform: uppercase; margin-bottom: 8px; }
             .cards-grid { width: 100%; margin-bottom: 24px; border-collapse: separate; border-spacing: 12px 0; }
             .items-table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
-            .financial-block { width: 100%; margin-bottom: 24px; }
-            .summary-table { float: right; width: 310px; border-collapse: collapse; }
+            .items-table thead { display: table-header-group; }
+            .items-table tr { page-break-inside: avoid; }
+            .financial-block { width: 100%; margin-bottom: 24px; page-break-inside: avoid; }
+            .summary-table { float: right; width: 310px; border-collapse: collapse; page-break-inside: avoid; }
             .summary-table td { padding: 6px 12px; font-size: 13px; }
             .summary-table td.label-col { text-align: left; }
             .summary-table td.val-col { text-align: right; font-weight: 700; }
-            .payment-box { clear: both; margin-bottom: 20px; display: flex; align-items: center; gap: 12px; }
-            .terms-box { margin-bottom: 20px; }
+            .payment-box { clear: both; margin-bottom: 20px; display: flex; align-items: center; gap: 12px; page-break-inside: avoid; }
+            .terms-box { margin-bottom: 20px; page-break-inside: avoid; }
             .signature-card { margin-bottom: 18px; page-break-inside: avoid; }
             .seal-ribbon { display: flex; justify-content: space-between; align-items: center; margin-top: 12px; }
             .seal-hash { font-family: monospace; font-weight: bold; padding: 2px 6px; border-radius: 4px; }

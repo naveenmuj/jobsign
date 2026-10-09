@@ -165,20 +165,28 @@ export class NotificationService {
   public static async notifyPaymentReceived(
     quoteNumber: number,
     clientName: string,
-    totalAmountCents: number
+    totalAmountCents: number,
+    isPartial?: boolean,
+    balanceDueCents?: number
   ): Promise<void> {
-    const cacheKey = `paid_${quoteNumber}`;
+    const cacheKey = `paid_${quoteNumber}_${Date.now()}`;
     if (!this.shouldTrigger(cacheKey)) return;
 
     const profile = useQuoteStore.getState().profile;
     const curSymbol = profile?.currencySymbol || '$';
     const amountStr = `${curSymbol}${(totalAmountCents / 100).toFixed(2)}`;
+    const balStr = balanceDueCents !== undefined ? `${curSymbol}${(balanceDueCents / 100).toFixed(2)}` : '';
+
+    const bodyText = isPartial
+      ? `Received ${amountStr} for #${quoteNumber} (${clientName}). Remaining balance: ${balStr}.`
+      : `Agreement #${quoteNumber} for ${clientName} (${amountStr}) is marked as Paid in Full.`;
+    const titleText = isPartial ? 'Partial Payment Recorded 💰' : 'Payment Recorded 🎉';
 
     try {
       await Notifications.scheduleNotificationAsync({
         content: {
-          title: 'Payment Recorded 🎉',
-          body: `Estimate #${quoteNumber} for ${clientName} (${amountStr}) is marked as Paid in Full.`,
+          title: titleText,
+          body: bodyText,
           data: { quoteNumber, type: 'PAYMENT_RECEIVED' },
           sound: true,
           channelId: 'job_seals',
@@ -189,6 +197,7 @@ export class NotificationService {
       TelemetryService.logAction('NOTIFICATION_SENT', undefined, {
         type: 'PAYMENT_RECEIVED',
         quoteNumber,
+        isPartial,
       });
     } catch (err) {
       console.warn('[NotificationService] Failed to present payment notification:', err);
