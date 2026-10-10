@@ -501,7 +501,7 @@ export const QuoteDetailScreen: React.FC<QuoteDetailScreenProps> = ({
     };
     updateProfile(updated);
     if (pendingPdfAction === 'VIEW') {
-      setShowPdfPreview(true);
+      setTimeout(() => setShowPdfPreview(true), 150);
     } else {
       await PDFService.generateAndSharePDF(quoteForPdf, updated);
     }
@@ -510,7 +510,7 @@ export const QuoteDetailScreen: React.FC<QuoteDetailScreenProps> = ({
   const handleCompanySkip = async () => {
     setShowCompanyModal(false);
     if (pendingPdfAction === 'VIEW') {
-      setShowPdfPreview(true);
+      setTimeout(() => setShowPdfPreview(true), 150);
     } else {
       await PDFService.generateAndSharePDF(getQuoteForPdf(), profile);
     }
@@ -564,6 +564,7 @@ export const QuoteDetailScreen: React.FC<QuoteDetailScreenProps> = ({
             const updated: Quote = {
               ...quote,
               status: 'INVOICED',
+              documentType: isIndia ? 'TAX_INVOICE' : undefined,
               invoiceIssuedTimestamp: Date.now(),
             };
             await addQuote(updated);
@@ -831,7 +832,7 @@ export const QuoteDetailScreen: React.FC<QuoteDetailScreenProps> = ({
         <View style={[styles.securityCard, isPaid ? styles.secPaid : isInvoiced ? styles.secPaid : styles.secLocked]}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
             <Text style={styles.secShield}>
-              {isPaid ? '✓ Paid in Full' : isInvoiced ? '📄 Tax Invoice Active' : quote.signatureSvg ? '🔒 Digitally Sealed' : '📝 Estimate Ready'}
+              {isPaid ? '✓ Paid in Full' : isInvoiced ? (isIndia ? '📄 Tax Invoice Active' : '📄 Invoice Active') : quote.signatureSvg ? '🔒 Digitally Sealed' : '📝 Estimate Ready'}
             </Text>
             {!isPaid && !isInvoiced && (
               <View style={{ flexDirection: 'row', gap: 6 }}>
@@ -1027,7 +1028,7 @@ export const QuoteDetailScreen: React.FC<QuoteDetailScreenProps> = ({
               </View>
               <View style={{ flex: 1, marginLeft: 10 }}>
                 <Text style={{ fontSize: 12, fontWeight: '700', color: colors.textPrimary }}>
-                  Exhibit A: Worksite Photo {quote.photoUri && quote.completedPhotoUri ? '(Before & After)' : ''}
+                  Worksite Photo {quote.photoUri && quote.completedPhotoUri ? '(Before & After)' : ''}
                 </Text>
                 <Text style={{ fontSize: 11, color: colors.textSecondary }}>
                   {includePhoto ? 'Included in PDF invoice' : 'Excluded from PDF'}

@@ -368,7 +368,7 @@ assert(quoteBuilderRaw.includes('includePhotoInPdf: validPhotoUri ? includePhoto
 // 5. QuoteDetailScreen check
 assert(quoteDetailRaw.includes('includePhoto'), 'QuoteDetailScreen manages includePhoto state');
 assert(quoteDetailRaw.includes('handleToggleIncludePhoto'), 'QuoteDetailScreen handles photo inclusion toggle');
-assert(quoteDetailRaw.includes('Exhibit A: Worksite Photo'), 'QuoteDetailScreen renders Exhibit A quick toggle in PDF actions card');
+assert(quoteDetailRaw.includes('Worksite Photo'), 'QuoteDetailScreen renders Exhibit A quick toggle in PDF actions card');
 assert(quoteDetailRaw.includes('Attached in PDF'), 'QuoteDetailScreen renders toggle inside Worksite Photo card');
 
 // -----------------------------------------------------------------

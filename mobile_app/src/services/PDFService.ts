@@ -281,26 +281,24 @@ export class PDFService {
       computedDocTitle = 'TAX INVOICE';
     } else if (quote.documentType === 'BILL_OF_SUPPLY') {
       computedDocTitle = 'BILL OF SUPPLY';
-    } else if (quote.documentType === 'ESTIMATE') {
-      computedDocTitle = isIndia ? 'ESTIMATE & QUOTATION' : 'ESTIMATE & PROPOSAL';
     } else if (quote.documentType === 'DELIVERY_CHALLAN') {
       computedDocTitle = 'DELIVERY CHALLAN';
-    } else if (isIndia) {
-      if (isInvoiced || isPaid) {
+    } else if (isInvoiced || isPaid) {
+      if (isIndia) {
         if (profile?.defaultInvoiceType === 'BILL_OF_SUPPLY') {
           computedDocTitle = 'BILL OF SUPPLY';
         } else {
           computedDocTitle = 'TAX INVOICE';
         }
       } else {
-        computedDocTitle = 'ESTIMATE & QUOTATION';
-      }
-    } else {
-      if (isInvoiced || isPaid) {
         computedDocTitle = 'INVOICE';
-      } else {
-        computedDocTitle = 'ESTIMATE & PROPOSAL';
       }
+    } else if (quote.documentType === 'ESTIMATE') {
+      computedDocTitle = isIndia ? 'ESTIMATE & QUOTATION' : 'ESTIMATE & PROPOSAL';
+    } else if (isIndia) {
+      computedDocTitle = 'ESTIMATE & QUOTATION';
+    } else {
+      computedDocTitle = 'ESTIMATE & PROPOSAL';
     }
 
     const balanceDueCents = Math.max(0, quote.totalAmountCents - (quote.depositAmountCents || 0));

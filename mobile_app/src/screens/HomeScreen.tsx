@@ -493,16 +493,17 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     const regionConfig = RegionPaymentService.getConfig(profile?.currencyCode, curSymbol, profile?.region);
     const isPaid = quote.status === 'PAID';
+    const isIndia = (profile?.region === 'IN') || (profile?.region !== 'US' && (regionConfig.region === 'IN' || profile?.currencyCode === 'INR' || curSymbol === '₹'));
     const depositCents = quote.depositAmountCents || 0;
     const balanceDueCents = Math.max(0, quote.totalAmountCents - depositCents);
     const docTypeLabel =
       quote.documentType === 'TAX_INVOICE' || quote.status === 'INVOICED'
-        ? 'Tax Invoice'
+        ? (isIndia ? 'Tax Invoice' : 'Invoice')
         : quote.documentType === 'BILL_OF_SUPPLY'
         ? 'Bill of Supply'
         : quote.documentType === 'DELIVERY_CHALLAN'
         ? 'Delivery Challan'
-        : 'Quotation / Estimate';
+        : (isIndia ? 'Quotation' : 'Estimate');
     const amountStr = `${curSymbol}${(quote.totalAmountCents / 100).toFixed(2)}`;
     const balStr = `${curSymbol}${(balanceDueCents / 100).toFixed(2)}`;
     const dueText = quote.dueDateTimestamp

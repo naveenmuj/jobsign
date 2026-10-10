@@ -70,14 +70,15 @@ export const PDFPreviewModal: React.FC<PDFPreviewModalProps> = ({
   if (!visible || !quote) return null;
 
   const isPaid = quote.status === 'PAID';
+  const isIndia = (profile?.region === 'IN') || (profile?.currencyCode === 'INR') || (quote.currencySymbol === '₹');
   const docTypeLabel =
     quote.documentType === 'TAX_INVOICE' || quote.status === 'INVOICED'
-      ? 'Tax Invoice'
+      ? (isIndia ? 'Tax Invoice' : 'Invoice')
       : quote.documentType === 'BILL_OF_SUPPLY'
       ? 'Bill of Supply'
       : quote.documentType === 'DELIVERY_CHALLAN'
       ? 'Delivery Challan'
-      : 'Estimate';
+      : (isIndia ? 'Quotation' : 'Estimate');
 
   const handleOpenExternal = async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
