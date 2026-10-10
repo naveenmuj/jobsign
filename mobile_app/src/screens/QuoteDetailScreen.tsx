@@ -1027,10 +1027,10 @@ export const QuoteDetailScreen: React.FC<QuoteDetailScreenProps> = ({
               </View>
               <View style={{ flex: 1, marginLeft: 10 }}>
                 <Text style={{ fontSize: 12, fontWeight: '700', color: colors.textPrimary }}>
-                  Exhibit A: Worksite Photo Proof {quote.photoUri && quote.completedPhotoUri ? '(Before & After)' : ''}
+                  Exhibit A: Worksite Photo {quote.photoUri && quote.completedPhotoUri ? '(Before & After)' : ''}
                 </Text>
                 <Text style={{ fontSize: 11, color: colors.textSecondary }}>
-                  {includePhoto ? 'Attached to PDF invoice' : 'Excluded from PDF (internal record only)'}
+                  {includePhoto ? 'Included in PDF invoice' : 'Excluded from PDF'}
                 </Text>
               </View>
               <Text
@@ -1103,12 +1103,12 @@ export const QuoteDetailScreen: React.FC<QuoteDetailScreenProps> = ({
         <View style={styles.card}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
             <View>
-              <Text style={styles.cardLabel}>Worksite Photo Evidence (Exhibit A)</Text>
+              <Text style={styles.cardLabel}>Worksite Photos (Before & After)</Text>
               <Text style={{ fontSize: 11, color: colors.textSecondary }}>
                 {quote.photoUri && quote.completedPhotoUri
-                  ? 'Dual Before & After proof active'
+                  ? 'Before & After photos attached'
                   : quote.photoUri || quote.completedPhotoUri
-                  ? 'Physical record attached'
+                  ? 'Photo record attached'
                   : 'No photos captured yet'}
               </Text>
             </View>
@@ -1243,7 +1243,7 @@ export const QuoteDetailScreen: React.FC<QuoteDetailScreenProps> = ({
                 + Add "After Work" Completion Photo
               </Text>
               <Text style={{ fontSize: 11, color: colors.textSecondary }}>
-                Generates a side-by-side Before & After comparison on Exhibit A
+                Generates a side-by-side Before & After comparison on invoice PDF
               </Text>
             </TouchableOpacity>
           )}

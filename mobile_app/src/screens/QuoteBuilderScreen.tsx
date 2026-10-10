@@ -1360,12 +1360,12 @@ export const QuoteBuilderScreen: React.FC<{ onBack: () => void; initialQuote?: Q
                 </View>
                 <View style={{ flex: 1, marginLeft: 10 }}>
                   <Text style={[styles.checkboxTitle, { color: colors.textPrimary }]}>
-                    Include photo in PDF Invoice (Exhibit A)
+                    Include photo in PDF Invoice
                   </Text>
                   <Text style={[styles.checkboxDesc, { color: colors.textSecondary }]}>
                     {includePhotoInPdf
-                      ? 'Appends a high-resolution Exhibit A evidence page to the invoice.'
-                      : 'Saved in local app records only. Omitted from the client contract.'}
+                      ? 'Appends a high-resolution photo page to the invoice PDF.'
+                      : 'Saved in local app records only. Omitted from the client PDF.'}
                   </Text>
                 </View>
               </TouchableOpacity>

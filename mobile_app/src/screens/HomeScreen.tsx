@@ -610,7 +610,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
               {profile.businessName || 'Estimates & Invoices'}
             </Text>
             <Text style={styles.brandSub} numberOfLines={1}>
-              {profile.ownerName ? `${profile.ownerName} • Solo Trade Pro` : 'Contractor Billing'}
+              {profile.ownerName || 'Estimates & Invoices'}
             </Text>
           </View>
         </View>
@@ -696,7 +696,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
           <Text style={[styles.metricVal, { color: colors.emerald }]}>
             {CurrencyService.format(totalCollected, curSymbol, profile.currencyCode)}
           </Text>
-          <Text style={styles.metricSub}>Zero-fee direct payment</Text>
+          <Text style={styles.metricSub}>Paid to date</Text>
         </View>
       </View>
 
