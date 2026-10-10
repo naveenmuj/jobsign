@@ -77,9 +77,6 @@ export class PDFService {
   public static async computeHash(quote: Quote): Promise<string> {
     const photoHash =
       quote.photoSha256 || (quote.photoUri ? await this.hashFileUri(quote.photoUri) : null);
-    const completedPhotoHash =
-      quote.completedPhotoSha256 ||
-      (quote.completedPhotoUri ? await this.hashFileUri(quote.completedPhotoUri) : null);
 
     const canonical = JSON.stringify({
       id: quote.id,
