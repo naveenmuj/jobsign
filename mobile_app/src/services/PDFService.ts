@@ -56,18 +56,14 @@ export class PDFService {
         encoding: FileSystem.EncodingType.Base64,
       });
       if (!base64) return null;
-      try {
-        if (typeof (Crypto as any).digest === 'function') {
-          const rawBytes = decodeBase64ToUint8Array(base64);
-          const buffer = await (Crypto as any).digest(Crypto.CryptoDigestAlgorithm.SHA256, rawBytes);
-          return Array.from(new Uint8Array(buffer))
-            .map((b) => b.toString(16).padStart(2, '0'))
-            .join('');
-        }
-      } catch {
-        // Fallback to digestStringAsync if native Crypto.digest buffer is unavailable
+      const rawBytes = decodeBase64ToUint8Array(base64);
+      if (typeof (Crypto as any).digest === 'function') {
+        const buffer = await (Crypto as any).digest(Crypto.CryptoDigestAlgorithm.SHA256, rawBytes);
+        return Array.from(new Uint8Array(buffer))
+          .map((b) => b.toString(16).padStart(2, '0'))
+          .join('');
       }
-      return await Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, base64);
+      return null;
     } catch {
       return null;
     }
@@ -842,13 +838,9 @@ export class PDFService {
                       hsnGroups[code].taxableCents += item.totalCents || 0;
                     });
 
-                    // Proportionally distribute the invoice tax amount across the groups
+                    // Calculate exact tax per HSN group from its taxable base and invoice tax rate
                     Object.values(hsnGroups).forEach((group) => {
-                      if (totalLineCents > 0) {
-                        group.taxCents = Math.round((group.taxableCents / totalLineCents) * quote.taxAmountCents);
-                      } else {
-                        group.taxCents = 0;
-                      }
+                      group.taxCents = Math.round((group.taxableCents * quote.taxRateBasisPoints) / 10000);
                     });
 
                     const rows = Object.values(hsnGroups)
