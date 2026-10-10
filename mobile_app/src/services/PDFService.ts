@@ -1,3 +1,4 @@
+import { Platform } from 'react-native';
 import * as Crypto from 'expo-crypto';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
@@ -669,7 +670,7 @@ export class PDFService {
                       <td>
                         <strong>${escapeHtml(item.description)}</strong>
                       </td>
-                      <td style="text-align: center; font-family: monospace; font-size: 11px;">${escapeHtml(item.hsnSac || '9954')}</td>
+                      <td style="text-align: center; font-family: monospace; font-size: 11px;">${item.hsnSac ? escapeHtml(item.hsnSac) : '—'}</td>
                       <td style="text-align: center;"><strong>${item.quantity}</strong> ${escapeHtml(item.unit || 'nos')}</td>
                       <td style="text-align: right;">${curSymbol}${(item.unitPriceCents / 100).toFixed(2)}</td>
                       ${quote.lineItems.some((i) => i.discountPercent && i.discountPercent > 0) ? `<td style="text-align: right; color: #059669; font-weight: 700;">${item.discountPercent ? `${item.discountPercent}%` : '-'}</td>` : ''}
@@ -707,7 +708,7 @@ export class PDFService {
                   <tr>
                     ${showDetailedGrid ? `<td style="text-align: center; color: #64748B;">+${idx + 1}</td>` : ''}
                     <td><strong>Add-On #${co.orderNumber}: ${escapeHtml(co.reason)}</strong></td>
-                    ${showDetailedGrid ? '<td style="text-align: center; font-family: monospace; font-size: 11px;">9954</td><td style="text-align: center;">1.0 set</td>' : '<td style="text-align: center;">1.0</td>'}
+                    ${showDetailedGrid ? '<td style="text-align: center; font-family: monospace; font-size: 11px;">—</td><td style="text-align: center;">1.0 set</td>' : '<td style="text-align: center;">1.0</td>'}
                     <td style="text-align: right;">${curSymbol}${(co.addedTotalCents / 100).toFixed(2)}</td>
                     ${showDetailedGrid && quote.lineItems.some((i) => i.discountPercent && i.discountPercent > 0) ? '<td style="text-align: right;">-</td>' : ''}
                     <td style="text-align: right; color: #6B21A8;"><strong>+${curSymbol}${(co.addedTotalCents / 100).toFixed(2)}</strong></td>
@@ -810,7 +811,7 @@ export class PDFService {
                   </thead>
                   <tbody>
                     <tr>
-                      <td style="padding: 6px 8px; font-family: monospace; font-weight: 700; color: #0F766E;">${escapeHtml(quote.lineItems[0]?.hsnSac || '9954 (Trade Services)')}</td>
+                      <td style="padding: 6px 8px; font-family: monospace; font-weight: 700; color: #0F766E;">${escapeHtml(quote.lineItems.find((i) => i.hsnSac)?.hsnSac || 'Services / Labor')}</td>
                       <td style="padding: 6px 8px; text-align: right; font-weight: 700;">${curSymbol}${(quote.subtotalCents / 100).toFixed(2)}</td>
                       ${
                         quote.isGstSplit !== false
@@ -908,7 +909,11 @@ export class PDFService {
                   ${
                     quote.signatureSvg
                       ? `<div style="margin: 6px 0;"><svg height="70" width="240" viewBox="0 0 500 200">${quote.signatureSvg}</svg></div>`
-                      : `<div style="height: 45px; line-height: 45px; color: #94A3B8; font-style: italic;">[ Signed on Smartphone Glass ]</div>`
+                      : `<div style="height: 55px; display: flex; align-items: flex-end; margin: 6px 0;">
+                          <div style="border-bottom: 1.5px dashed #CBD5E1; width: 180px; text-align: center; color: #94A3B8; font-size: 10px; padding-bottom: 3px;">
+                            ( Client Signature )
+                          </div>
+                        </div>`
                   }
                   <div style="font-size: 11px; color: #475569; font-weight: 600;">
                     Accepted by: ${escapeHtml(quote.clientName)}
@@ -929,8 +934,8 @@ export class PDFService {
             </table>
 
             <div class="legal-consent">
-              <strong>AFFIRMATIVE CONSENT & NON-REPUDIATION:</strong>
-              By affixing signature above, client acknowledges receipt and approval of the itemized estimate and authorizes contractor to furnish indicated labor and materials. Electronic signatures execute a legally binding instrument under ${regionConfig.legalConsentCitation}.
+              <strong>CLIENT ACCEPTANCE & AUTHORIZATION:</strong>
+              By signing above, client acknowledges receipt and approval of the itemized estimate and authorizes contractor to proceed with the indicated scope of work. Electronic signatures constitute a legally valid agreement under ${regionConfig.legalConsentCitation}.
             </div>
 
             ${
@@ -947,8 +952,8 @@ export class PDFService {
             }
 
             <div class="seal-ribbon">
-              <span>🔒 <strong>SHA-256 Seal:</strong> <span class="seal-hash">${hash.slice(0, 20)}...</span></span>
-              <span><strong>Location:</strong> ${quote.signatureGpsLat && quote.signatureGpsLng ? `${quote.signatureGpsLat.toFixed(4)}°, ${quote.signatureGpsLng.toFixed(4)}° (GPS Verified)` : 'Field Site Execution'}</span>
+              <span>🔒 <strong>${quote.signatureSvg ? 'Digitally Signed & Verified' : 'Official Business Document'}</strong></span>
+              <span><strong>Location:</strong> ${quote.signatureGpsLat && quote.signatureGpsLng ? `<a href="https://maps.google.com/?q=${quote.signatureGpsLat},${quote.signatureGpsLng}" style="color: inherit; text-decoration: underline;">${quote.signatureGpsLat.toFixed(4)}°, ${quote.signatureGpsLng.toFixed(4)}°</a> (GPS Verified)` : 'Field Site Execution'}</span>
             </div>
           </div>
 
@@ -959,14 +964,14 @@ export class PDFService {
             <div class="photo-page">
               <div style="border-bottom: 2px solid #0F172A; padding-bottom: 8px; margin-bottom: 16px;">
                 <div style="font-size: 11px; font-weight: 800; color: #64748B; letter-spacing: 0.8px; text-transform: uppercase;">
-                  EXHIBIT A • PHYSICAL EVIDENCE OF RECORD
+                  ATTACHMENT • WORKSITE PHOTO RECORD
                 </div>
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 4px;">
                   <div style="font-size: 16px; font-weight: 900; color: #0F172A;">
-                    ${photoBase64 && completedPhotoBase64 ? 'Before & After Worksite Condition Comparison' : completedPhotoBase64 ? 'Completed Work Scope Verification' : 'Worksite Condition & Scope Verification Photo'}
+                    ${photoBase64 && completedPhotoBase64 ? 'Before & After Worksite Condition Comparison' : completedPhotoBase64 ? 'Completed Work Scope Verification' : 'Worksite Condition Photo'}
                   </div>
                   <span style="background-color: #ECFDF5; border: 1px solid #10B981; color: #047857; font-size: 10px; font-weight: 800; padding: 3px 8px; border-radius: 4px; letter-spacing: 0.5px;">
-                    ✓ CRYPTOGRAPHICALLY ATTESTED
+                    ✓ VERIFIED WORKSITE PHOTO
                   </span>
                 </div>
               </div>
@@ -1012,18 +1017,18 @@ export class PDFService {
                 <tr>
                   <td style="background-color: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 6px; padding: 10px 12px; width: 33.33%;">
                     <div style="font-size: 10px; font-weight: 800; color: #64748B; text-transform: uppercase;">Capture Source</div>
-                    <div style="font-size: 12px; font-weight: 700; color: #0F172A; margin-top: 2px;">Mobile Field Camera</div>
-                    <div style="font-size: 11px; color: #64748B;">Captured on Smartphone Glass</div>
+                    <div style="font-size: 12px; font-weight: 700; color: #0F172A; margin-top: 2px;">Mobile Camera</div>
+                    <div style="font-size: 11px; color: #64748B;">On-Site Field Photo</div>
                   </td>
                   <td style="background-color: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 6px; padding: 10px 12px; width: 33.33%;">
-                    <div style="font-size: 10px; font-weight: 800; color: #64748B; text-transform: uppercase;">Location Attestation</div>
+                    <div style="font-size: 10px; font-weight: 800; color: #64748B; text-transform: uppercase;">Worksite Location</div>
                     <div style="font-size: 12px; font-weight: 700; color: #0F172A; margin-top: 2px;">
-                      ${quote.signatureGpsLat && quote.signatureGpsLng ? `${quote.signatureGpsLat.toFixed(4)}°, ${quote.signatureGpsLng.toFixed(4)}°` : 'On-Site Field Verification'}
+                      ${quote.signatureGpsLat && quote.signatureGpsLng ? `${quote.signatureGpsLat.toFixed(4)}°, ${quote.signatureGpsLng.toFixed(4)}°` : 'On-Site Verification'}
                     </div>
-                    <div style="font-size: 11px; color: #059669; font-weight: 600;">✓ Location Coordinates Sealed</div>
+                    <div style="font-size: 11px; color: #059669; font-weight: 600;">✓ Worksite Location Verified</div>
                   </td>
                   <td style="background-color: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 6px; padding: 10px 12px; width: 33.33%;">
-                    <div style="font-size: 10px; font-weight: 800; color: #64748B; text-transform: uppercase;">Associated Reference</div>
+                    <div style="font-size: 10px; font-weight: 800; color: #64748B; text-transform: uppercase;">Reference</div>
                     <div style="font-size: 12px; font-weight: 700; color: #0F172A; margin-top: 2px;">Quote #${quote.quoteNumber}</div>
                     <div style="font-size: 11px; color: #64748B;">Client: ${escapeHtml(quote.clientName)}</div>
                   </td>
@@ -1031,23 +1036,23 @@ export class PDFService {
               </table>
 
               <div style="font-size: 11px; color: #475569; line-height: 1.45; background-color: #F1F5F9; border-left: 3px solid #0F172A; padding: 9px 12px; border-radius: 0 4px 4px 0;">
-                <strong>Authenticity Attestation:</strong> This physical evidence documentation verifies on-site scope conditions. The raw cryptographic signature of all worksite records is anchored to Agreement #${quote.quoteNumber}.
+                <strong>Photo Record:</strong> This photo documentation verifies worksite conditions and is digitally attached to Agreement #${quote.quoteNumber}.
               </div>
             </div>
           `
               : ''
           }
 
-          <!-- ── COURTROOM AUDIT CERTIFICATE ── -->
+          <!-- ── AUDIT & SIGNATURE CERTIFICATE ── -->
           <div class="audit-page">
             <h3 style="margin-top: 0; color: #0F172A; border-bottom: 2px solid #0F172A; padding-bottom: 8px; font-size: 16px;">
               ${regionConfig.auditCertificateTitle}
             </h3>
-            <p><strong>Document Verification Hash (SHA-256):</strong><br/><code style="font-size: 12px; background: #E2E8F0; padding: 4px 8px; border-radius: 4px; display: inline-block; margin-top: 4px;">${hash}</code></p>
-            <p><strong>Signing Timestamp:</strong> ${quote.signatureTimestamp ? new Date(quote.signatureTimestamp).toISOString() : 'N/A'} (UTC)</p>
-            <p><strong>Worksite GPS Coordinates:</strong> ${quote.signatureGpsLat && quote.signatureGpsLng ? `${quote.signatureGpsLat.toFixed(5)}° Lat, ${quote.signatureGpsLng.toFixed(5)}° Lng (Verified On-Site)` : 'Offline / Basement Mode (Disclosed)'}</p>
-            <p><strong>Cryptographic Integrity Status:</strong> <span style="color: #059669; font-weight: 800;">LOCKED_IMMUTABLE</span></p>
-            <p><strong>Governing Legal Standards:</strong> ${regionConfig.auditGoverningStandard}</p>
+            <p><strong>Document Verification Hash:</strong><br/><code style="font-size: 12px; background: #E2E8F0; padding: 4px 8px; border-radius: 4px; display: inline-block; margin-top: 4px;">${hash}</code></p>
+            <p><strong>Signed Date & Time:</strong> ${quote.signatureTimestamp ? new Date(quote.signatureTimestamp).toLocaleString() : 'Pending Signature (Direct Issue)'}</p>
+            <p><strong>Worksite Location:</strong> ${quote.signatureGpsLat && quote.signatureGpsLng ? `<a href="https://maps.google.com/?q=${quote.signatureGpsLat},${quote.signatureGpsLng}" style="color: #0284C7; font-weight: 700; text-decoration: underline;">${quote.signatureGpsLat.toFixed(5)}° Lat, ${quote.signatureGpsLng.toFixed(5)}° Lng</a> (Verified On-Site)` : 'On-Site Execution'}</p>
+            <p><strong>Security Status:</strong> <span style="color: #059669; font-weight: 800;">✓ Verified & Protected</span></p>
+            <p><strong>Governing Standards:</strong> ${regionConfig.auditGoverningStandard}</p>
 
             ${
               quote.changeOrders && quote.changeOrders.length > 0
@@ -1065,7 +1070,7 @@ export class PDFService {
                       <span style="color: #6B21A8;">+${curSymbol}${(co.addedTotalCents / 100).toFixed(2)}</span>
                     </div>
                     <div style="font-size: 11px; color: #64748B; margin-top: 4px;">
-                      Executed: ${new Date(co.signatureTimestamp).toISOString()} • Hash: <code>${(co.pdfSha256Hash || '').substring(0, 24)}...</code>
+                      Executed: ${new Date(co.signatureTimestamp).toLocaleString()} • Verified Digital Signature
                     </div>
                     ${
                       co.signatureSvg
@@ -1082,7 +1087,7 @@ export class PDFService {
             }
 
             <p style="font-size: 11px; color: #64748B; margin-top: 20px; line-height: 1.5;">
-              This certificate affirms that this document was rendered and executed in-person on a mobile touch interface with client affirmative consent. Any retroactive alteration of line items, amounts, notes, or terms invalidates the SHA-256 cryptographic digest.
+              This certificate confirms that this agreement was reviewed and signed on-site with client consent. Any alteration of line items, amounts, notes, or terms invalidates the verified digital signature.
             </p>
           </div>
         </body>
@@ -1118,9 +1123,28 @@ export class PDFService {
     }
   }
 
-  public static async viewPDF(quote: Quote, profile?: ContractorProfile): Promise<void> {
+  /**
+   * Generates a physical .pdf file in local storage and returns its file URI.
+   */
+  public static async generatePDFFile(quote: Quote, profile?: ContractorProfile): Promise<string> {
     try {
       const html = await this.generateInvoiceHTML(quote, profile);
+      const { uri } = await Print.printToFileAsync({ html });
+      return uri;
+    } catch (err: any) {
+      console.error('[PDFService] Error compiling PDF file:', err);
+      throw new Error(err?.message || 'Could not compile PDF file.');
+    }
+  }
+
+  /**
+   * Opens the PDF document directly in the device's external PDF viewer app
+   * (Google Drive PDF Viewer, Adobe Acrobat, Files, Chrome, Samsung PDF).
+   * Does NOT show the printer / print dialog!
+   */
+  public static async openInExternalPDFViewer(quote: Quote, profile?: ContractorProfile): Promise<void> {
+    try {
+      const pdfUri = await this.generatePDFFile(quote, profile);
       const isPaid = quote.status === 'PAID';
 
       await TelemetryService.logPDF(
@@ -1130,13 +1154,53 @@ export class PDFService {
         { isPaid, quoteNumber: quote.quoteNumber, clientName: quote.clientName }
       );
 
-      // Print.printAsync opens native system print preview / PDF document viewer
-      // On Android: opens full-screen Print & PDF preview where user can view, zoom, and save as PDF.
-      // On iOS: opens the native AirPrint / PDF preview controller.
+      if (Platform.OS === 'android') {
+        try {
+          // eslint-disable-next-line @typescript-eslint/no-var-requires
+          const IntentLauncher = require('expo-intent-launcher');
+          const contentUri = await FileSystem.getContentUriAsync(pdfUri);
+          await IntentLauncher.startActivityAsync('android.intent.action.VIEW', {
+            data: contentUri,
+            flags: 1, // FLAG_GRANT_READ_URI_PERMISSION
+            type: 'application/pdf',
+          });
+          return;
+        } catch (intentErr) {
+          console.warn('[PDFService] IntentLauncher failed, falling back to Sharing:', intentErr);
+        }
+      }
+
+      // iOS or fallback: open document viewer sheet
+      if (await Sharing.isAvailableAsync()) {
+        await Sharing.shareAsync(pdfUri, {
+          mimeType: 'application/pdf',
+          UTI: 'com.adobe.pdf',
+          dialogTitle: `${isPaid ? 'Receipt' : 'Invoice'} #${quote.quoteNumber}`,
+        });
+      }
+    } catch (err: any) {
+      console.error('[PDFService] External PDF viewer error:', err);
+      throw new Error(err?.message || 'Could not launch device PDF reader.');
+    }
+  }
+
+  /**
+   * Default view method: launches clean external PDF viewer without printer dialog.
+   */
+  public static async viewPDF(quote: Quote, profile?: ContractorProfile): Promise<void> {
+    return this.openInExternalPDFViewer(quote, profile);
+  }
+
+  /**
+   * Physical paper printer action if contractor specifically wishes to print.
+   */
+  public static async printToPhysicalPrinter(quote: Quote, profile?: ContractorProfile): Promise<void> {
+    try {
+      const html = await this.generateInvoiceHTML(quote, profile);
       await Print.printAsync({ html });
     } catch (err: any) {
-      console.error('PDF view error:', err);
-      throw new Error(err?.message || 'Could not view PDF');
+      console.error('[PDFService] Print error:', err);
+      throw new Error(err?.message || 'Could not connect to printer.');
     }
   }
 }

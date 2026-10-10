@@ -118,7 +118,11 @@ export class CurrencyService {
    */
   public static async detectFromLocationOrDevice(): Promise<CurrencyInfo> {
     try {
-      const { status } = await Location.getForegroundPermissionsAsync();
+      let { status } = await Location.getForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        const req = await Location.requestForegroundPermissionsAsync();
+        status = req.status;
+      }
       if (status === 'granted') {
         const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Low });
         const geo = await Location.reverseGeocodeAsync({
@@ -201,7 +205,11 @@ export class CurrencyService {
    */
   public static async detectMarketFromLocationOrDevice(): Promise<'US' | 'IN'> {
     try {
-      const { status } = await Location.getForegroundPermissionsAsync();
+      let { status } = await Location.getForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        const req = await Location.requestForegroundPermissionsAsync();
+        status = req.status;
+      }
       if (status === 'granted') {
         const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Low });
         const geo = await Location.reverseGeocodeAsync({

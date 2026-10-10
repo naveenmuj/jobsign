@@ -8,6 +8,7 @@ import {
   RefreshControl,
   TextInput,
   Linking,
+  Keyboard,
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { Settings, WifiOff, Search, X, Check, FileSpreadsheet } from 'lucide-react-native';
@@ -617,7 +618,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
           onPress={() => setShowOutboxModal(true)}
         >
           <Text style={styles.outboxBannerText}>
-            {pendingOutboxCount} pending sync · Tap to sync now
+            {pendingOutboxCount} {pendingOutboxCount === 1 ? 'estimate' : 'estimates'} awaiting cloud dispatch · Tap to send
           </Text>
         </TouchableOpacity>
       )}
@@ -698,6 +699,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
               ]}
               onPress={() => {
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                Keyboard.dismiss();
                 setFilter(tab as any);
               }}
             >
@@ -754,7 +756,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
             <Text style={styles.emptyTitle}>
-              {searchQuery ? 'No matching agreements found' : 'No estimates yet'}
+              {searchQuery ? 'No matching estimates found' : 'No estimates yet'}
             </Text>
             <Text style={styles.emptyDesc}>
               {searchQuery

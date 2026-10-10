@@ -10,6 +10,8 @@ import { useAppSafeArea } from '../utils/safeArea';
 interface SignaturePadProps {
   onSave: (svgPath: string) => Promise<void> | void;
   onCancel: () => void;
+  onSkip?: () => Promise<void> | void;
+  skipButtonText?: string;
   clientName: string;
   totalFormatted: string;
 }
@@ -17,6 +19,8 @@ interface SignaturePadProps {
 export const SignaturePad: React.FC<SignaturePadProps> = ({
   onSave,
   onCancel,
+  onSkip,
+  skipButtonText = 'Proceed without Signature',
   clientName,
   totalFormatted,
 }) => {
@@ -71,8 +75,14 @@ export const SignaturePad: React.FC<SignaturePadProps> = ({
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   };
 
+  const isSignatureSufficient = () => {
+    if (strokesRef.current.length === 0) return false;
+    const totalLength = strokesRef.current.reduce((acc, s) => acc + s.length, 0);
+    return strokesRef.current.length >= 2 || totalLength >= 50;
+  };
+
   const handleConfirm = async () => {
-    if (strokesRef.current.length === 0 || !hasConsented || isSaving) return;
+    if (!isSignatureSufficient() || !hasConsented || isSaving) return;
     setIsSaving(true);
     try {
       const combinedSvgPath = strokesRef.current.join(' ');
@@ -83,24 +93,64 @@ export const SignaturePad: React.FC<SignaturePadProps> = ({
     }
   };
 
-  const canSave = paths.length > 0 && hasConsented && !isSaving;
+  const handleSkip = async () => {
+    if (!onSkip || isSaving) return;
+    setIsSaving(true);
+    try {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      await onSkip();
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const canSave = paths.length > 0 && isSignatureSufficient() && hasConsented && !isSaving;
 
   return (
     <View style={[styles.container, { paddingBottom: 24 + insets.bottom }]}>
-      {/* Top Affirmative Legal Consent Banner */}
+      {/* Top Legal Consent Banner */}
       <View style={styles.banner}>
-        <Text style={styles.bannerTitle}>Client Approval</Text>
+        <View style={styles.bannerHeader}>
+          <Text style={styles.bannerTitle}>Client Approval</Text>
+          {onSkip && (
+            <TouchableOpacity
+              onPress={handleSkip}
+              disabled={isSaving}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              style={styles.topSkipBtn}
+            >
+              <Text style={styles.topSkipText}>Skip ›</Text>
+            </TouchableOpacity>
+          )}
+        </View>
         <Text style={styles.bannerLegal}>
           I, <Text style={styles.bold}>{clientName}</Text>, hereby authorize the contractor to proceed with the indicated scope for{' '}
           <Text style={styles.boldGreen}>{totalFormatted}</Text> and agree that payment is due upon completion.
         </Text>
       </View>
 
+      {/* Explicit Affirmative Consent Checkbox */}
+      <TouchableOpacity
+        style={styles.consentCheckboxRow}
+        onPress={() => {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          setHasConsented(!hasConsented);
+        }}
+        activeOpacity={0.8}
+      >
+        <View style={[styles.checkbox, hasConsented && styles.checkboxActive]}>
+          {hasConsented && <Check size={12} color="#FFFFFF" strokeWidth={3} />}
+        </View>
+        <Text style={styles.consentText}>
+          I agree to sign this agreement electronically with a legally binding digital signature.
+        </Text>
+      </TouchableOpacity>
+
       {/* Touch Canvas */}
       <View
-        style={styles.canvasContainer}
+        style={[styles.canvasContainer, !hasConsented && { opacity: 0.45 }]}
         collapsable={false}
-        {...panResponder.panHandlers}
+        {...(hasConsented ? panResponder.panHandlers : {})}
       >
         <Svg style={StyleSheet.absoluteFill} pointerEvents="none">
           {paths.map((d, index) => (
@@ -117,55 +167,55 @@ export const SignaturePad: React.FC<SignaturePadProps> = ({
         </Svg>
         {paths.length === 0 && (
           <View style={styles.placeholderBox} pointerEvents="none">
-            <Text style={styles.placeholderText}>Sign with finger or stylus</Text>
+            <Text style={styles.placeholderText}>
+              {hasConsented ? 'Sign with finger or stylus' : 'Please affirm consent above to sign'}
+            </Text>
           </View>
         )}
       </View>
 
-      {/* Explicit ESIGN Act Affirmative Consent Checkbox */}
-      <TouchableOpacity
-        style={styles.consentCheckboxRow}
-        onPress={() => {
-          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-          setHasConsented(!hasConsented);
-        }}
-        activeOpacity={0.8}
-      >
-        <View style={[styles.checkbox, hasConsented && styles.checkboxActive]}>
-          {hasConsented && <Check size={12} color="#FFFFFF" strokeWidth={3} />}
-        </View>
-        <Text style={styles.consentText}>
-          I affirmatively consent to execute this agreement electronically with a legally binding digital signature.
-        </Text>
-      </TouchableOpacity>
-
       {/* Action Footer */}
-      <View style={styles.actionRow}>
-        <TouchableOpacity
-          style={styles.cancelBtn}
-          onPress={onCancel}
-          hitSlop={{ top: 14, bottom: 14, left: 14, right: 14 }}
-        >
-          <Text style={styles.cancelText}>Cancel</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.clearBtn}
-          onPress={handleClear}
-          hitSlop={{ top: 14, bottom: 14, left: 14, right: 14 }}
-        >
-          <Text style={styles.clearText}>Clear</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.confirmBtn, !canSave && styles.disabledBtn]}
-          onPress={handleConfirm}
-          disabled={!canSave}
-        >
-          {isSaving ? (
-            <ActivityIndicator color="#FFFFFF" />
-          ) : (
-            <Text style={styles.confirmText}>Confirm Agreement</Text>
-          )}
-        </TouchableOpacity>
+      <View style={styles.footerContainer}>
+        {onSkip && (
+          <TouchableOpacity
+            style={styles.skipBtn}
+            onPress={handleSkip}
+            disabled={isSaving}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.skipBtnText}>{skipButtonText} →</Text>
+          </TouchableOpacity>
+        )}
+
+        <View style={styles.actionRow}>
+          <TouchableOpacity
+            style={styles.cancelBtn}
+            onPress={onCancel}
+            disabled={isSaving}
+            hitSlop={{ top: 14, bottom: 14, left: 14, right: 14 }}
+          >
+            <Text style={styles.cancelText}>Cancel</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.clearBtn}
+            onPress={handleClear}
+            disabled={isSaving || paths.length === 0}
+            hitSlop={{ top: 14, bottom: 14, left: 14, right: 14 }}
+          >
+            <Text style={[styles.clearText, paths.length === 0 && styles.disabledClearText]}>Clear</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.confirmBtn, !canSave && styles.disabledBtn]}
+            onPress={handleConfirm}
+            disabled={!canSave}
+          >
+            {isSaving ? (
+              <ActivityIndicator color="#FFFFFF" />
+            ) : (
+              <Text style={styles.confirmText}>Confirm Agreement</Text>
+            )}
+          </TouchableOpacity>
+        </View>
       </View>
     </View>
   );
@@ -303,6 +353,48 @@ const makeStyles = (colors: ThemeColors) =>
       color: colors.amber,
       fontSize: 14,
       fontWeight: 'bold',
+    },
+    bannerHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+    },
+    topSkipBtn: {
+      paddingVertical: 3,
+      paddingHorizontal: 10,
+      backgroundColor: colors.backgroundSecondary,
+      borderRadius: 6,
+      borderWidth: 1,
+      borderColor: colors.cardBorder,
+    },
+    topSkipText: {
+      color: colors.primary,
+      fontSize: 12,
+      fontWeight: '700',
+    },
+    footerContainer: {
+      width: '100%',
+    },
+    skipBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingVertical: 12,
+      paddingHorizontal: 16,
+      backgroundColor: colors.backgroundSecondary,
+      borderRadius: Theme.borderRadius.md,
+      borderWidth: 1,
+      borderColor: colors.cardBorder,
+      marginBottom: 10,
+    },
+    skipBtnText: {
+      color: colors.primary,
+      fontSize: 14,
+      fontWeight: '700',
+      letterSpacing: 0.2,
+    },
+    disabledClearText: {
+      opacity: 0.35,
     },
     confirmBtn: {
       flex: 1,

@@ -127,6 +127,64 @@ export const ChangeOrderModal: React.FC<ChangeOrderModalProps> = ({
     }
   };
 
+  const handleSkipSignature = async () => {
+    if (isSaving) return;
+    setIsSaving(true);
+    try {
+      const nextOrderNum = (quote.changeOrders?.length || 0) + 1;
+
+      const newCO: ChangeOrder = {
+        id: Crypto.randomUUID(),
+        quoteId: quote.id,
+        orderNumber: nextOrderNum,
+        reason: reason.trim(),
+        addedItems: [
+          {
+            id: Crypto.randomUUID(),
+            description: description.trim() || reason.trim(),
+            unitPriceCents: parsedCents,
+            quantity: 1,
+            totalCents: parsedCents,
+          },
+        ],
+        addedTotalCents: parsedCents,
+        signatureSvg: '',
+        signatureTimestamp: Date.now(),
+        pdfSha256Hash: '',
+      };
+
+      const updatedQuote: Quote = {
+        ...quote,
+        totalAmountCents: quote.totalAmountCents + parsedCents,
+        subtotalCents: quote.subtotalCents + parsedCents,
+        changeOrders: [...(quote.changeOrders || []), newCO],
+        updatedAt: Date.now(),
+      };
+
+      const updatedHash = await PDFService.computeHash(updatedQuote);
+      newCO.pdfSha256Hash = updatedHash;
+      updatedQuote.pdfSha256Hash = updatedHash;
+
+      await addQuote(updatedQuote);
+      setIsSigning(false);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      AlertService.alert({
+        title: 'Change Order Added',
+        message: `Add-on #${newCO.orderNumber} (${curSymbol}${(parsedCents / 100).toFixed(2)}) is added. New job total is ${newTotalFormatted}.`,
+        type: 'SUCCESS',
+      });
+      onClose();
+    } catch (e: any) {
+      AlertService.alert({
+        title: 'Save Failed',
+        message: e?.message || 'Could not save change order.',
+        type: 'DANGER',
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   if (!visible) return null;
 
   if (isSigning) {
@@ -137,6 +195,8 @@ export const ChangeOrderModal: React.FC<ChangeOrderModalProps> = ({
           totalFormatted={`${formattedAddOn} (New Total: ${newTotalFormatted})`}
           onCancel={() => setIsSigning(false)}
           onSave={handleSaveSignature}
+          onSkip={handleSkipSignature}
+          skipButtonText="Proceed without Signature"
         />
       </Modal>
     );

@@ -261,15 +261,15 @@ export const PaymentQRModal: React.FC<{ quote: Quote; onClose: () => void }> = (
       case 'ZELLE':
         return profile?.zelleAccount
           ? `zelle:${profile.zelleAccount}?amount=${amtStr}`
-          : `zelle:payments@jobsign.app?amount=${amtStr}`;
+          : '';
       case 'VENMO':
         return profile?.venmoAccount
           ? `https://venmo.com/${profile.venmoAccount.replace('@', '')}?txn=pay&amount=${amtStr}&note=Agreement%20${quote.quoteNumber}`
-          : 'https://venmo.com';
+          : '';
       case 'CASHAPP':
         return profile?.cashAppAccount
           ? `https://cash.app/${profile.cashAppAccount.replace('$', '')}/${amtStr}`
-          : 'https://cash.app';
+          : '';
       case 'BANK': {
         if (profile?.bankAccountNumber || profile?.bankIfsc) {
           return `${regionConfig.bankTitle}:\nBeneficiary: ${
@@ -290,6 +290,12 @@ export const PaymentQRModal: React.FC<{ quote: Quote; onClose: () => void }> = (
   const handleMarkAsPaid = () => {
     if (enteredAmountCents <= 0) {
       AlertService.alert('Invalid Amount', 'Please enter a valid payment amount.', undefined, 'WARNING');
+      return;
+    }
+
+    const MAX_AMOUNT_CENTS = 100000000; // 1,000,000.00 ceiling
+    if (enteredAmountCents > MAX_AMOUNT_CENTS) {
+      AlertService.alert('Amount Exceeds Limit', 'Payment amount cannot exceed 1,000,000 per single transaction.', undefined, 'WARNING');
       return;
     }
 
@@ -353,9 +359,9 @@ export const PaymentQRModal: React.FC<{ quote: Quote; onClose: () => void }> = (
 
     // Full Payment
     const dischargeText = isIndia
-      ? 'This certifies receipt of funds in full and issues an official zero-balance payment receipt / no-dues confirmation.'
-      : "This certifies receipt of funds and automatically releases the mechanic's lien on the digital receipt.";
-    const confirmBtnText = isIndia ? 'Confirm & Issue Receipt' : 'Confirm & Release Lien';
+      ? 'This records manual receipt of funds in full and marks this agreement as Paid in Full.'
+      : 'This records manual receipt of funds by the contractor and marks this agreement as Paid in Full.';
+    const confirmBtnText = isIndia ? 'Confirm & Issue Receipt' : 'Confirm & Mark Paid';
 
     AlertService.alert({
       title: 'Confirm Payment Received',
@@ -833,27 +839,31 @@ export const PaymentQRModal: React.FC<{ quote: Quote; onClose: () => void }> = (
               <>
                 {((activeRail === 'ZELLE' && !profile.zelleAccount) ||
                   (activeRail === 'VENMO' && !profile.venmoAccount) ||
-                  (activeRail === 'CASHAPP' && !profile.cashAppAccount)) && (
-                  <View style={styles.warnBanner}>
-                    <Text style={styles.warnText}>
-                      No {activeRail === 'CASHAPP' ? 'Cash App' : activeRail} username configured in Settings yet.
+                  (activeRail === 'CASHAPP' && !profile.cashAppAccount)) ? (
+                  <View style={styles.unconfiguredBox}>
+                    <AlertCircle size={32} color={colors.amber} />
+                    <Text style={styles.unconfiguredTitle}>
+                      {activeRail === 'CASHAPP' ? 'Cash App' : activeRail} Not Configured
+                    </Text>
+                    <Text style={styles.unconfiguredText}>
+                      Please add your verified {activeRail === 'CASHAPP' ? 'Cash App tag' : activeRail === 'VENMO' ? 'Venmo handle' : 'Zelle email or phone'} in Settings so clients can pay you directly.
+                    </Text>
+                  </View>
+                ) : (
+                  <View style={styles.qrContainer}>
+                    <View style={styles.qrFrame}>
+                      <QRCode
+                        value={currentPayload || 'N/A'}
+                        size={180}
+                        color="#0F172A"
+                        backgroundColor="#FFFFFF"
+                      />
+                    </View>
+                    <Text style={styles.qrHint}>
+                      Have client scan with their camera or {activeRail} app to settle {amountFormatted}.
                     </Text>
                   </View>
                 )}
-
-                <View style={styles.qrContainer}>
-                  <View style={styles.qrFrame}>
-                    <QRCode
-                      value={currentPayload}
-                      size={180}
-                      color="#0F172A"
-                      backgroundColor="#FFFFFF"
-                    />
-                  </View>
-                  <Text style={styles.qrHint}>
-                    Have client scan with their camera or {activeRail} app to settle {amountFormatted}.
-                  </Text>
-                </View>
               </>
             )}
 
@@ -1029,7 +1039,10 @@ const makeStyles = (colors: ThemeColors) =>
       marginTop: 2,
     },
     closeBtn: {
-      padding: 6,
+      minWidth: 48,
+      minHeight: 48,
+      justifyContent: 'center',
+      alignItems: 'center',
     },
     amountBox: {
       backgroundColor: colors.backgroundSecondary,
@@ -1447,6 +1460,28 @@ const makeStyles = (colors: ThemeColors) =>
       fontSize: 12,
       textAlign: 'center',
       fontWeight: '600',
+    },
+    unconfiguredBox: {
+      alignItems: 'center',
+      padding: 24,
+      backgroundColor: colors.warningLight,
+      borderRadius: Theme.borderRadius.lg,
+      borderWidth: 1,
+      borderColor: colors.amber + '40',
+      marginBottom: 16,
+    },
+    unconfiguredTitle: {
+      fontSize: 15,
+      fontWeight: '800',
+      color: colors.textPrimary,
+      marginTop: 8,
+      marginBottom: 4,
+    },
+    unconfiguredText: {
+      fontSize: 13,
+      color: colors.textSecondary,
+      textAlign: 'center',
+      lineHeight: 18,
     },
     customNoteBox: {
       marginTop: 10,

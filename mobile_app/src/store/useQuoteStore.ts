@@ -76,6 +76,7 @@ export const DEFAULT_PROFILE: ContractorProfile = {
   currencySymbol: detectedCurrency.symbol,
   currencyCode: detectedCurrency.code,
   defaultInvoiceType: 'ESTIMATE',
+  showHsnSac: false,
   backupSettings: {
     autoBackupEnabled: true,
     backupTarget: 'LOCAL_VAULT',
@@ -146,6 +147,10 @@ export const useQuoteStore = create<QuoteStore>()(
       deleteQuote: async (id: string) => {
         await DatabaseService.deleteQuote(id);
         set((state) => ({ quotes: state.quotes.filter((q) => q.id !== id) }));
+        // Sync single master backup file on invoice deletion
+        BackupService.performAutoBackup('DELETE_INVOICE').catch((e) =>
+          console.warn('[QuoteStore] Auto-backup non-fatal warning:', e)
+        );
       },
 
       updateProfile: (updates) => {

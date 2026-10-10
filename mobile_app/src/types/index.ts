@@ -89,6 +89,7 @@ export interface ContractorProfile {
   stateCode?: string;           // Indian GST State & Code (e.g. "29 - Karnataka")
   isGstSplitEnabled?: boolean;  // Whether intra-state CGST + SGST split is active
   defaultInvoiceType?: 'TAX_INVOICE' | 'BILL_OF_SUPPLY' | 'ESTIMATE'; // Default document title
+  showHsnSac?: boolean;         // Whether to show HSN/SAC code input on line items (default: false)
   region?: 'IN' | 'US' | 'GB' | 'EU' | 'CA' | 'AU' | 'GLOBAL'; // Explicit market/region mode ('US' or 'IN' or global)
   checkPayableTo?: string;      // US check payee (e.g. "Apex Contracting LLC")
   backupSettings?: BackupSettings; // Cloud Drive and local backup configuration
@@ -99,6 +100,7 @@ export interface BackupSettings {
   backupTarget: 'DRIVE_SAF' | 'SHARE_SHEET' | 'LOCAL_VAULT'; // Target destination
   driveFolderUri?: string;              // Selected Google Drive / OneDrive SAF folder URI
   driveFolderName?: string;             // Human-readable folder name (e.g. "Google Drive / JobSign Backups")
+  driveMasterFileUri?: string;          // Persistent URI of the single cloud master backup file
   lastBackupTimestamp?: number;        // When the last backup was successfully created
   lastBackupInvoiceCount?: number;     // How many invoices were backed up
   lastBackupSizeBytes?: number;        // Size of the backup file in bytes

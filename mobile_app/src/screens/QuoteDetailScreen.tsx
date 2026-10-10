@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   Image,
   Linking,
+  Modal,
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { Theme, getThemeColors, ThemeColors } from '../theme';
@@ -18,10 +19,12 @@ import { CurrencyService } from '../services/CurrencyService';
 import { ChangeOrderModal } from '../components/ChangeOrderModal';
 import { PaymentQRModal } from '../components/PaymentQRModal';
 import { CompanyNamePromptModal } from '../components/CompanyNamePromptModal';
+import { SignaturePad } from '../components/SignaturePad';
+import { PDFPreviewModal } from '../components/PDFPreviewModal';
 import * as ImagePicker from 'expo-image-picker';
 import { useQuoteStore } from '../store/useQuoteStore';
 import { useAppSafeArea } from '../utils/safeArea';
-import { ChevronLeft, Trash2, FileText, Phone, MessageSquare, Plus, Check, Eye, Share2, Camera, Image as ImageIcon, MessageCircle, FileCheck, Copy } from 'lucide-react-native';
+import { ChevronLeft, Trash2, FileText, Phone, MessageSquare, Plus, Check, Eye, Share2, Camera, Image as ImageIcon, MessageCircle, FileCheck, Copy, PenLine } from 'lucide-react-native';
 import { formatAmountInWords } from '../utils/numberToIndianWords';
 import { isQuoteOverdue, isValidTimestamp } from '../utils/dateUtils';
 
@@ -49,7 +52,10 @@ const makeStyles = (colors: ThemeColors) =>
       borderColor: colors.border,
     },
     backBtn: {
-      padding: 6,
+      minWidth: 44,
+      minHeight: 44,
+      justifyContent: 'center',
+      alignItems: 'center',
     },
     headerTitle: {
       color: colors.textPrimary,
@@ -63,8 +69,10 @@ const makeStyles = (colors: ThemeColors) =>
     },
     viewBtn: {
       backgroundColor: colors.primary + '18',
-      paddingHorizontal: 10,
-      paddingVertical: 6,
+      paddingHorizontal: 12,
+      paddingVertical: 8,
+      minHeight: 44,
+      justifyContent: 'center',
       borderRadius: Theme.borderRadius.full,
       borderWidth: 1,
       borderColor: colors.primary + '35',
@@ -79,8 +87,10 @@ const makeStyles = (colors: ThemeColors) =>
     },
     shareBtn: {
       backgroundColor: colors.backgroundSecondary,
-      paddingHorizontal: 10,
-      paddingVertical: 6,
+      paddingHorizontal: 12,
+      paddingVertical: 8,
+      minHeight: 44,
+      justifyContent: 'center',
       borderRadius: Theme.borderRadius.full,
       borderWidth: 1,
       borderColor: colors.border,
@@ -412,6 +422,7 @@ export const QuoteDetailScreen: React.FC<QuoteDetailScreenProps> = ({
   const [showChangeOrder, setShowChangeOrder] = useState(false);
   const [showPayment, setShowPayment] = useState(false);
   const [showCompanyModal, setShowCompanyModal] = useState(false);
+  const [isSigningLater, setIsSigningLater] = useState(false);
   const updateProfile = useQuoteStore((state) => state.updateProfile);
 
   const isPaid = quote.status === 'PAID';
@@ -429,6 +440,7 @@ export const QuoteDetailScreen: React.FC<QuoteDetailScreenProps> = ({
       : (isIndia ? 'Quotation' : 'Estimate');
 
   const [pendingPdfAction, setPendingPdfAction] = useState<'VIEW' | 'SHARE'>('VIEW');
+  const [showPdfPreview, setShowPdfPreview] = useState(false);
   const [includePhoto, setIncludePhoto] = useState<boolean>(quote.includePhotoInPdf !== false);
 
   useEffect(() => {
@@ -467,7 +479,6 @@ export const QuoteDetailScreen: React.FC<QuoteDetailScreenProps> = ({
 
   const handleViewPDF = async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    const quoteForPdf = getQuoteForPdf();
     const needsCompanyName =
       !profile.hasCustomBusinessName &&
       (!profile.businessName || profile.businessName.trim() === '');
@@ -475,7 +486,7 @@ export const QuoteDetailScreen: React.FC<QuoteDetailScreenProps> = ({
       setPendingPdfAction('VIEW');
       setShowCompanyModal(true);
     } else {
-      await PDFService.viewPDF(quoteForPdf, profile);
+      setShowPdfPreview(true);
     }
   };
 
@@ -490,7 +501,7 @@ export const QuoteDetailScreen: React.FC<QuoteDetailScreenProps> = ({
     };
     updateProfile(updated);
     if (pendingPdfAction === 'VIEW') {
-      await PDFService.viewPDF(quoteForPdf, updated);
+      setShowPdfPreview(true);
     } else {
       await PDFService.generateAndSharePDF(quoteForPdf, updated);
     }
@@ -498,11 +509,10 @@ export const QuoteDetailScreen: React.FC<QuoteDetailScreenProps> = ({
 
   const handleCompanySkip = async () => {
     setShowCompanyModal(false);
-    const quoteForPdf = getQuoteForPdf();
     if (pendingPdfAction === 'VIEW') {
-      await PDFService.viewPDF(quoteForPdf, profile);
+      setShowPdfPreview(true);
     } else {
-      await PDFService.generateAndSharePDF(quoteForPdf, profile);
+      await PDFService.generateAndSharePDF(getQuoteForPdf(), profile);
     }
   };
 
@@ -571,41 +581,54 @@ export const QuoteDetailScreen: React.FC<QuoteDetailScreenProps> = ({
   };
 
   const handleCaptureCompletedPhoto = async () => {
-    const { status } = await ImagePicker.requestCameraPermissionsAsync();
-    if (status !== 'granted') {
-      AlertService.alert('Camera Permission Required', 'Please enable camera access to take a completed work photo.', undefined, 'WARNING');
-      return;
-    }
-    const result = await ImagePicker.launchCameraAsync({
-      mediaTypes: ['images'],
-      allowsEditing: true,
-      aspect: [4, 3],
-      quality: 0.7,
-    });
-    if (!result.canceled && result.assets[0]) {
-      const updated: Quote = {
-        ...quote,
-        completedPhotoUri: result.assets[0].uri,
-      };
-      await addQuote(updated);
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    try {
+      const { status } = await ImagePicker.requestCameraPermissionsAsync();
+      if (status !== 'granted') {
+        AlertService.alert('Camera Permission Required', 'Please enable camera access in Settings to take a completed work photo.', undefined, 'WARNING');
+        return;
+      }
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: false,
+        quality: 0.7,
+      });
+      if (!result.canceled && result.assets[0]) {
+        const updated: Quote = {
+          ...quote,
+          completedPhotoUri: result.assets[0].uri,
+        };
+        await addQuote(updated);
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      }
+    } catch (err) {
+      console.warn('[Camera] Error taking completed photo:', err);
+      AlertService.alert('Camera Error', 'Could not open camera. Please ensure permissions are enabled.', undefined, 'DANGER');
     }
   };
 
   const handlePickCompletedPhoto = async () => {
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
-      allowsEditing: true,
-      aspect: [4, 3],
-      quality: 0.7,
-    });
-    if (!result.canceled && result.assets[0]) {
-      const updated: Quote = {
-        ...quote,
-        completedPhotoUri: result.assets[0].uri,
-      };
-      await addQuote(updated);
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        AlertService.alert('Photos Permission Required', 'Please enable photos access in Settings to select a completed work photo.', undefined, 'WARNING');
+        return;
+      }
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: false,
+        quality: 0.7,
+      });
+      if (!result.canceled && result.assets[0]) {
+        const updated: Quote = {
+          ...quote,
+          completedPhotoUri: result.assets[0].uri,
+        };
+        await addQuote(updated);
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      }
+    } catch (err) {
+      console.warn('[Gallery] Error picking completed photo:', err);
+      AlertService.alert('Gallery Error', 'Could not access photo library. Please ensure permissions are enabled.', undefined, 'DANGER');
     }
   };
 
@@ -619,41 +642,54 @@ export const QuoteDetailScreen: React.FC<QuoteDetailScreenProps> = ({
   };
 
   const handleCaptureInitialPhoto = async () => {
-    const { status } = await ImagePicker.requestCameraPermissionsAsync();
-    if (status !== 'granted') {
-      AlertService.alert('Camera Permission Required', 'Please enable camera access to take a worksite photo.', undefined, 'WARNING');
-      return;
-    }
-    const result = await ImagePicker.launchCameraAsync({
-      mediaTypes: ['images'],
-      allowsEditing: true,
-      aspect: [4, 3],
-      quality: 0.7,
-    });
-    if (!result.canceled && result.assets[0]) {
-      const updated: Quote = {
-        ...quote,
-        photoUri: result.assets[0].uri,
-      };
-      await addQuote(updated);
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    try {
+      const { status } = await ImagePicker.requestCameraPermissionsAsync();
+      if (status !== 'granted') {
+        AlertService.alert('Camera Permission Required', 'Please enable camera access in Settings to take a worksite photo.', undefined, 'WARNING');
+        return;
+      }
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: false,
+        quality: 0.7,
+      });
+      if (!result.canceled && result.assets[0]) {
+        const updated: Quote = {
+          ...quote,
+          photoUri: result.assets[0].uri,
+        };
+        await addQuote(updated);
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      }
+    } catch (err) {
+      console.warn('[Camera] Error taking worksite photo:', err);
+      AlertService.alert('Camera Error', 'Could not open camera. Please ensure permissions are enabled.', undefined, 'DANGER');
     }
   };
 
   const handlePickInitialPhoto = async () => {
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
-      allowsEditing: true,
-      aspect: [4, 3],
-      quality: 0.7,
-    });
-    if (!result.canceled && result.assets[0]) {
-      const updated: Quote = {
-        ...quote,
-        photoUri: result.assets[0].uri,
-      };
-      await addQuote(updated);
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        AlertService.alert('Photos Permission Required', 'Please enable photos access in Settings to select a worksite photo.', undefined, 'WARNING');
+        return;
+      }
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: false,
+        quality: 0.7,
+      });
+      if (!result.canceled && result.assets[0]) {
+        const updated: Quote = {
+          ...quote,
+          photoUri: result.assets[0].uri,
+        };
+        await addQuote(updated);
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      }
+    } catch (err) {
+      console.warn('[Gallery] Error picking worksite photo:', err);
+      AlertService.alert('Gallery Error', 'Could not access photo library. Please ensure permissions are enabled.', undefined, 'DANGER');
     }
   };
 
@@ -743,37 +779,60 @@ export const QuoteDetailScreen: React.FC<QuoteDetailScreenProps> = ({
         <View style={[styles.securityCard, isPaid ? styles.secPaid : isInvoiced ? styles.secPaid : styles.secLocked]}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
             <Text style={styles.secShield}>
-              {isPaid ? '✓ Paid in Full' : isInvoiced ? '📄 Tax Invoice Active' : '🔒 Digitally Sealed'}
+              {isPaid ? '✓ Paid in Full' : isInvoiced ? '📄 Tax Invoice Active' : quote.signatureSvg ? '🔒 Digitally Sealed' : '📝 Estimate Ready'}
             </Text>
             {!isPaid && !isInvoiced && (
-              <TouchableOpacity
-                style={{
-                  backgroundColor: colors.primary,
-                  paddingHorizontal: 10,
-                  paddingVertical: 5,
-                  borderRadius: 6,
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  gap: 4,
-                }}
-                onPress={handleConvertToInvoice}
-              >
-                <FileCheck size={12} color="#FFFFFF" />
-                <Text style={{ color: '#FFFFFF', fontSize: 11, fontWeight: '800' }}>Issue Invoice</Text>
-              </TouchableOpacity>
+              <View style={{ flexDirection: 'row', gap: 6 }}>
+                {!quote.signatureSvg && (
+                  <TouchableOpacity
+                    style={{
+                      backgroundColor: colors.emerald,
+                      paddingHorizontal: 10,
+                      paddingVertical: 5,
+                      borderRadius: 6,
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      gap: 4,
+                    }}
+                    onPress={() => setIsSigningLater(true)}
+                  >
+                    <PenLine size={12} color="#FFFFFF" />
+                    <Text style={{ color: '#FFFFFF', fontSize: 11, fontWeight: '800' }}>Get Signature</Text>
+                  </TouchableOpacity>
+                )}
+                <TouchableOpacity
+                  style={{
+                    backgroundColor: colors.primary,
+                    paddingHorizontal: 10,
+                    paddingVertical: 5,
+                    borderRadius: 6,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    gap: 4,
+                  }}
+                  onPress={handleConvertToInvoice}
+                >
+                  <FileCheck size={12} color="#FFFFFF" />
+                  <Text style={{ color: '#FFFFFF', fontSize: 11, fontWeight: '800' }}>Issue Invoice</Text>
+                </TouchableOpacity>
+              </View>
             )}
           </View>
           <Text style={styles.secDesc}>
             {isPaid
               ? 'This job has been paid in full and released.'
               : isInvoiced
-              ? `Formal Tax Invoice issued for ${quote.clientName}. Ready for settlement.`
-              : 'Affirmative client consent captured on glass. Tamper-evident SHA-256 seal active.'}
+              ? `Formal ${isIndia ? 'Tax Invoice' : 'Invoice'} issued for ${quote.clientName}. Ready for settlement.`
+              : quote.signatureSvg
+              ? 'Signed on glass by client. Digitally verified & tamper-proof.'
+              : 'Direct estimate created without client signature.'}
           </Text>
           {quote.pdfSha256Hash && (
-            <View style={styles.hashBox}>
-              <Text style={styles.hashLabel}>HASH:</Text>
-              <Text style={styles.hashVal}>{quote.pdfSha256Hash}</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 6, paddingVertical: 4, paddingHorizontal: 8, backgroundColor: colors.backgroundSecondary, borderRadius: 6, alignSelf: 'flex-start', borderWidth: 1, borderColor: colors.borderSubtle }}>
+              <Check size={12} color={colors.emerald} strokeWidth={2.5} />
+              <Text style={{ fontSize: 11, fontWeight: '700', color: colors.emerald }}>
+                {quote.signatureSvg ? 'Digitally Signed & Verified' : 'Document Verified'}
+              </Text>
             </View>
           )}
 
@@ -829,14 +888,15 @@ export const QuoteDetailScreen: React.FC<QuoteDetailScreenProps> = ({
                 backgroundColor: colors.primary + '18',
                 borderWidth: 1,
                 borderColor: colors.primary + '35',
-                paddingVertical: 10,
+                paddingVertical: 12,
+                minHeight: 48,
                 borderRadius: 8,
               }}
               onPress={handleViewPDF}
             >
               <Eye size={15} color={colors.primary} />
               <Text style={{ color: colors.primary, fontWeight: '700', fontSize: 13 }}>
-                View PDF Contract
+                Preview PDF Contract
               </Text>
             </TouchableOpacity>
             <TouchableOpacity
@@ -967,7 +1027,20 @@ export const QuoteDetailScreen: React.FC<QuoteDetailScreenProps> = ({
               </View>
             )}
           </View>
-          {quote.clientPhone && <Text style={styles.clientDetail}>{quote.clientPhone}</Text>}
+          {quote.clientPhone && <Text style={styles.clientDetail}>📞 {quote.clientPhone}</Text>}
+          {quote.clientAddress && (
+            <TouchableOpacity
+              style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4, gap: 4 }}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                Linking.openURL(`https://maps.google.com/?q=${encodeURIComponent(quote.clientAddress!)}`);
+              }}
+            >
+              <Text style={[styles.clientDetail, { color: colors.primary, fontWeight: '600' }]}>
+                📍 {quote.clientAddress} ↗
+              </Text>
+            </TouchableOpacity>
+          )}
           {quote.jobDescription && (
             <Text style={styles.clientDetail}>{quote.jobDescription}</Text>
           )}
@@ -1237,25 +1310,40 @@ export const QuoteDetailScreen: React.FC<QuoteDetailScreenProps> = ({
 
         {/* Courtroom Audit Attribution */}
         <View style={styles.card}>
-          <Text style={styles.cardLabel}>Digital Audit Certificate</Text>
+          <Text style={styles.cardLabel}>Signature & Verification</Text>
           <View style={styles.auditRow}>
-            <Text style={styles.auditLabel}>Signing Timestamp:</Text>
+            <Text style={styles.auditLabel}>Signed Date & Time:</Text>
             <Text style={styles.auditVal}>
-              {quote.signatureTimestamp ? new Date(quote.signatureTimestamp).toLocaleString() : 'N/A'}
+              {quote.signatureTimestamp ? new Date(quote.signatureTimestamp).toLocaleString() : 'Pending Signature'}
             </Text>
           </View>
           <View style={styles.auditRow}>
-            <Text style={styles.auditLabel}>GPS Verification:</Text>
-            <Text style={styles.auditVal}>
-              {quote.signatureGpsLat && quote.signatureGpsLng
-                ? `${quote.signatureGpsLat.toFixed(5)}°, ${quote.signatureGpsLng.toFixed(5)}° (On-Site)`
-                : 'Offline Field Stamped'}
-            </Text>
+            <Text style={styles.auditLabel}>Worksite Location:</Text>
+            <View style={{ alignItems: 'flex-end' }}>
+              <Text style={styles.auditVal}>
+                {quote.signatureGpsLat && quote.signatureGpsLng
+                  ? `${quote.signatureGpsLat.toFixed(5)}°, ${quote.signatureGpsLng.toFixed(5)}° (On-Site)`
+                  : 'On-Site Execution'}
+              </Text>
+              {quote.signatureGpsLat && quote.signatureGpsLng && (
+                <TouchableOpacity
+                  style={{ marginTop: 4 }}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    Linking.openURL(`https://maps.google.com/?q=${quote.signatureGpsLat},${quote.signatureGpsLng}`);
+                  }}
+                >
+                  <Text style={{ fontSize: 11, color: colors.primary, fontWeight: '700' }}>
+                    📍 Open in Maps ↗
+                  </Text>
+                </TouchableOpacity>
+              )}
+            </View>
           </View>
           <View style={styles.auditRow}>
-            <Text style={styles.auditLabel}>Integrity Seal:</Text>
+            <Text style={styles.auditLabel}>Security Status:</Text>
             <Text style={[styles.auditVal, { color: colors.emerald, fontWeight: 'bold' }]}>
-              LOCKED_IMMUTABLE (SHA-256)
+              {quote.signatureSvg ? 'Verified & Protected' : 'Document Verified'}
             </Text>
           </View>
         </View>
@@ -1327,6 +1415,30 @@ export const QuoteDetailScreen: React.FC<QuoteDetailScreenProps> = ({
         />
       )}
 
+      {/* Later Signature Capture Modal */}
+      {isSigningLater && (
+        <Modal visible animationType="slide">
+          <SignaturePad
+            clientName={quote.clientName}
+            totalFormatted={CurrencyService.format(quote.totalAmountCents, curSymbol, profile.currencyCode)}
+            onCancel={() => setIsSigningLater(false)}
+            onSave={async (svg) => {
+              const updated: Quote = {
+                ...quote,
+                signatureSvg: svg,
+                signatureTimestamp: Date.now(),
+                status: quote.status === 'DRAFT' ? 'SIGNED_LOCKED' : quote.status,
+              };
+              updated.pdfSha256Hash = await PDFService.computeHash(updated);
+              await addQuote(updated);
+              setIsSigningLater(false);
+              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+              AlertService.alert('Signature Captured', `Digital signature has been recorded for ${quote.clientName}.`, undefined, 'SUCCESS');
+            }}
+          />
+        </Modal>
+      )}
+
       {/* Company Name Prompt Modal before PDF Generation */}
       <CompanyNamePromptModal
         visible={showCompanyModal}
@@ -1335,6 +1447,14 @@ export const QuoteDetailScreen: React.FC<QuoteDetailScreenProps> = ({
         onSave={handleCompanySave}
         onSkip={handleCompanySkip}
         onClose={() => setShowCompanyModal(false)}
+      />
+
+      {/* Interactive In-App PDF Preview with Pinch-to-Zoom and External App Launcher */}
+      <PDFPreviewModal
+        visible={showPdfPreview}
+        quote={getQuoteForPdf()}
+        profile={profile}
+        onClose={() => setShowPdfPreview(false)}
       />
     </View>
   );

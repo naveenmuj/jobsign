@@ -32,7 +32,7 @@ import { useKeyboard } from '../utils/useKeyboard';
 import { AlertService } from '../services/AlertService';
 import { RegionPaymentService } from '../services/RegionPaymentService';
 import { CurrencyService } from '../services/CurrencyService';
-import { ChevronLeft, Camera, Image as ImageIcon, Plus, X, PenLine, Check } from 'lucide-react-native';
+import { ChevronLeft, Camera, Image as ImageIcon, Plus, X, PenLine, Check, ChevronDown, ChevronUp } from 'lucide-react-native';
 
 const makeStyles = (colors: ThemeColors) =>
   StyleSheet.create({
@@ -465,16 +465,21 @@ export const QuoteBuilderScreen: React.FC<{ onBack: () => void; initialQuote?: Q
   const insets = useAppSafeArea();
   const { isKeyboardVisible } = useKeyboard();
 
+  const regionConfig = RegionPaymentService.getConfig(profile.currencyCode, profile.currencySymbol, profile.region);
+  const isIndia = (profile.region === 'IN') || (profile.region !== 'US' && (regionConfig.region === 'IN' || profile.currencyCode === 'INR' || profile.currencySymbol === '₹'));
+
   const [clientName, setClientName] = useState(initialQuote?.clientName || '');
   const [clientPhone, setClientPhone] = useState(initialQuote?.clientPhone || '');
+  const [clientAddress, setClientAddress] = useState(initialQuote?.clientAddress || '');
   const [jobDescription, setJobDescription] = useState(initialQuote?.jobDescription || '');
   const [notes, setNotes] = useState(initialQuote?.notes || '');
   const [customDesc, setCustomDesc] = useState('');
   const [customPrice, setCustomPrice] = useState('');
   const [customQty, setCustomQty] = useState('1');
-  const [customUnit, setCustomUnit] = useState('nos');
+  const [customUnit, setCustomUnit] = useState(isIndia ? 'nos' : 'ea');
   const [customHsn, setCustomHsn] = useState('');
   const [customDiscount, setCustomDiscount] = useState('');
+  const [showMoreItemDetails, setShowMoreItemDetails] = useState(false);
   const [photoUri, setPhotoUri] = useState<string | null>(null);
   const [includePhotoInPdf, setIncludePhotoInPdf] = useState<boolean>(true);
   const [items, setItems] = useState<LineItem[]>(
@@ -510,10 +515,58 @@ export const QuoteBuilderScreen: React.FC<{ onBack: () => void; initialQuote?: Q
   const [showPaywall, setShowPaywall] = useState(false);
   const [pendingPdfQuote, setPendingPdfQuote] = useState<Quote | null>(null);
   const [showCompanyModal, setShowCompanyModal] = useState(false);
+  const [gpsCoords, setGpsCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [detectedAddress, setDetectedAddress] = useState<string>('');
+
+  // Background GPS acquisition: Once permission is granted once,
+  // automatically acquires position for every new estimate/invoice without manual clicks.
+  React.useEffect(() => {
+    let isMounted = true;
+    (async () => {
+      try {
+        let { status } = await Location.getForegroundPermissionsAsync();
+        if (status !== 'granted') {
+          const req = await Location.requestForegroundPermissionsAsync();
+          status = req.status;
+        }
+        if (status === 'granted' && isMounted) {
+          const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+          if (isMounted && loc?.coords) {
+            setGpsCoords({ lat: loc.coords.latitude, lng: loc.coords.longitude });
+
+            // Reverse-geocode to discover jobsite street address & tax jurisdiction
+            Location.reverseGeocodeAsync({
+              latitude: loc.coords.latitude,
+              longitude: loc.coords.longitude,
+            })
+              .then((geo) => {
+                if (isMounted && geo && geo[0]) {
+                  const g = geo[0];
+                  const streetPart = g.streetNumber ? `${g.streetNumber} ${g.street || ''}`.trim() : (g.street || '');
+                  const cityPart = g.city || g.subregion || '';
+                  const regionPart = g.region || '';
+                  const postalPart = g.postalCode || '';
+                  const parts = [streetPart, cityPart, regionPart, postalPart].filter(Boolean);
+                  if (parts.length > 0) {
+                    setDetectedAddress(parts.join(', '));
+                  }
+                }
+              })
+              .catch(() => {});
+          }
+        }
+      } catch {
+        // Degrades gracefully offline
+      }
+    })();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const recentClients = React.useMemo(() => {
     const seen = new Set<string>();
-    const list: { name: string; phone?: string; desc?: string }[] = [];
+    const list: { name: string; phone?: string; desc?: string; address?: string }[] = [];
     for (const q of quotes) {
       if (q.clientName && q.clientName.trim() && !seen.has(q.clientName.trim().toLowerCase())) {
         seen.add(q.clientName.trim().toLowerCase());
@@ -521,6 +574,7 @@ export const QuoteBuilderScreen: React.FC<{ onBack: () => void; initialQuote?: Q
           name: q.clientName.trim(),
           phone: q.clientPhone,
           desc: q.jobDescription,
+          address: q.clientAddress,
         });
         if (list.length >= 6) break;
       }
@@ -587,40 +641,56 @@ export const QuoteBuilderScreen: React.FC<{ onBack: () => void; initialQuote?: Q
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       const { status } = await ImagePicker.requestCameraPermissionsAsync();
       if (status !== 'granted') {
-        AlertService.alert('Camera Permission', 'Please allow camera access to take worksite damage photos.', undefined, 'WARNING');
+        AlertService.alert(
+          'Camera Permission',
+          'Camera access is required to take worksite damage photos. Please enable camera permission in device Settings.',
+          undefined,
+          'WARNING'
+        );
         return;
       }
 
       const result = await ImagePicker.launchCameraAsync({
-        mediaTypes: ['images'],
-        allowsEditing: true,
-        aspect: [4, 3],
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: false,
         quality: 0.7,
       });
 
       if (!result.canceled && result.assets && result.assets.length > 0) {
         setPhotoUri(result.assets[0].uri);
       }
-    } catch {
-      AlertService.alert('Camera Error', 'Could not open camera. Please try again.', undefined, 'DANGER');
+    } catch (err) {
+      console.warn('[Camera] Failed to open camera:', err);
+      AlertService.alert('Camera Error', 'Could not open camera. Please ensure camera permission is enabled.', undefined, 'DANGER');
     }
   };
 
   const handlePickFromGallery = async () => {
     try {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        AlertService.alert(
+          'Photo Library Access',
+          'Photo library access is required to attach worksite photos. Please enable photos permission in device Settings.',
+          undefined,
+          'WARNING'
+        );
+        return;
+      }
+
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ['images'],
-        allowsEditing: true,
-        aspect: [4, 3],
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: false,
         quality: 0.7,
       });
 
       if (!result.canceled && result.assets && result.assets.length > 0) {
         setPhotoUri(result.assets[0].uri);
       }
-    } catch {
-      AlertService.alert('Gallery Error', 'Could not access photo library. Please try again.', undefined, 'DANGER');
+    } catch (err) {
+      console.warn('[Gallery] Failed to open gallery:', err);
+      AlertService.alert('Gallery Error', 'Could not access photo library. Please ensure photos permission is enabled.', undefined, 'DANGER');
     }
   };
 
@@ -633,7 +703,7 @@ export const QuoteBuilderScreen: React.FC<{ onBack: () => void; initialQuote?: Q
       unitPriceCents: preset.priceCents,
       quantity: 1,
       totalCents: preset.priceCents,
-      hsnSac: (preset as any).hsnSac || (isIndia ? '9954' : undefined),
+      hsnSac: (preset as any).hsnSac || undefined,
       unit: (preset as any).unit || (isIndia ? 'nos' : undefined),
     };
     setItems((prev) => [...prev, newItem]);
@@ -671,7 +741,7 @@ export const QuoteBuilderScreen: React.FC<{ onBack: () => void; initialQuote?: Q
       quantity: qty,
       totalCents: itemTotalCents,
       unit: customUnit || (isIndia ? 'nos' : undefined),
-      hsnSac: customHsn.trim() || (isIndia ? '9954' : undefined),
+      hsnSac: customHsn.trim() ? customHsn.trim() : undefined,
       discountPercent: discount > 0 ? discount : undefined,
     };
     setItems((prev) => [...prev, newItem]);
@@ -679,6 +749,7 @@ export const QuoteBuilderScreen: React.FC<{ onBack: () => void; initialQuote?: Q
     setCustomPrice('');
     setCustomQty('1');
     setCustomDiscount('');
+    setCustomHsn('');
   };
 
   const handleRemoveItem = (id: string) => {
@@ -698,8 +769,6 @@ export const QuoteBuilderScreen: React.FC<{ onBack: () => void; initialQuote?: Q
     : 0;
   const totalAmountCents = subtotalCents + taxAmountCents;
 
-  const regionConfig = RegionPaymentService.getConfig(profile.currencyCode, profile.currencySymbol, profile.region);
-  const isIndia = (profile.region === 'IN') || (profile.region !== 'US' && (regionConfig.region === 'IN' || profile.currencyCode === 'INR' || profile.currencySymbol === '₹'));
 
   const availablePresets = React.useMemo(() => {
     if (isIndia) {
@@ -767,17 +836,23 @@ export const QuoteBuilderScreen: React.FC<{ onBack: () => void; initialQuote?: Q
 
   const handleSaveSignature = async (svgPath: string) => {
     // Acquire GPS coordinates for UETA/ESIGN courtroom proof (graceful degrade if offline/denied)
-    let gpsLat: number | undefined = undefined;
-    let gpsLng: number | undefined = undefined;
-    try {
-      const { status } = await Location.getForegroundPermissionsAsync();
-      if (status === 'granted') {
-        const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-        gpsLat = loc.coords.latitude;
-        gpsLng = loc.coords.longitude;
+    let gpsLat: number | undefined = gpsCoords?.lat;
+    let gpsLng: number | undefined = gpsCoords?.lng;
+    if (!gpsLat || !gpsLng) {
+      try {
+        let { status } = await Location.getForegroundPermissionsAsync();
+        if (status !== 'granted') {
+          const req = await Location.requestForegroundPermissionsAsync();
+          status = req.status;
+        }
+        if (status === 'granted') {
+          const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+          gpsLat = loc.coords.latitude;
+          gpsLng = loc.coords.longitude;
+        }
+      } catch {
+        // Degrades gracefully offline or if GPS unavailable
       }
-    } catch {
-      // Degrades gracefully offline or if GPS unavailable
     }
 
     const nextQuoteNum = await DatabaseService.getNextQuoteNumber();
@@ -787,6 +862,7 @@ export const QuoteBuilderScreen: React.FC<{ onBack: () => void; initialQuote?: Q
       quoteNumber: nextQuoteNum,
       clientName: clientName.trim(),
       clientPhone: clientPhone.trim() || undefined,
+      clientAddress: clientAddress.trim() || undefined,
       jobDescription: jobDescription.trim() || undefined,
       notes: notes.trim() || undefined,
       photoUri: photoUri || undefined,
@@ -838,7 +914,7 @@ export const QuoteBuilderScreen: React.FC<{ onBack: () => void; initialQuote?: Q
       await OutboxService.enqueue(newQuote, clientPhone.trim(), 'SMS');
       AlertService.alert(
         'Offline — Saved to Outbox',
-        `Quote #${newQuote.quoteNumber} for ${newQuote.clientName} is legally sealed on glass with SHA-256.\n\nBecause cell reception is unavailable in the field, this agreement has been queued in your Offline Outbox. It will auto-dispatch via SMS the moment your phone reconnects to 4G/Wi-Fi.`,
+        `Quote #${newQuote.quoteNumber} for ${newQuote.clientName} is signed and saved.\n\nBecause cell reception is unavailable in the field, this agreement has been queued in your Offline Outbox. It will auto-dispatch via SMS the moment your phone reconnects to 4G/Wi-Fi.`,
         [{ text: 'Got it', onPress: onBack }],
         'SUCCESS'
       );
@@ -846,8 +922,111 @@ export const QuoteBuilderScreen: React.FC<{ onBack: () => void; initialQuote?: Q
     }
 
     AlertService.alert(
-      'Estimate Sealed',
-      `Quote #${newQuote.quoteNumber} for ${newQuote.clientName} is legally sealed with SHA-256. Would you like to share the PDF with the client now?`,
+      'Agreement Signed',
+      `Quote #${newQuote.quoteNumber} for ${newQuote.clientName} is signed and ready. Would you like to share the PDF with the client now?`,
+      [
+        { text: 'Later', style: 'cancel', onPress: onBack },
+        {
+          text: 'Send PDF Now',
+          onPress: () => {
+            handleInitiateSendPDF(newQuote);
+          },
+        },
+      ],
+      'SUCCESS'
+    );
+  };
+
+  const handleSkipSignature = async () => {
+    let gpsLat: number | undefined = gpsCoords?.lat;
+    let gpsLng: number | undefined = gpsCoords?.lng;
+    if (!gpsLat || !gpsLng) {
+      try {
+        let { status } = await Location.getForegroundPermissionsAsync();
+        if (status !== 'granted') {
+          const req = await Location.requestForegroundPermissionsAsync();
+          status = req.status;
+        }
+        if (status === 'granted') {
+          const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+          gpsLat = loc.coords.latitude;
+          gpsLng = loc.coords.longitude;
+        }
+      } catch {
+        // Degrades gracefully offline or if GPS unavailable
+      }
+    }
+
+    const nextQuoteNum = await DatabaseService.getNextQuoteNumber();
+    const isDirectInvoice = documentType === 'TAX_INVOICE' || documentType === 'BILL_OF_SUPPLY';
+
+    const newQuote: Quote = {
+      id: Crypto.randomUUID(),
+      quoteNumber: nextQuoteNum,
+      clientName: clientName.trim(),
+      clientPhone: clientPhone.trim() || undefined,
+      clientAddress: clientAddress.trim() || undefined,
+      jobDescription: jobDescription.trim() || undefined,
+      notes: notes.trim() || undefined,
+      photoUri: photoUri || undefined,
+      includePhotoInPdf: photoUri ? includePhotoInPdf : true,
+      status: isDirectInvoice ? 'INVOICED' : 'DRAFT',
+      invoiceIssuedTimestamp: isDirectInvoice ? Date.now() : undefined,
+      subtotalCents,
+      taxRateBasisPoints: taxBasisPoints,
+      taxAmountCents,
+      taxLabel: isTaxEnabled ? (taxLabelInput.trim() || 'Sales Tax') : undefined,
+      totalAmountCents,
+      currencySymbol,
+      depositAmountCents: depositAmountCents > 0 ? depositAmountCents : undefined,
+      paymentTerms,
+      documentType,
+      placeOfSupply: placeOfSupply.trim() || undefined,
+      isGstSplit,
+      dueDateTimestamp:
+        paymentTerms === 'NET_7'
+          ? Date.now() + 7 * 86400000
+          : paymentTerms === 'NET_15'
+          ? Date.now() + 15 * 86400000
+          : paymentTerms === 'NET_30'
+          ? Date.now() + 30 * 86400000
+          : Date.now(),
+      signatureGpsLat: gpsLat,
+      signatureGpsLng: gpsLng,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+      lineItems: items,
+      changeOrders: [],
+    };
+
+    newQuote.pdfSha256Hash = await PDFService.computeHash(newQuote);
+    await addQuote(newQuote);
+    setIsSigning(false);
+
+    await NotificationService.notifySealCompleted(
+      newQuote.quoteNumber,
+      newQuote.clientName,
+      newQuote.totalAmountCents
+    );
+    await NotificationService.schedulePaymentReminder(newQuote);
+
+    const docName = isDirectInvoice ? (isIndia ? 'Tax Invoice' : 'Invoice') : (isIndia ? 'Quotation' : 'Estimate');
+
+    const isOnline = await OutboxService.isOnline();
+    if (!isOnline && clientPhone.trim()) {
+      await OutboxService.enqueue(newQuote, clientPhone.trim(), 'SMS');
+      AlertService.alert(
+        'Offline — Saved to Outbox',
+        `${docName} #${newQuote.quoteNumber} for ${newQuote.clientName} has been saved.\n\nBecause cell reception is unavailable in the field, it will auto-dispatch via SMS the moment your phone reconnects to 4G/Wi-Fi.`,
+        [{ text: 'Got it', onPress: onBack }],
+        'SUCCESS'
+      );
+      return;
+    }
+
+    AlertService.alert(
+      `${docName} Created`,
+      `${docName} #${newQuote.quoteNumber} for ${newQuote.clientName} is ready. Would you like to share the PDF with the client now?`,
       [
         { text: 'Later', style: 'cancel', onPress: onBack },
         {
@@ -896,6 +1075,8 @@ export const QuoteBuilderScreen: React.FC<{ onBack: () => void; initialQuote?: Q
         totalFormatted={totalFormatted}
         onCancel={() => setIsSigning(false)}
         onSave={handleSaveSignature}
+        onSkip={handleSkipSignature}
+        skipButtonText="Proceed without Signature"
       />
     );
   }
@@ -1007,6 +1188,7 @@ export const QuoteBuilderScreen: React.FC<{ onBack: () => void; initialQuote?: Q
                     Haptics.selectionAsync();
                     setClientName(c.name);
                     if (c.phone) setClientPhone(c.phone);
+                    if (c.address && !clientAddress) setClientAddress(c.address);
                     if (c.desc && !jobDescription) setJobDescription(c.desc);
                   }}
                 >
@@ -1033,6 +1215,37 @@ export const QuoteBuilderScreen: React.FC<{ onBack: () => void; initialQuote?: Q
             value={clientPhone}
             onChangeText={setClientPhone}
           />
+          <TextInput
+            style={[styles.input, { marginTop: 10 }]}
+            placeholder={isIndia ? "Jobsite / Delivery Address (Optional)" : "Jobsite / Property Address (Optional)"}
+            placeholderTextColor={colors.textMuted}
+            value={clientAddress}
+            onChangeText={setClientAddress}
+          />
+          {detectedAddress && !clientAddress && (
+            <TouchableOpacity
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                marginTop: 6,
+                paddingVertical: 5,
+                paddingHorizontal: 10,
+                backgroundColor: colors.primaryLight,
+                borderRadius: Theme.borderRadius.sm,
+                borderWidth: 1,
+                borderColor: colors.primary + '30',
+                alignSelf: 'flex-start',
+              }}
+              onPress={() => {
+                Haptics.selectionAsync();
+                setClientAddress(detectedAddress);
+              }}
+            >
+              <Text style={{ fontSize: 11, color: colors.primary, fontWeight: '700' }}>
+                📍 Fill Current Location ({detectedAddress.split(',')[0]}...)
+              </Text>
+            </TouchableOpacity>
+          )}
           <TextInput
             style={[styles.input, { marginTop: 10 }]}
             placeholder={isIndia ? "Short Scope Summary (e.g. 3BHK Concealed Wiring & MCB)" : "Short Scope Summary (e.g. Electrical Breaker Swap)"}
@@ -1219,97 +1432,162 @@ export const QuoteBuilderScreen: React.FC<{ onBack: () => void; initialQuote?: Q
           )}
 
           {/* Inline Custom Item Adder */}
-          <View style={{ marginTop: 12, borderTopWidth: 1, borderColor: colors.border, paddingTop: 12 }}>
-            <View style={{ flexDirection: 'row', gap: 8, marginBottom: 8 }}>
+          <View style={{ marginTop: 14, borderTopWidth: 1, borderColor: colors.border, paddingTop: 12 }}>
+            {/* Primary Item Name & Rate Inputs */}
+            <View style={{ flexDirection: 'row', gap: 8, marginBottom: 8, alignItems: 'center' }}>
               <TextInput
-                style={[styles.input, { flex: 2, fontSize: 13 }]}
-                placeholder="Custom item or part..."
+                style={[styles.input, { flex: 2, fontSize: 13.5, paddingVertical: 10 }]}
+                placeholder="Item or service description..."
                 placeholderTextColor={colors.textMuted}
                 value={customDesc}
                 onChangeText={setCustomDesc}
               />
               <TextInput
-                style={[styles.input, { flex: 1, fontSize: 13, textAlign: 'right' }]}
+                style={[styles.input, { flex: 1.1, fontSize: 13.5, textAlign: 'right', paddingVertical: 10 }]}
                 placeholder={`${currencySymbol} Rate`}
                 placeholderTextColor={colors.textMuted}
                 keyboardType="decimal-pad"
                 value={customPrice}
                 onChangeText={setCustomPrice}
               />
-            </View>
-
-            {/* Qty, Unit Chips, Discount & Add Row */}
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 }}>
-              <View style={{ width: 68 }}>
-                <TextInput
-                  style={[styles.input, { fontSize: 12, textAlign: 'center', paddingVertical: 8 }]}
-                  placeholder="Qty 1"
-                  placeholderTextColor={colors.textMuted}
-                  keyboardType="decimal-pad"
-                  value={customQty}
-                  onChangeText={setCustomQty}
-                />
-              </View>
-
-              <View style={{ width: 68 }}>
-                <TextInput
-                  style={[styles.input, { fontSize: 12, textAlign: 'center', paddingVertical: 8 }]}
-                  placeholder="Disc %"
-                  placeholderTextColor={colors.textMuted}
-                  keyboardType="decimal-pad"
-                  value={customDiscount}
-                  onChangeText={setCustomDiscount}
-                />
-              </View>
-
-              {isIndia && (
-                <View style={{ width: 72 }}>
-                  <TextInput
-                    style={[styles.input, { fontSize: 12, textAlign: 'center', paddingVertical: 8 }]}
-                    placeholder="SAC #"
-                    placeholderTextColor={colors.textMuted}
-                    value={customHsn}
-                    onChangeText={setCustomHsn}
-                  />
-                </View>
-              )}
-
-              <TouchableOpacity style={[styles.addCustomBtn, { flex: 1 }]} onPress={handleAddCustomItem}>
-                <Plus size={14} color="#FFFFFF" />
+              <TouchableOpacity
+                style={[styles.addCustomBtn, { paddingHorizontal: 16, paddingVertical: 11 }]}
+                onPress={handleAddCustomItem}
+              >
+                <Plus size={16} color="#FFFFFF" strokeWidth={2.5} />
                 <Text style={styles.addCustomBtnText}>Add</Text>
               </TouchableOpacity>
             </View>
 
-            {/* Trade Unit Selector Chips */}
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ flexDirection: 'row', gap: 6, paddingVertical: 2 }}>
-              {(isIndia
-                ? ['nos', 'sq.ft', 'mtr', 'pts', 'hrs', 'kg', 'set', 'box']
-                : ['hrs', 'sq ft', 'linear ft', 'ea', 'trip', 'system', 'day']
-              ).map((u) => {
-                const isSelected = customUnit === u;
-                return (
-                  <TouchableOpacity
-                    key={u}
-                    style={{
-                      paddingHorizontal: 8,
-                      paddingVertical: 4,
-                      borderRadius: 12,
-                      backgroundColor: isSelected ? colors.primary + '15' : colors.backgroundSecondary,
-                      borderWidth: 1,
-                      borderColor: isSelected ? colors.primary : colors.border,
-                    }}
-                    onPress={() => {
-                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                      setCustomUnit(u);
-                    }}
-                  >
-                    <Text style={{ fontSize: 10.5, fontWeight: '700', color: isSelected ? colors.primary : colors.textSecondary }}>
-                      {u} {isSelected ? '✓' : ''}
+            {/* Expandable Optional Details Toggle */}
+            <TouchableOpacity
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 5,
+                paddingVertical: 5,
+                alignSelf: 'flex-start',
+              }}
+              onPress={() => {
+                Haptics.selectionAsync();
+                setShowMoreItemDetails(!showMoreItemDetails);
+              }}
+            >
+              {showMoreItemDetails ? (
+                <ChevronUp size={14} color={colors.primary} />
+              ) : (
+                <ChevronDown size={14} color={colors.primary} />
+              )}
+              <Text style={{ fontSize: 12, fontWeight: '700', color: colors.primary }}>
+                {showMoreItemDetails
+                  ? 'Fewer options'
+                  : `+ Details (Qty: ${customQty || '1'}${customUnit ? ` ${customUnit}` : ''}${customDiscount ? `, -${customDiscount}%` : ''})`}
+              </Text>
+            </TouchableOpacity>
+
+            {/* Optional Quantity, Discount, SAC & Trade Units Drawer */}
+            {showMoreItemDetails && (
+              <View
+                style={{
+                  marginTop: 8,
+                  padding: 10,
+                  backgroundColor: colors.backgroundSecondary,
+                  borderRadius: 8,
+                  borderWidth: 1,
+                  borderColor: colors.borderSubtle,
+                }}
+              >
+                <View style={{ flexDirection: 'row', gap: 8, marginBottom: 8 }}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontSize: 10, fontWeight: '700', color: colors.textMuted, marginBottom: 4, textTransform: 'uppercase' }}>
+                      Quantity
                     </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </ScrollView>
+                    <TextInput
+                      style={[styles.input, { fontSize: 12.5, textAlign: 'center', paddingVertical: 6 }]}
+                      placeholder="1"
+                      placeholderTextColor={colors.textMuted}
+                      keyboardType="decimal-pad"
+                      value={customQty}
+                      onChangeText={setCustomQty}
+                    />
+                  </View>
+
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontSize: 10, fontWeight: '700', color: colors.textMuted, marginBottom: 4, textTransform: 'uppercase' }}>
+                      Discount %
+                    </Text>
+                    <TextInput
+                      style={[styles.input, { fontSize: 12.5, textAlign: 'center', paddingVertical: 6 }]}
+                      placeholder="Disc %"
+                      placeholderTextColor={colors.textMuted}
+                      keyboardType="decimal-pad"
+                      value={customDiscount}
+                      onChangeText={setCustomDiscount}
+                    />
+                  </View>
+
+                  {isIndia && Boolean(profile.showHsnSac) && (
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ fontSize: 10, fontWeight: '700', color: colors.textMuted, marginBottom: 4, textTransform: 'uppercase' }}>
+                        SAC Code
+                      </Text>
+                      <TextInput
+                        style={[styles.input, { fontSize: 12.5, textAlign: 'center', paddingVertical: 6 }]}
+                        placeholder="Optional"
+                        placeholderTextColor={colors.textMuted}
+                        keyboardType="numeric"
+                        value={customHsn}
+                        onChangeText={setCustomHsn}
+                      />
+                    </View>
+                  )}
+                </View>
+
+                {/* Trade Unit Selector Chips */}
+                <Text style={{ fontSize: 10, fontWeight: '700', color: colors.textMuted, marginBottom: 4, textTransform: 'uppercase' }}>
+                  Unit of Measure
+                </Text>
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={{ flexDirection: 'row', gap: 6, paddingVertical: 2 }}
+                >
+                  {(isIndia
+                    ? ['nos', 'sq.ft', 'mtr', 'pts', 'hrs', 'kg', 'set', 'box']
+                    : ['ea', 'hrs', 'sq ft', 'linear ft', 'trip', 'system', 'day']
+                  ).map((u) => {
+                    const isSelected = customUnit === u;
+                    return (
+                      <TouchableOpacity
+                        key={u}
+                        style={{
+                          paddingHorizontal: 10,
+                          paddingVertical: 5,
+                          borderRadius: 12,
+                          backgroundColor: isSelected ? colors.primaryLight : colors.card,
+                          borderWidth: 1,
+                          borderColor: isSelected ? colors.primary : colors.border,
+                        }}
+                        onPress={() => {
+                          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                          setCustomUnit(u);
+                        }}
+                      >
+                        <Text
+                          style={{
+                            fontSize: 11,
+                            fontWeight: isSelected ? '800' : '600',
+                            color: isSelected ? colors.primary : colors.textSecondary,
+                          }}
+                        >
+                          {u} {isSelected ? '✓' : ''}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </ScrollView>
+              </View>
+            )}
           </View>
         </View>
 

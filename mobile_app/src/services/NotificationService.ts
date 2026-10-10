@@ -106,8 +106,8 @@ export class NotificationService {
     try {
       await Notifications.scheduleNotificationAsync({
         content: {
-          title: 'Agreement Legally Sealed 🛡️',
-          body: `Estimate #${quoteNumber} for ${clientName} (${amountStr}) is locked with SHA-256 seal. Courtroom audit certificate is ready.`,
+          title: 'Agreement Signed & Verified 🛡️',
+          body: `Estimate #${quoteNumber} for ${clientName} (${amountStr}) is verified. Digital audit certificate is ready.`,
           data: { quoteNumber, type: 'SEAL_COMPLETED' },
           sound: true,
           channelId: 'job_seals',

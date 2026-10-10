@@ -22,6 +22,7 @@ import { CurrencyService, POPULAR_CURRENCIES } from '../services/CurrencyService
 import { RegionPaymentService } from '../services/RegionPaymentService';
 import { PaywallModal } from '../components/PaywallModal';
 import { BehaviorLogsModal } from '../components/BehaviorLogsModal';
+import { PDFPreviewModal } from '../components/PDFPreviewModal';
 import { BillingService } from '../services/BillingService';
 import { TelemetryService } from '../services/TelemetryService';
 import { FEATURE_FLAGS } from '../config/featureFlags';
@@ -231,6 +232,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onBack }) => {
   const [stateCode, setStateCode] = useState(profile.stateCode || '');
   const [isGstSplitEnabled, setIsGstSplitEnabled] = useState(profile.isGstSplitEnabled ?? true);
   const [defaultInvoiceType, setDefaultInvoiceType] = useState(profile.defaultInvoiceType || 'ESTIMATE');
+  const [showHsnSac, setShowHsnSac] = useState(Boolean(profile.showHsnSac));
 
   // Payments
   const [upiId, setUpiId] = useState(profile.upiId || '');
@@ -254,6 +256,8 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onBack }) => {
     profile.invoiceTemplate || 'modern'
   );
   const [isPreviewingPdf, setIsPreviewingPdf] = useState(false);
+  const [previewModalQuote, setPreviewModalQuote] = useState<any>(null);
+  const [previewModalProfile, setPreviewModalProfile] = useState<ContractorProfile | null>(null);
 
   // Notifications
   const [outboxAlerts, setOutboxAlerts] = useState(
@@ -377,6 +381,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onBack }) => {
       stateCode: stateCode.trim() || undefined,
       isGstSplitEnabled,
       defaultInvoiceType,
+      showHsnSac,
       currencySymbol: currencySymbol.trim() || '$',
       currencyCode: currencyCode.trim() || 'USD',
       defaultTaxBasisPoints: taxBasisPoints,
@@ -437,8 +442,8 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onBack }) => {
       }
 
       const result = fromCamera
-        ? await ImagePicker.launchCameraAsync({ allowsEditing: true, aspect: [1, 1], quality: 0.8, base64: true })
-        : await ImagePicker.launchImageLibraryAsync({ allowsEditing: true, aspect: [1, 1], quality: 0.8, base64: true });
+        ? await ImagePicker.launchCameraAsync({ allowsEditing: false, quality: 0.8, base64: true })
+        : await ImagePicker.launchImageLibraryAsync({ allowsEditing: false, quality: 0.8, base64: true });
 
       if (!result.canceled && result.assets[0]) {
         const asset = result.assets[0];
@@ -462,34 +467,22 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onBack }) => {
 
   const handlePreviewTemplate = async (templateId: InvoiceTemplateId) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    if (isPreviewingPdf) return;
-    setIsPreviewingPdf(true);
-    try {
-      const previewProfile: ContractorProfile = {
-        ...profile,
-        businessName: businessName.trim() || profile.businessName,
-        address: address.trim() || profile.address,
-        ownerName: ownerName.trim() || profile.ownerName,
-        phone: phone.trim() || profile.phone,
-        email: email.trim() || profile.email,
-        logoUri: logoUri || profile.logoUri,
-        licenseNumber: license.trim() || profile.licenseNumber,
-        currencySymbol: currencySymbol || profile.currencySymbol || '$',
-        currencyCode: currencyCode || profile.currencyCode || 'USD',
-        invoiceTemplate: templateId,
-      };
-      // Uses direct viewPDF with localized sample data matching the active currency & region
-      const sampleQuote = getSamplePreviewQuote(previewProfile.currencyCode || 'USD', previewProfile.currencySymbol || '$');
-      await PDFService.viewPDF(sampleQuote, previewProfile);
-    } catch (err: any) {
-      AlertService.alert({
-        title: 'Preview Error',
-        message: err?.message || 'Could not preview template.',
-        type: 'DANGER',
-      });
-    } finally {
-      setIsPreviewingPdf(false);
-    }
+    const previewProfile: ContractorProfile = {
+      ...profile,
+      businessName: businessName.trim() || profile.businessName,
+      address: address.trim() || profile.address,
+      ownerName: ownerName.trim() || profile.ownerName,
+      phone: phone.trim() || profile.phone,
+      email: email.trim() || profile.email,
+      logoUri: logoUri || profile.logoUri,
+      licenseNumber: license.trim() || profile.licenseNumber,
+      currencySymbol: currencySymbol || profile.currencySymbol || '$',
+      currencyCode: currencyCode || profile.currencyCode || 'USD',
+      invoiceTemplate: templateId,
+    };
+    const sampleQuote = getSamplePreviewQuote(previewProfile.currencyCode || 'USD', previewProfile.currencySymbol || '$');
+    setPreviewModalProfile(previewProfile);
+    setPreviewModalQuote(sampleQuote);
   };
 
   const handleDetectCurrency = async () => {
@@ -573,7 +566,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onBack }) => {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         AlertService.alert({
           title: 'Cloud Folder Linked! ☁️',
-          message: `JobSign will now automatically sync a backup snapshot to "${res.name}" whenever an invoice is created.`,
+          message: `JobSign will now automatically sync a single master backup file (JobSign_Master_Backup.json) to "${res.name}" whenever an invoice is created—zero manual clicks required.`,
           type: 'SUCCESS',
         });
       }
@@ -670,6 +663,34 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onBack }) => {
       AlertService.alert({
         title: 'Invalid Backup File',
         message: err?.message || 'Selected file could not be parsed as a JobSign backup.',
+        type: 'WARNING',
+      });
+    } finally {
+      setIsRestoring(false);
+    }
+  };
+
+  const handleRestoreFromLocalVault = async () => {
+    if (isRestoring) return;
+    setIsRestoring(true);
+    try {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      const preview = await BackupService.inspectLocalMasterBackup();
+      if (!preview) {
+        AlertService.alert({
+          title: 'No Local Backup Found',
+          message: 'No JobSign master backup file was found in your device vault. If you saved it to Google Drive or Downloads, use "Restore from File (.json)".',
+          type: 'INFO',
+        });
+        setIsRestoring(false);
+        return;
+      }
+      setRestorePreview(preview);
+      setShowRestoreModal(true);
+    } catch (err: any) {
+      AlertService.alert({
+        title: 'Error Reading Local Backup',
+        message: err?.message || 'Could not read local backup file.',
         type: 'WARNING',
       });
     } finally {
@@ -1048,7 +1069,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onBack }) => {
           <SettingsRow
             icon={<Shield size={18} color="#6366F1" />}
             title="Legal & ESIGN Compliance"
-            subtitle="Irrebuttable evidence, UETA & court admissibility"
+            subtitle="Electronic signatures, timestamps & audit trail"
             colors={colors}
             isLast
             onPress={() => setActiveModal('LEGAL')}
@@ -1859,6 +1880,24 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onBack }) => {
                 <View style={[styles.toggleThumb, isGstSplitEnabled && styles.toggleThumbActive]} />
               </View>
             </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.toggleRow}
+              onPress={() => {
+                Haptics.selectionAsync();
+                setShowHsnSac(!showHsnSac);
+              }}
+            >
+              <View style={{ flex: 1, paddingRight: 10 }}>
+                <Text style={styles.toggleLabel}>Show HSN / SAC Code on Line Items</Text>
+                <Text style={styles.toggleSub}>
+                  Optional. Enable only if your accountant requires HSN/SAC codes on invoice items.
+                </Text>
+              </View>
+              <View style={[styles.toggleSwitch, showHsnSac && styles.toggleSwitchActive]}>
+                <View style={[styles.toggleThumb, showHsnSac && styles.toggleThumbActive]} />
+              </View>
+            </TouchableOpacity>
           </View>
         )}
 
@@ -2049,25 +2088,25 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onBack }) => {
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 }}>
                   <RefreshCw size={15} color={colors.primary} />
                   <Text style={[styles.toggleLabel, { color: colors.textPrimary }]}>
-                    Auto-Backup on New Invoice
+                    Auto-Sync on New Invoice
                   </Text>
                 </View>
                 <Text style={[styles.toggleSub, { color: colors.textSecondary }]}>
-                  Automatically saves a secure cryptographic backup snapshot whenever a quote or invoice is created.
+                  Automatically updates a single master backup file (JobSign_Master_Backup.json) without any clicks whenever an invoice is created or edited. Zero duplicate files.
                 </Text>
               </View>
               <TouchableOpacity
                 activeOpacity={0.8}
                 style={[
                   styles.toggleSwitch,
-                  profile.backupSettings?.autoBackupEnabled && styles.toggleSwitchActive,
+                  (profile.backupSettings?.autoBackupEnabled ?? true) && styles.toggleSwitchActive,
                 ]}
                 onPress={handleToggleAutoBackup}
               >
                 <View
                   style={[
                     styles.toggleThumb,
-                    profile.backupSettings?.autoBackupEnabled && styles.toggleThumbActive,
+                    (profile.backupSettings?.autoBackupEnabled ?? true) && styles.toggleThumbActive,
                   ]}
                 />
               </TouchableOpacity>
@@ -2090,15 +2129,20 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onBack }) => {
                     </Text>
                   </View>
                   <View style={[styles.pillBadge, { backgroundColor: colors.emerald + '20' }]}>
-                    <Text style={{ fontSize: 10, fontWeight: '800', color: colors.emerald }}>SYNC ACTIVE</Text>
+                    <Text style={{ fontSize: 10, fontWeight: '800', color: colors.emerald }}>SINGLE FILE SYNC ACTIVE</Text>
                   </View>
                 </View>
 
                 <View style={[styles.folderPathBox, { backgroundColor: colors.surface, borderColor: colors.border }]}>
                   <Folder size={16} color={colors.primary} />
-                  <Text style={{ fontSize: 12.5, fontWeight: '700', color: colors.textPrimary, flex: 1 }} numberOfLines={1}>
-                    {profile.backupSettings.driveFolderName}
-                  </Text>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontSize: 12.5, fontWeight: '700', color: colors.textPrimary }} numberOfLines={1}>
+                      {profile.backupSettings.driveFolderName}
+                    </Text>
+                    <Text style={{ fontSize: 11, color: colors.textSecondary, marginTop: 1 }}>
+                      Target: JobSign_Master_Backup.json (In-place Overwrite)
+                    </Text>
+                  </View>
                 </View>
 
                 <View style={{ flexDirection: 'row', gap: 8, marginTop: 10 }}>
@@ -2122,11 +2166,11 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onBack }) => {
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 }}>
                   <CloudUpload size={16} color={colors.primary} />
                   <Text style={{ fontSize: 13, fontWeight: '800', color: colors.textPrimary }}>
-                    Link Google Drive / Cloud Folder
+                    Link Google Drive / OneDrive / Folder
                   </Text>
                 </View>
                 <Text style={{ fontSize: 11.5, color: colors.textSecondary, lineHeight: 16, marginBottom: 12 }}>
-                  Select any folder in Google Drive, Microsoft OneDrive, or phone storage. Invoices will automatically save there in real-time.
+                  Select any folder in Google Drive, Microsoft OneDrive, or device storage. A single master file (JobSign_Master_Backup.json) will be kept continually updated with zero clicks.
                 </Text>
                 <TouchableOpacity
                   style={[styles.linkDriveBtn, { backgroundColor: colors.primary }]}
@@ -2191,21 +2235,27 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onBack }) => {
               ) : (
                 <>
                   <CloudUpload size={17} color="#FFFFFF" style={{ marginRight: 8 }} />
-                  <Text style={styles.primaryActionBtnText}>Backup Now</Text>
+                  <Text style={styles.primaryActionBtnText}>Sync Master Backup Now</Text>
                 </>
               )}
             </TouchableOpacity>
 
-            {/* Share / Save to Drive */}
+            {/* Quick 1-Tap Restore from Local Vault */}
             <TouchableOpacity
               style={[styles.secondaryActionBtn, { backgroundColor: colors.surface, borderColor: colors.primary }]}
-              onPress={handleShareBackup}
-              disabled={isBackingUp}
+              onPress={handleRestoreFromLocalVault}
+              disabled={isRestoring}
             >
-              <Share2 size={16} color={colors.primary} style={{ marginRight: 8 }} />
-              <Text style={[styles.secondaryActionBtnText, { color: colors.primary }]}>
-                Share / Save Backup to Cloud
-              </Text>
+              {isRestoring ? (
+                <ActivityIndicator size="small" color={colors.primary} />
+              ) : (
+                <>
+                  <HardDrive size={16} color={colors.primary} style={{ marginRight: 8 }} />
+                  <Text style={[styles.secondaryActionBtnText, { color: colors.primary }]}>
+                    Restore from Device Vault (1-Tap)
+                  </Text>
+                </>
+              )}
             </TouchableOpacity>
 
             {/* Restore from Backup File */}
@@ -2220,10 +2270,22 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onBack }) => {
                 <>
                   <CloudDownload size={17} color="#8B5CF6" style={{ marginRight: 8 }} />
                   <Text style={[styles.secondaryActionBtnText, { color: '#8B5CF6' }]}>
-                    Restore from Backup File (.json)
+                    Restore from File / Google Drive (.json)
                   </Text>
                 </>
               )}
+            </TouchableOpacity>
+
+            {/* Share / Save to External App */}
+            <TouchableOpacity
+              style={[styles.secondaryActionBtn, { backgroundColor: colors.surface, borderColor: colors.border }]}
+              onPress={handleShareBackup}
+              disabled={isBackingUp}
+            >
+              <Share2 size={16} color={colors.textPrimary} style={{ marginRight: 8 }} />
+              <Text style={[styles.secondaryActionBtnText, { color: colors.textPrimary }]}>
+                Share Backup File via WhatsApp / Email
+              </Text>
             </TouchableOpacity>
           </View>
 
@@ -2374,6 +2436,11 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onBack }) => {
             Every agreement receives a unique 256-bit cryptographic digest representing the entire
             terms, pricing, and signature. Any post-signing alteration invalidates the seal immediately.
           </Text>
+
+          <Text style={[styles.legalTitle, { marginTop: 12 }]}>Notice & Disclaimer</Text>
+          <Text style={styles.legalBody}>
+            JobSign provides electronic signature and estimate documentation tools. JobSign does not provide legal advice or guarantee third-party debt recovery. Enforceability depends on jurisdiction, statutory contract requirements, and client agreement.
+          </Text>
         </View>
 
         <TouchableOpacity
@@ -2389,6 +2456,16 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onBack }) => {
       {showPaywall && <PaywallModal visible={showPaywall} onClose={() => setShowPaywall(false)} />}
       {showBehaviorLogs && (
         <BehaviorLogsModal visible={showBehaviorLogs} onClose={() => setShowBehaviorLogs(false)} />
+      )}
+
+      {/* Interactive In-App PDF Template Preview */}
+      {previewModalQuote && (
+        <PDFPreviewModal
+          visible={!!previewModalQuote}
+          quote={previewModalQuote}
+          profile={previewModalProfile || profile}
+          onClose={() => setPreviewModalQuote(null)}
+        />
       )}
     </View>
   );

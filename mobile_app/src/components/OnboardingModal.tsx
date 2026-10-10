@@ -40,50 +40,74 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({ visible, onFin
   const [logoUri, setLogoUri] = useState<string | null>(profile.logoUri || null);
 
   const handlePickLogo = async () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.8,
-    });
-    if (!result.canceled && result.assets[0]) {
-      setLogoUri(result.assets[0].uri);
+    try {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        AlertService.alert({
+          title: 'Photos Access',
+          message: 'Please allow photo library access to choose your logo.',
+          type: 'WARNING',
+        });
+        return;
+      }
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: false,
+        quality: 0.95,
+      });
+      if (!result.canceled && result.assets[0]) {
+        setLogoUri(result.assets[0].uri);
+      }
+    } catch (err) {
+      console.warn('[Logo] Error picking logo:', err);
     }
   };
 
   const handleCaptureLogo = async () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    const { status } = await ImagePicker.requestCameraPermissionsAsync();
-    if (status !== 'granted') {
-      AlertService.alert({
-        title: 'Camera Access',
-        message: 'Please allow camera access to take a shop logo photo.',
-        type: 'WARNING',
+    try {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      const { status } = await ImagePicker.requestCameraPermissionsAsync();
+      if (status !== 'granted') {
+        AlertService.alert({
+          title: 'Camera Access',
+          message: 'Please allow camera access to take a shop logo photo.',
+          type: 'WARNING',
+        });
+        return;
+      }
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: false,
+        quality: 0.95,
       });
-      return;
-    }
-    const result = await ImagePicker.launchCameraAsync({
-      mediaTypes: ['images'],
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.8,
-    });
-    if (!result.canceled && result.assets[0]) {
-      setLogoUri(result.assets[0].uri);
+      if (!result.canceled && result.assets[0]) {
+        setLogoUri(result.assets[0].uri);
+      }
+    } catch (err) {
+      console.warn('[Logo] Error capturing logo:', err);
     }
   };
 
   const handleSave = () => {
+    const trimmed = businessName.trim();
+    if (!trimmed) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+      AlertService.alert({
+        title: 'Business Name Required',
+        message: 'Please enter your business or contractor trade name to appear on invoices.',
+        type: 'WARNING',
+      });
+      return;
+    }
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    const finalName = businessName.trim() || 'My Contracting Co.';
     updateProfile({
-      businessName: finalName,
+      businessName: trimmed,
       address: address.trim(),
       phone: phone.trim() || profile.phone,
       logoUri: logoUri || undefined,
       isOnboardingCompleted: true,
-      hasCustomBusinessName: !!businessName.trim(),
+      hasCustomBusinessName: true,
     });
     onFinish();
   };

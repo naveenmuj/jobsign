@@ -43,7 +43,11 @@ service_account.json
 *.xml
 screen*.png
 current_screen.png
+emulator_screen.png
 find_bounds.js
+find_window.ps1
+move_window.ps1
+launch_emulator.bat
 scratch/
 mobile_app/stress_test.*
 

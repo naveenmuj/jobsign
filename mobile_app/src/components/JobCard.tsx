@@ -159,12 +159,6 @@ export const JobCard: React.FC<JobCardProps> = ({
           </View>
         )}
 
-        {quote.pdfSha256Hash && (
-          <Text style={[styles.hashText, { color: colors.textMuted }]}>
-            SHA: {quote.pdfSha256Hash.substring(0, 8)}
-          </Text>
-        )}
-
         <View style={{ marginLeft: 'auto' }}>
           <ChevronRight size={16} color={colors.textMuted} />
         </View>

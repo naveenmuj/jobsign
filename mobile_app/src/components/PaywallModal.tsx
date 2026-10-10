@@ -184,7 +184,7 @@ export const PaywallModal: React.FC<PaywallModalProps> = ({ visible, onClose }) 
               <View style={styles.featureRow}>
                 <Check size={16} color={colors.emerald} />
                 <Text style={styles.featureText}>
-                  <Text style={styles.featureTextBold}>Courtroom SHA-256 Audit Seals</Text> with GPS timestamps
+                  <Text style={styles.featureTextBold}>Tamper-Proof Audit Seals</Text> with GPS verification
                 </Text>
               </View>
               <View style={styles.featureRow}>
@@ -196,7 +196,7 @@ export const PaywallModal: React.FC<PaywallModalProps> = ({ visible, onClose }) 
               <View style={styles.featureRow}>
                 <Check size={16} color={colors.emerald} />
                 <Text style={styles.featureText}>
-                  <Text style={styles.featureTextBold}>Automatic Mechanic's Lien Waivers</Text> upon settlement
+                  <Text style={styles.featureTextBold}>Zero-Balance Payment Receipts</Text> upon settlement
                 </Text>
               </View>
               <View style={styles.featureRow}>

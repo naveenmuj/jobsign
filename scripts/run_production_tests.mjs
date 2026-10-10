@@ -215,13 +215,13 @@ it('Contains all 22 required accounting and GST audit fields', () => {
     'Advance / Deposit Paid',
     'Balance Due',
     'Payment Collected Date',
-    'Courtroom SHA-256 Seal',
+    'Audit Verification Seal (SHA-256)',
   ];
   assert.strictEqual(headers.length, 22);
   assert.ok(headers.includes('Document Type'));
   assert.ok(headers.includes('Place of Supply'));
   assert.ok(headers.includes('Balance Due'));
-  assert.ok(headers.includes('Courtroom SHA-256 Seal'));
+  assert.ok(headers.includes('Audit Verification Seal (SHA-256)'));
 });
 
 // -----------------------------------------------------------------------------
@@ -367,6 +367,51 @@ it('Respects auto-backup toggle and detects active Drive folder configuration', 
     backupTarget: 'LOCAL_VAULT',
   };
   assert.strictEqual(settingsOff.autoBackupEnabled, false);
+});
+
+it('Enforces Single-File In-Place Overwrite Rule (JobSign_Master_Backup.json) without duplicate files', () => {
+  const MASTER_FILENAME = 'JobSign_Master_Backup.json';
+  const MASTER_BASENAME = 'JobSign_Master_Backup';
+
+  // Simulated SAF folder storage
+  const mockDriveDirectory = new Map();
+
+  // Invoice 1 created
+  const invoice1 = { id: 'inv-1', quoteNumber: 101, totalAmountCents: 50000 };
+  const payload1 = {
+    app: 'JobSign',
+    schemaVersion: 1,
+    exportedAt: 1728500000000,
+    quotes: [invoice1],
+  };
+
+  // First sync: master file does not exist, so created once
+  const initialUri = 'content://com.android.externalstorage.documents/document/primary%3AJobSign%2FJobSign_Master_Backup.json';
+  mockDriveDirectory.set(initialUri, JSON.stringify(payload1));
+
+  assert.strictEqual(mockDriveDirectory.size, 1);
+  const parsed1 = JSON.parse(mockDriveDirectory.get(initialUri));
+  assert.strictEqual(parsed1.quotes.length, 1);
+  assert.strictEqual(parsed1.quotes[0].id, 'inv-1');
+
+  // Invoice 2 created shortly after: MUST overwrite existing URI without creating inv-2 file
+  const invoice2 = { id: 'inv-2', quoteNumber: 102, totalAmountCents: 75000 };
+  const payload2 = {
+    app: 'JobSign',
+    schemaVersion: 1,
+    exportedAt: 1728500050000,
+    quotes: [invoice2, invoice1],
+  };
+
+  // Overwrite existing in-place
+  mockDriveDirectory.set(initialUri, JSON.stringify(payload2));
+
+  // Assert STRICTLY ONE file exists
+  assert.strictEqual(mockDriveDirectory.size, 1, 'File count must remain exactly 1');
+  const parsed2 = JSON.parse(mockDriveDirectory.get(initialUri));
+  assert.strictEqual(parsed2.quotes.length, 2);
+  assert.strictEqual(parsed2.quotes[0].id, 'inv-2');
+  assert.strictEqual(parsed2.exportedAt, 1728500050000);
 });
 
 // -----------------------------------------------------------------------------

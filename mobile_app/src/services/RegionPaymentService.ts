@@ -96,7 +96,7 @@ const REGION_CONFIGS: Record<PaymentRegion, RegionPaymentConfig> = {
     legalConsentCitation: '15 U.S. Code § 7001 (ESIGN Act), the Uniform Electronic Transactions Act (UETA), and applicable state commercial laws',
     waiverTitle: 'AUTOMATIC CONDITIONAL LIEN WAIVER & RELEASE',
     waiverBodyText: 'Upon final clearance of settlement funds in the amount of {AMOUNT}, contractor waives and releases any and all mechanic\'s lien, stop notice, or bond rights for labor and materials furnished through {DATE}.',
-    auditCertificateTitle: 'UETA / ESIGN ACT COURTROOM AUDIT CERTIFICATE',
+    auditCertificateTitle: 'ELECTRONIC SIGNATURE & AUDIT CERTIFICATE (ESIGN / UETA)',
     auditGoverningStandard: '15 U.S. Code § 7001 (Electronic Signatures in Global and National Commerce Act) & Uniform Electronic Transactions Act (UETA § 7).',
     businessIdLabel: 'Contractor License # / EIN',
     businessIdPlaceholder: 'e.g. CA Lic #1049281 or EIN 12-3456789',

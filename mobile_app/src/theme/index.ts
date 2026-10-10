@@ -115,22 +115,22 @@ export const DarkColors: ThemeColors = {
 
   // Core Brand Accent
   primary: '#3B82F6',
-  primaryLight: 'rgba(59, 130, 246, 0.15)',
+  primaryLight: 'rgba(59, 130, 246, 0.25)',
   primaryDark: '#2563EB',
   accent: '#3B82F6',
-  accentLight: 'rgba(59, 130, 246, 0.15)',
+  accentLight: 'rgba(59, 130, 246, 0.25)',
 
-  // Status & Pills
+  // Status & Pills - Enhanced Alphas & Tones for WCAG AA (>= 4.5:1)
   emerald: '#10B981',
-  successLight: 'rgba(16, 185, 129, 0.15)',
+  successLight: 'rgba(16, 185, 129, 0.25)',
   amber: '#F59E0B',
-  warningLight: 'rgba(245, 158, 11, 0.15)',
+  warningLight: 'rgba(245, 158, 11, 0.25)',
   rose: '#F43F5E',
-  roseLight: 'rgba(244, 63, 94, 0.15)',
+  roseLight: 'rgba(244, 63, 94, 0.25)',
   purple: '#8B5CF6',
-  purpleLight: 'rgba(139, 92, 246, 0.15)',
-  slateInfo: '#94A3B8',
-  slateInfoLight: '#1E293B',
+  purpleLight: 'rgba(139, 92, 246, 0.25)',
+  slateInfo: '#CBD5E1',             // Crisp Slate-200 for high-contrast on dark surface
+  slateInfoLight: 'rgba(203, 213, 225, 0.15)',
 
   // Borders & Dividers
   border: '#334155',
@@ -138,8 +138,8 @@ export const DarkColors: ThemeColors = {
 
   // Typography
   textPrimary: '#F8FAFC',
-  textSecondary: '#94A3B8',
-  textMuted: '#64748B',
+  textSecondary: '#CBD5E1',         // Enhanced for WCAG AA outdoor contrast
+  textMuted: '#94A3B8',
   textInverse: '#FFFFFF',
   textHighlight: '#38BDF8',
 
@@ -150,6 +150,23 @@ export const DarkColors: ThemeColors = {
 
   // Modal Overlay
   overlay: 'rgba(11, 15, 25, 0.88)',
+};
+
+/**
+ * Sunlight Mode: Maximum-contrast outdoor palette designed for bright direct sunlight.
+ */
+export const SunlightColors: ThemeColors = {
+  ...LightColors,
+  background: '#FFFFFF',
+  surface: '#FFFFFF',
+  card: '#FFFFFF',
+  cardBorder: '#1E293B',
+  border: '#0F172A',
+  textPrimary: '#000000',           // Maximum opacity black
+  textSecondary: '#1E293B',         // Deep charcoal for high outdoor visibility
+  textMuted: '#475569',
+  primary: '#1D4ED8',               // Saturated deep royal blue
+  primaryLight: 'rgba(29, 78, 216, 0.15)',
 };
 
 export const Theme = {

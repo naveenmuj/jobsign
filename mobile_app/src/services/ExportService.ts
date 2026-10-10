@@ -56,7 +56,7 @@ export class ExportService {
         'Advance / Deposit Paid',
         'Balance Due',
         'Payment Collected Date',
-        'Courtroom SHA-256 Seal',
+        'Audit Verification Seal (SHA-256)',
       ];
 
       const rows: string[] = [headers.map((h) => this.escapeCell(h)).join(',')];

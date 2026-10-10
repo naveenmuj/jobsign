@@ -16,9 +16,12 @@ export function isValidTimestamp(timestamp?: number | null): timestamp is number
 
 /**
  * Single source of truth for whether a quote is considered overdue.
- * A quote is overdue if it is NOT paid, has a valid due date, and that due date is in the past.
+ * A quote is overdue if it is NOT paid, has a valid due date, and the end of the due date day has passed.
  */
 export function isQuoteOverdue(quote: { status: string; dueDateTimestamp?: number }): boolean {
   if (quote.status === 'PAID') return false;
-  return isValidTimestamp(quote.dueDateTimestamp) && quote.dueDateTimestamp < Date.now();
+  if (!isValidTimestamp(quote.dueDateTimestamp)) return false;
+  const d = new Date(quote.dueDateTimestamp);
+  const endOfDay = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59, 999).getTime();
+  return endOfDay < Date.now();
 }

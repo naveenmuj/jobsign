@@ -13,6 +13,9 @@ const getQuoteStore = () => {
   return useQuoteStore;
 };
 
+export const MASTER_BACKUP_FILENAME = 'JobSign_Master_Backup.json';
+export const MASTER_BACKUP_BASENAME = 'JobSign_Master_Backup';
+
 export class BackupService {
   private static isAutoBackingUp = false;
 
@@ -64,6 +67,8 @@ export class BackupService {
 
   /**
    * Saves the backup payload to the local device application vault.
+   * STRICT SINGLE-FILE POLICY: Always overwrites the single master file in-place.
+   * Zero duplicate or timestamped files are created.
    */
   public static async saveToLocalVault(
     payload: JobSignBackupPayload
@@ -75,16 +80,16 @@ export class BackupService {
       await FileSystem.makeDirectoryAsync(backupDir, { intermediates: true });
     }
 
-    const dateStr = new Date(payload.exportedAt).toISOString().split('T')[0];
-    const filename = `JobSign_Backup_${dateStr}_${payload.quotes.length}inv.json`;
+    const filename = MASTER_BACKUP_FILENAME;
     const fileUri = `${backupDir}${filename}`;
     const jsonStr = JSON.stringify(payload, null, 2);
 
+    // Overwrite the single master file in-place
     await FileSystem.writeAsStringAsync(fileUri, jsonStr, {
       encoding: FileSystem.EncodingType.UTF8,
     });
 
-    // Also maintain a rolling 'latest_backup.json'
+    // Also keep latest_backup.json synced for backward compatibility
     const latestUri = `${backupDir}latest_backup.json`;
     await FileSystem.writeAsStringAsync(latestUri, jsonStr, {
       encoding: FileSystem.EncodingType.UTF8,
@@ -99,6 +104,10 @@ export class BackupService {
   /**
    * Automatically executes a backup on invoice creation/update if auto-backup is enabled.
    * Runs non-blockingly to guarantee zero UI latency.
+   * STRICT SINGLE-FILE POLICY:
+   * - Local vault: Overwrites JobSign_Master_Backup.json in-place.
+   * - Cloud Drive (Google Drive/OneDrive): Overwrites the single JobSign_Master_Backup file in-place.
+   * Never creates duplicate files or requires manual clicks.
    */
   public static async performAutoBackup(triggerReason: string = 'NEW_INVOICE'): Promise<boolean> {
     if (this.isAutoBackingUp) return false;
@@ -112,31 +121,77 @@ export class BackupService {
         backupTarget: 'LOCAL_VAULT',
       };
 
-      // Only skip if user explicitly turned it off (autoBackupEnabled === false)
-      if (settings.autoBackupEnabled === false) {
+      // Only skip automated triggers if user explicitly turned it off
+      if (triggerReason !== 'MANUAL_USER_REQUEST' && settings.autoBackupEnabled === false) {
         this.isAutoBackingUp = false;
         return false;
       }
 
-      console.log(`[BackupService] Starting auto-backup triggered by ${triggerReason}...`);
+      console.log(`[BackupService] Starting auto-backup triggered by ${triggerReason} (single-file sync)...`);
       const payload = await this.exportBackupData();
       const localResult = await this.saveToLocalVault(payload);
 
       let savedToDrive = false;
+      let driveMasterFileUri = settings.driveMasterFileUri;
 
       // If user linked a Google Drive / OneDrive SAF folder on Android
       if (Platform.OS === 'android' && settings.driveFolderUri) {
         try {
           const saf = FileSystem.StorageAccessFramework;
           if (saf) {
-            const dateStr = new Date(payload.exportedAt).toISOString().split('T')[0];
-            const driveFilename = `JobSign_AutoBackup_${dateStr}_${payload.quotes.length}inv`;
-            const mimeType = 'application/json';
+            const jsonStr = JSON.stringify(payload, null, 2);
+            let writeSuccess = false;
 
-            const createdUri = await saf.createFileAsync(settings.driveFolderUri, driveFilename, mimeType);
-            await saf.writeAsStringAsync(createdUri, JSON.stringify(payload, null, 2));
-            savedToDrive = true;
-            console.log(`[BackupService] Auto-backup saved to Cloud Drive SAF folder: ${createdUri}`);
+            // 1. If we already have a cached master file URI, overwrite directly in-place
+            if (driveMasterFileUri) {
+              try {
+                await saf.writeAsStringAsync(driveMasterFileUri, jsonStr);
+                writeSuccess = true;
+                savedToDrive = true;
+                console.log(`[BackupService] Auto-backup overwritten in-place at cached Drive URI: ${driveMasterFileUri}`);
+              } catch (writeErr) {
+                console.warn('[BackupService] Cached Drive master file write failed, will re-discover:', writeErr);
+                driveMasterFileUri = undefined;
+              }
+            }
+
+            // 2. If direct write didn't succeed, scan Drive folder for existing master file
+            if (!writeSuccess) {
+              try {
+                const files = await saf.readDirectoryAsync(settings.driveFolderUri);
+                const foundUri = files.find((uri: string) => {
+                  const decoded = decodeURIComponent(uri);
+                  return (
+                    decoded.includes(MASTER_BACKUP_BASENAME) ||
+                    decoded.endsWith(MASTER_BACKUP_FILENAME)
+                  );
+                });
+
+                if (foundUri) {
+                  driveMasterFileUri = foundUri;
+                  await saf.writeAsStringAsync(driveMasterFileUri, jsonStr);
+                  writeSuccess = true;
+                  savedToDrive = true;
+                  console.log(`[BackupService] Found and overwritten existing Drive master backup: ${driveMasterFileUri}`);
+                }
+              } catch (readDirErr) {
+                console.warn('[BackupService] Reading Drive directory failed:', readDirErr);
+              }
+            }
+
+            // 3. If file does not exist yet in cloud folder, create it once as JobSign_Master_Backup
+            if (!writeSuccess) {
+              try {
+                const mimeType = 'application/json';
+                driveMasterFileUri = await saf.createFileAsync(settings.driveFolderUri, MASTER_BACKUP_BASENAME, mimeType);
+                await saf.writeAsStringAsync(driveMasterFileUri, jsonStr);
+                writeSuccess = true;
+                savedToDrive = true;
+                console.log(`[BackupService] Created initial master backup in Cloud Drive: ${driveMasterFileUri}`);
+              } catch (createErr) {
+                console.error('[BackupService] Creating initial master backup in Cloud Drive failed:', createErr);
+              }
+            }
           }
         } catch (safErr) {
           console.warn('[BackupService] Cloud Drive SAF write failed, falling back to local vault:', safErr);
@@ -146,6 +201,7 @@ export class BackupService {
       // Update backup stats in store
       const updatedSettings: BackupSettings = {
         ...settings,
+        driveMasterFileUri: driveMasterFileUri || settings.driveMasterFileUri,
         lastBackupTimestamp: payload.exportedAt,
         lastBackupInvoiceCount: payload.quotes.length,
         lastBackupSizeBytes: localResult.sizeBytes,
@@ -160,9 +216,10 @@ export class BackupService {
         invoiceCount: payload.quotes.length,
         sizeBytes: localResult.sizeBytes,
         savedToDrive,
+        singleFileOverwrite: true,
       });
 
-      console.log(`[BackupService] Auto-backup completed successfully (${payload.quotes.length} invoices).`);
+      console.log(`[BackupService] Auto-backup completed successfully (${payload.quotes.length} invoices in single master file).`);
       return true;
     } catch (err) {
       console.error('[BackupService] Auto-backup failed:', err);
@@ -245,6 +302,85 @@ export class BackupService {
   }
 
   /**
+   * Helper to parse, validate, and summarize a JobSign backup payload string.
+   */
+  public static parseAndValidatePayload(rawContent: string): BackupPreview {
+    let parsed: any;
+    try {
+      parsed = JSON.parse(rawContent);
+    } catch {
+      throw new Error('The selected file is not a valid JSON document.');
+    }
+
+    // Validate schema & required application fields
+    if (!parsed || parsed.app !== 'JobSign' || !Array.isArray(parsed.quotes)) {
+      throw new Error('Invalid JobSign backup file format. Missing required invoice records.');
+    }
+
+    if (typeof parsed.schemaVersion !== 'number' || parsed.schemaVersion < 1) {
+      throw new Error('Unsupported backup schema version. Please update JobSign to the latest version.');
+    }
+
+    // Validate quote records data integrity
+    const quotes: Quote[] = parsed.quotes;
+    for (const q of quotes) {
+      if (!q.id || typeof q.quoteNumber !== 'string' || typeof q.totalAmountCents !== 'number') {
+        throw new Error(`Backup file contains corrupted quote record (${q.quoteNumber || 'unknown'}).`);
+      }
+      if (q.totalAmountCents < 0) {
+        throw new Error(`Backup contains invalid negative pricing in quote #${q.quoteNumber}.`);
+      }
+    }
+
+    const totalRevenueCents = quotes.reduce((acc: number, q: Quote) => acc + (q.totalAmountCents || 0), 0);
+
+    return {
+      valid: true,
+      businessName: parsed.contractorProfile?.businessName || parsed.metadata?.businessName || 'Solo Contractor',
+      invoiceCount: quotes.length,
+      presetCount: Array.isArray(parsed.presets) ? parsed.presets.length : 0,
+      exportedAt: parsed.exportedAt || Date.now(),
+      appVersion: parsed.appVersion || '1.0.0',
+      totalRevenueCents,
+      currencySymbol: parsed.contractorProfile?.currencySymbol || '₹',
+      payload: parsed as JobSignBackupPayload,
+    };
+  }
+
+  /**
+   * Directly inspects the device's single local master backup file.
+   * Enables instant 1-tap restore without picking files manually.
+   */
+  public static async inspectLocalMasterBackup(): Promise<BackupPreview | null> {
+    try {
+      const baseDir = FileSystem.documentDirectory || (FileSystem as any).cacheDirectory || '';
+      const backupDir = baseDir.endsWith('/') ? `${baseDir}backups/` : `${baseDir}/backups/`;
+
+      const masterUri = `${backupDir}${MASTER_BACKUP_FILENAME}`;
+      const masterInfo = await FileSystem.getInfoAsync(masterUri);
+      if (masterInfo.exists) {
+        const rawContent = await FileSystem.readAsStringAsync(masterUri, {
+          encoding: FileSystem.EncodingType.UTF8,
+        });
+        return this.parseAndValidatePayload(rawContent);
+      }
+
+      const latestUri = `${backupDir}latest_backup.json`;
+      const latestInfo = await FileSystem.getInfoAsync(latestUri);
+      if (latestInfo.exists) {
+        const rawContent = await FileSystem.readAsStringAsync(latestUri, {
+          encoding: FileSystem.EncodingType.UTF8,
+        });
+        return this.parseAndValidatePayload(rawContent);
+      }
+
+      return null;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
    * Launches native document picker so the user can pick a backup file (.json)
    * from Google Drive, OneDrive, or device downloads. Validates contents and returns preview.
    */
@@ -266,33 +402,7 @@ export class BackupService {
         encoding: FileSystem.EncodingType.UTF8,
       });
 
-      let parsed: any;
-      try {
-        parsed = JSON.parse(rawContent);
-      } catch {
-        throw new Error('The selected file is not a valid JSON document.');
-      }
-
-      // Validate schema
-      if (!parsed || parsed.app !== 'JobSign' || !Array.isArray(parsed.quotes)) {
-        throw new Error('Invalid JobSign backup file format. Missing required invoice records.');
-      }
-
-      const quotes: Quote[] = parsed.quotes;
-      const totalRevenueCents = quotes.reduce((acc: number, q: Quote) => acc + (q.totalAmountCents || 0), 0);
-
-      const preview: BackupPreview = {
-        valid: true,
-        businessName: parsed.contractorProfile?.businessName || parsed.metadata?.businessName || 'Solo Contractor',
-        invoiceCount: quotes.length,
-        presetCount: Array.isArray(parsed.presets) ? parsed.presets.length : 0,
-        exportedAt: parsed.exportedAt || Date.now(),
-        appVersion: parsed.appVersion || '1.0.0',
-        totalRevenueCents,
-        currencySymbol: parsed.contractorProfile?.currencySymbol || '₹',
-        payload: parsed as JobSignBackupPayload,
-      };
-
+      const preview = this.parseAndValidatePayload(rawContent);
       return { cancelled: false, preview };
     } catch (err: any) {
       throw new Error(err?.message || 'Could not inspect backup file.');
