@@ -603,7 +603,10 @@ export const QuoteDetailScreen: React.FC<QuoteDetailScreenProps> = ({
           completedPhotoUri: result.assets[0].uri,
           completedPhotoSha256: photoHash,
         };
-        updated.pdfSha256Hash = await PDFService.computeHash(updated);
+        // Preserve immutable customer-signed audit seal
+        if (quote.status === 'DRAFT') {
+          updated.pdfSha256Hash = await PDFService.computeHash(updated);
+        }
         await addQuote(updated);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       }
@@ -636,7 +639,10 @@ export const QuoteDetailScreen: React.FC<QuoteDetailScreenProps> = ({
           completedPhotoUri: result.assets[0].uri,
           completedPhotoSha256: photoHash,
         };
-        updated.pdfSha256Hash = await PDFService.computeHash(updated);
+        // Preserve immutable customer-signed audit seal
+        if (quote.status === 'DRAFT') {
+          updated.pdfSha256Hash = await PDFService.computeHash(updated);
+        }
         await addQuote(updated);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       }
@@ -652,7 +658,9 @@ export const QuoteDetailScreen: React.FC<QuoteDetailScreenProps> = ({
       completedPhotoUri: undefined,
       completedPhotoSha256: undefined,
     };
-    updated.pdfSha256Hash = await PDFService.computeHash(updated);
+    if (quote.status === 'DRAFT') {
+      updated.pdfSha256Hash = await PDFService.computeHash(updated);
+    }
     await addQuote(updated);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
   };
@@ -671,12 +679,19 @@ export const QuoteDetailScreen: React.FC<QuoteDetailScreenProps> = ({
       });
       if (!result.canceled && result.assets[0]) {
         const photoHash = await PDFService.hashFileUri(result.assets[0].uri);
+        if (!photoHash) {
+          AlertService.alert('Photo Error', 'Could not read image file bytes to compute cryptographic digest. Please try taking the photo again.', undefined, 'DANGER');
+          return;
+        }
         const updated: Quote = {
           ...quote,
           photoUri: result.assets[0].uri,
-          photoSha256: photoHash || undefined,
+          photoSha256: photoHash,
         };
-        updated.pdfSha256Hash = await PDFService.computeHash(updated);
+        // Preserve immutable customer-signed audit seal if already signed
+        if (quote.status === 'DRAFT') {
+          updated.pdfSha256Hash = await PDFService.computeHash(updated);
+        }
         await addQuote(updated);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       }
@@ -700,12 +715,19 @@ export const QuoteDetailScreen: React.FC<QuoteDetailScreenProps> = ({
       });
       if (!result.canceled && result.assets[0]) {
         const photoHash = await PDFService.hashFileUri(result.assets[0].uri);
+        if (!photoHash) {
+          AlertService.alert('Photo Error', 'Could not read image file bytes to compute cryptographic digest. Please try selecting the photo again.', undefined, 'DANGER');
+          return;
+        }
         const updated: Quote = {
           ...quote,
           photoUri: result.assets[0].uri,
-          photoSha256: photoHash || undefined,
+          photoSha256: photoHash,
         };
-        updated.pdfSha256Hash = await PDFService.computeHash(updated);
+        // Preserve immutable customer-signed audit seal if already signed
+        if (quote.status === 'DRAFT') {
+          updated.pdfSha256Hash = await PDFService.computeHash(updated);
+        }
         await addQuote(updated);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       }
@@ -721,7 +743,9 @@ export const QuoteDetailScreen: React.FC<QuoteDetailScreenProps> = ({
       photoUri: undefined,
       photoSha256: undefined,
     };
-    updated.pdfSha256Hash = await PDFService.computeHash(updated);
+    if (quote.status === 'DRAFT') {
+      updated.pdfSha256Hash = await PDFService.computeHash(updated);
+    }
     await addQuote(updated);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
   };
