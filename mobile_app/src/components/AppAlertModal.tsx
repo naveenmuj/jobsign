@@ -31,9 +31,11 @@ export const AppAlertModal: React.FC = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     AlertService.dismiss();
     if (onPress) {
-      setTimeout(() => {
+      try {
         onPress();
-      }, 50);
+      } catch (err) {
+        console.warn('[AppAlertModal] Error running alert callback:', err);
+      }
     }
   };
 

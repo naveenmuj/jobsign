@@ -67,8 +67,8 @@ const REGION_CONFIGS: Record<PaymentRegion, RegionPaymentConfig> = {
     auditGoverningStandard: 'Information Technology Act, 2000 (§ 10A - Validity of electronic contracts) and electronic record audit verification standards.',
     businessIdLabel: 'GSTIN / PAN Number',
     businessIdPlaceholder: 'e.g. 29ABCDE1234F1Z5 or PAN',
-    depositLabel: 'Advance Received (बयाना)',
-    balanceDueLabel: 'Balance Due (बकाया राशि)',
+    depositLabel: 'Advance Received',
+    balanceDueLabel: 'Balance Due',
   },
   US: {
     region: 'US',

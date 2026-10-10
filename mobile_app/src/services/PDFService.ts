@@ -44,6 +44,59 @@ function escapeHtml(s: string = ''): string {
     .replace(/'/g, '&#39;');
 }
 
+function renderSignatureSvg(rawSvgOrPath?: string | null, width = 240, height = 70): string {
+  if (!rawSvgOrPath || !rawSvgOrPath.trim()) return '';
+  const trimmed = rawSvgOrPath.trim();
+
+  // If already full SVG tag
+  if (trimmed.startsWith('<svg')) {
+    return trimmed;
+  }
+
+  // Extract path 'd' if wrapped in <path ...> or if it's raw
+  let pathD = trimmed;
+  if (trimmed.startsWith('<path')) {
+    const dMatch = trimmed.match(/d="([^"]+)"/);
+    if (dMatch) pathD = dMatch[1];
+  }
+
+  // Extract coordinates from path commands (e.g. M120.0,45.0 L...)
+  const coords = pathD.match(/-?\d+(?:\.\d+)?/g);
+  let viewBox = '0 0 500 200';
+
+  if (coords && coords.length >= 4) {
+    let minX = Infinity;
+    let maxX = -Infinity;
+    let minY = Infinity;
+    let maxY = -Infinity;
+
+    for (let i = 0; i < coords.length - 1; i += 2) {
+      const x = parseFloat(coords[i]);
+      const y = parseFloat(coords[i + 1]);
+      if (!isNaN(x) && !isNaN(y)) {
+        if (x < minX) minX = x;
+        if (x > maxX) maxX = x;
+        if (y < minY) minY = y;
+        if (y > maxY) maxY = y;
+      }
+    }
+
+    if (minX !== Infinity && maxX > minX && maxY > minY) {
+      const padX = Math.max((maxX - minX) * 0.08, 8);
+      const padY = Math.max((maxY - minY) * 0.08, 8);
+      const vx = Math.floor(minX - padX);
+      const vy = Math.floor(minY - padY);
+      const vw = Math.ceil((maxX - minX) + padX * 2);
+      const vh = Math.ceil((maxY - minY) + padY * 2);
+      viewBox = `${vx} ${vy} ${vw} ${vh}`;
+    }
+  }
+
+  return `<svg height="${height}" width="${width}" viewBox="${viewBox}" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg" style="display: block; max-height: ${height}px; max-width: ${width}px;">
+    <path d="${pathD}" fill="none" stroke="#0F172A" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" />
+  </svg>`;
+}
+
 export class PDFService {
   /**
    * Hashes the physical binary content of a file URI using SHA-256.
@@ -225,22 +278,22 @@ export class PDFService {
     const isIndia = (profile?.region === 'IN') || (profile?.region !== 'US' && (regionConfig.region === 'IN' || profile?.currencyCode === 'INR' || curSymbol === '₹'));
     let computedDocTitle = isInvoiced ? regionConfig.invoiceTitle : regionConfig.estimateTitle;
     if (quote.documentType === 'TAX_INVOICE') {
-      computedDocTitle = isIndia ? 'TAX INVOICE / कर इनवॉइस' : 'INVOICE';
+      computedDocTitle = 'TAX INVOICE';
     } else if (quote.documentType === 'BILL_OF_SUPPLY') {
-      computedDocTitle = isIndia ? 'BILL OF SUPPLY / आपूर्ति बिल' : 'BILL OF SUPPLY';
+      computedDocTitle = 'BILL OF SUPPLY';
     } else if (quote.documentType === 'ESTIMATE') {
-      computedDocTitle = isIndia ? 'ESTIMATE & QUOTATION / कोटेशन' : 'ESTIMATE & PROPOSAL';
+      computedDocTitle = isIndia ? 'ESTIMATE & QUOTATION' : 'ESTIMATE & PROPOSAL';
     } else if (quote.documentType === 'DELIVERY_CHALLAN') {
-      computedDocTitle = isIndia ? 'DELIVERY CHALLAN / डिलीवरी चालान' : 'DELIVERY CHALLAN';
+      computedDocTitle = 'DELIVERY CHALLAN';
     } else if (isIndia) {
       if (isInvoiced || isPaid) {
         if (profile?.defaultInvoiceType === 'BILL_OF_SUPPLY') {
-          computedDocTitle = 'BILL OF SUPPLY / आपूर्ति बिल';
+          computedDocTitle = 'BILL OF SUPPLY';
         } else {
-          computedDocTitle = 'TAX INVOICE / कर इनवॉइस';
+          computedDocTitle = 'TAX INVOICE';
         }
       } else {
-        computedDocTitle = 'ESTIMATE & QUOTATION / कोटेशन';
+        computedDocTitle = 'ESTIMATE & QUOTATION';
       }
     } else {
       if (isInvoiced || isPaid) {
@@ -565,59 +618,59 @@ export class PDFService {
 
             /* ── THEME 6: TALLY ACCOUNTING (CLASSIC BOXED LEDGER) ── */
             body.theme-tally {
-              font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Courier New", monospace;
-              color: #1E293B;
+              font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+              color: #0F172A;
               background-color: #FFFFFF;
             }
             body.theme-tally .header-table {
-              border: 2px solid #1E293B;
+              border: 2px solid #0F172A;
               padding: 12px 16px;
               margin-bottom: 0;
-              border-bottom: 1px solid #1E293B;
+              border-bottom: 1px solid #0F172A;
             }
             body.theme-tally .shop-monogram {
               display: inline-block; width: 40px; height: 40px; line-height: 40px; text-align: center;
-              background-color: #1E293B; color: #FFFFFF; font-size: 16px; font-weight: 900; border-radius: 0; margin-bottom: 4px;
+              background-color: #0F172A; color: #FFFFFF; font-size: 16px; font-weight: 900; border-radius: 0; margin-bottom: 4px;
             }
-            body.theme-tally .shop-name { font-size: 20px; font-weight: 900; color: #1E293B; margin: 0 0 2px 0; }
-            body.theme-tally .shop-address, body.theme-tally .shop-contacts { font-size: 11.5px; color: #475569; }
-            body.theme-tally .doc-badge { border-radius: 0; background-color: #1E293B; color: #FFFFFF; border: none; font-size: 10px; font-weight: 900; }
-            body.theme-tally .doc-badge-paid { background-color: #1E293B; color: #FFFFFF; }
-            body.theme-tally .doc-badge-estimate { background-color: #475569; color: #FFFFFF; }
-            body.theme-tally .doc-title { font-size: 20px; font-weight: 900; color: #1E293B; margin: 0 0 4px 0; letter-spacing: 0.5px; }
-            body.theme-tally .meta-line { font-size: 11.5px; color: #475569; margin-bottom: 2px; }
-            body.theme-tally .meta-line strong { color: #1E293B; }
+            body.theme-tally .shop-name { font-size: 20px; font-weight: 900; color: #0F172A; margin: 0 0 2px 0; }
+            body.theme-tally .shop-address, body.theme-tally .shop-contacts { font-size: 11.5px; color: #1E293B; font-weight: 600; }
+            body.theme-tally .doc-badge { border-radius: 0; background-color: #0F172A; color: #FFFFFF; border: none; font-size: 10px; font-weight: 900; }
+            body.theme-tally .doc-badge-paid { background-color: #047857; color: #FFFFFF; }
+            body.theme-tally .doc-badge-estimate { background-color: #0F172A; color: #FFFFFF; }
+            body.theme-tally .doc-title { font-size: 20px; font-weight: 900; color: #0F172A; margin: 0 0 4px 0; letter-spacing: 0.5px; }
+            body.theme-tally .meta-line { font-size: 11.5px; color: #1E293B; margin-bottom: 2px; }
+            body.theme-tally .meta-line strong { color: #0F172A; font-weight: 800; }
             body.theme-tally .cards-grid { border-collapse: collapse; margin-bottom: 0; border: none; }
-            body.theme-tally .info-card { background: #FFFFFF; border: 2px solid #1E293B; border-top: none; border-radius: 0; padding: 10px 12px; vertical-align: top; }
-            body.theme-tally .card-title { color: #1E293B; font-weight: 800; font-size: 10.5px; text-transform: uppercase; border-bottom: 1px solid #CBD5E1; padding-bottom: 3px; margin-bottom: 6px; }
-            body.theme-tally .card-name { font-size: 13.5px; font-weight: 800; color: #1E293B; margin-bottom: 2px; }
-            body.theme-tally .card-text { font-size: 11.5px; color: #334155; line-height: 1.35; }
-            body.theme-tally .items-table { border-collapse: collapse; border: 2px solid #1E293B; border-top: none; margin-bottom: 0; }
-            body.theme-tally .items-table th { background-color: #F1F5F9; color: #1E293B; font-size: 10.5px; font-weight: 800; text-transform: uppercase; padding: 8px; border: 1px solid #1E293B; border-top: none; }
-            body.theme-tally .items-table td { padding: 8px; border: 1px solid #1E293B; font-size: 11.5px; color: #1E293B; }
+            body.theme-tally .info-card { background: #FFFFFF; border: 2px solid #0F172A; border-top: none; border-radius: 0; padding: 10px 12px; vertical-align: top; }
+            body.theme-tally .card-title { color: #0F172A; font-weight: 800; font-size: 11px; text-transform: uppercase; border-bottom: 1.5px solid #0F172A; padding-bottom: 3px; margin-bottom: 6px; }
+            body.theme-tally .card-name { font-size: 14px; font-weight: 800; color: #0F172A; margin-bottom: 2px; }
+            body.theme-tally .card-text { font-size: 12px; color: #1E293B; line-height: 1.4; font-weight: 500; }
+            body.theme-tally .items-table { border-collapse: collapse; border: 2px solid #0F172A; border-top: none; margin-bottom: 0; }
+            body.theme-tally .items-table th { background-color: #F1F5F9; color: #0F172A; font-size: 11px; font-weight: 900; text-transform: uppercase; padding: 9px 8px; border: 1px solid #0F172A; border-top: none; }
+            body.theme-tally .items-table td { padding: 9px 8px; border: 1px solid #0F172A; font-size: 12px; color: #0F172A; }
             body.theme-tally .items-table tbody tr:nth-child(even) td { background-color: #FFFFFF; }
-            body.theme-tally .co-callout-row td { background-color: #F1F5F9 !important; color: #1E293B !important; font-weight: 800; padding: 7px 8px; font-size: 11px; }
-            body.theme-tally .financial-block { border: 2px solid #1E293B; border-top: none; padding: 10px 14px; margin-bottom: 14px; }
-            body.theme-tally .summary-table td.label-col { color: #475569; }
-            body.theme-tally .summary-table td.val-col { color: #1E293B; }
-            body.theme-tally .total-row td { border-top: 1.5px solid #1E293B; border-bottom: 2px solid #1E293B; padding: 8px 10px; font-size: 14.5px; font-weight: 900; }
-            body.theme-tally .total-row td.label-col { color: #1E293B; }
-            body.theme-tally .total-row td.val-col { color: #1E293B; font-size: 16.5px; }
-            body.theme-tally .payment-box { border: 2px solid #1E293B; border-radius: 0; padding: 10px 12px; background: #FAFAFA; }
-            body.theme-tally .payment-title { font-size: 10.5px; font-weight: 800; color: #1E293B; text-transform: uppercase; }
-            body.theme-tally .payment-accounts { font-size: 11.5px; color: #1E293B; font-weight: 600; margin-top: 2px; }
-            body.theme-tally .photo-box { border: 2px solid #1E293B; border-radius: 0; padding: 12px; background: #FFFFFF; }
-            body.theme-tally .photo-header { font-size: 10.5px; font-weight: 800; color: #1E293B; text-transform: uppercase; margin-bottom: 6px; }
-            body.theme-tally .terms-box { border: 2px solid #1E293B; border-radius: 0; padding: 10px 12px; background: #FFFFFF; }
-            body.theme-tally .terms-header { font-size: 10.5px; font-weight: 800; color: #1E293B; text-transform: uppercase; margin-bottom: 3px; }
-            body.theme-tally .terms-body { font-size: 11px; color: #334155; line-height: 1.4; white-space: pre-wrap; }
-            body.theme-tally .signature-card { border: 2px solid #1E293B; border-radius: 0; padding: 14px; background: #FFFFFF; }
-            body.theme-tally .signature-header { font-size: 11px; font-weight: 800; color: #1E293B; text-transform: uppercase; margin-bottom: 6px; }
-            body.theme-tally .legal-consent { font-size: 10px; color: #64748B; line-height: 1.4; margin-top: 8px; }
-            body.theme-tally .waiver-callout { background-color: #F8FAFC; border: 1px solid #CBD5E1; border-radius: 0; padding: 8px 10px; margin-top: 10px; font-size: 10.5px; color: #1E293B; }
-            body.theme-tally .seal-ribbon { background-color: #F8FAFC; border: 1px solid #CBD5E1; border-radius: 0; padding: 6px 10px; font-size: 10px; color: #475569; }
-            body.theme-tally .seal-hash { color: #1E293B; background: #E2E8F0; }
-            body.theme-tally .audit-page { background-color: #FFFFFF; border: 2px solid #1E293B; border-radius: 0; }
+            body.theme-tally .co-callout-row td { background-color: #F1F5F9 !important; color: #0F172A !important; font-weight: 800; padding: 8px 8px; font-size: 11.5px; }
+            body.theme-tally .financial-block { border: 2px solid #0F172A; border-top: none; padding: 12px 14px; margin-bottom: 14px; }
+            body.theme-tally .summary-table td.label-col { color: #0F172A; font-weight: 700; font-size: 13px; }
+            body.theme-tally .summary-table td.val-col { color: #0F172A; font-weight: 800; font-size: 13.5px; }
+            body.theme-tally .total-row td { border-top: 2px solid #0F172A; border-bottom: 3px double #0F172A; padding: 10px 10px; font-size: 15.5px; font-weight: 900; }
+            body.theme-tally .total-row td.label-col { color: #0F172A; }
+            body.theme-tally .total-row td.val-col { color: #0F172A; font-size: 18px; }
+            body.theme-tally .payment-box { border: 2px solid #0F172A; border-radius: 0; padding: 12px 14px; background: #FAFAFA; }
+            body.theme-tally .payment-title { font-size: 11px; font-weight: 900; color: #0F172A; text-transform: uppercase; }
+            body.theme-tally .payment-accounts { font-size: 12px; color: #0F172A; font-weight: 700; margin-top: 3px; }
+            body.theme-tally .photo-box { border: 2px solid #0F172A; border-radius: 0; padding: 12px; background: #FFFFFF; }
+            body.theme-tally .photo-header { font-size: 11px; font-weight: 900; color: #0F172A; text-transform: uppercase; margin-bottom: 6px; }
+            body.theme-tally .terms-box { border: 2px solid #0F172A; border-radius: 0; padding: 12px 14px; background: #FFFFFF; }
+            body.theme-tally .terms-header { font-size: 11px; font-weight: 900; color: #0F172A; text-transform: uppercase; margin-bottom: 4px; }
+            body.theme-tally .terms-body { font-size: 12px; color: #0F172A; line-height: 1.45; white-space: pre-wrap; font-weight: 500; }
+            body.theme-tally .signature-card { border: 2px solid #0F172A; border-radius: 0; padding: 16px; background: #FFFFFF; }
+            body.theme-tally .signature-header { font-size: 12px; font-weight: 900; color: #0F172A; text-transform: uppercase; margin-bottom: 8px; }
+            body.theme-tally .legal-consent { font-size: 11px; color: #1E293B; line-height: 1.45; margin-top: 10px; font-weight: 600; }
+            body.theme-tally .waiver-callout { background-color: #F8FAFC; border: 2px solid #0F172A; border-radius: 0; padding: 10px 12px; margin-top: 12px; font-size: 11.5px; color: #0F172A; font-weight: 600; }
+            body.theme-tally .seal-ribbon { background-color: #F8FAFC; border: 1.5px solid #0F172A; border-radius: 0; padding: 8px 12px; font-size: 11px; color: #0F172A; font-weight: 700; }
+            body.theme-tally .seal-hash { color: #0F172A; background: #E2E8F0; }
+            body.theme-tally .audit-page { background-color: #FFFFFF; border: 2px solid #0F172A; border-radius: 0; }
 
           </style>
         </head>
@@ -811,7 +864,7 @@ export class PDFService {
 
             <!-- ── AMOUNT IN WORDS (RULE 46 COMPLIANT) ── -->
             <div style="margin-top: 14px; padding: 10px 14px; background: #F8FAFC; border: 1px solid #E2E8F0; border-left: 4px solid #2563EB; border-radius: 6px;">
-              <div style="font-size: 10px; font-weight: 800; color: #475569; text-transform: uppercase; letter-spacing: 0.6px;">${isIndia ? 'Amount in Words (शब्दों में राशि):' : 'Amount in Words:'}</div>
+              <div style="font-size: 10px; font-weight: 800; color: #475569; text-transform: uppercase; letter-spacing: 0.6px;">Amount in Words:</div>
               <div style="font-size: 12.5px; font-weight: 800; color: #0F172A; margin-top: 2px;">${escapeHtml(totalAmountInWords)}</div>
               ${
                 (quote.depositAmountCents || 0) > 0 && !isPaid
@@ -871,7 +924,7 @@ export class PDFService {
                     return `
                       <div style="margin-top: 14px; padding: 10px 14px; background: #F0FDFA; border: 1.5px solid #CCFBF1; border-radius: 6px;">
                         <div style="font-size: 10.5px; font-weight: 800; color: #0F766E; text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 6px;">
-                          HSN / SAC Tax Breakup Summary (कर विवरण)
+                          HSN / SAC Tax Breakup Summary
                         </div>
                         <table style="width: 100%; border-collapse: collapse; font-size: 11px;">
                           <thead>
@@ -904,8 +957,8 @@ export class PDFService {
             ${
               isGstLayout
                 ? `
-              <div style="margin-top: 10px; font-size: 10.5px; color: #475569; font-style: italic; line-height: 1.4;">
-                <strong>Statutory Declaration:</strong> We declare that this invoice shows the actual price of the goods/services described and that all particulars are true and correct.
+              <div style="margin-top: 10px; font-size: 11px; color: #0F172A; line-height: 1.45; font-weight: 500;">
+                <strong style="color: #0F172A;">Statutory Declaration:</strong> We declare that this invoice shows the actual price of the goods/services described and that all particulars are true and correct.
               </div>
             `
                 : ''
@@ -973,29 +1026,29 @@ export class PDFService {
           <div class="signature-card">
             <table style="width: 100%; border-collapse: collapse; margin-bottom: 10px;">
               <tr>
-                <td style="width: 52%; vertical-align: top; padding-right: 14px; border-right: 1px dashed #CBD5E1;">
+                <td style="width: 52%; vertical-align: top; padding-right: 14px; border-right: 1.5px dashed #CBD5E1;">
                   <div class="signature-header">Customer Acceptance & Signature:</div>
                   ${
                     quote.signatureSvg
-                      ? `<div style="margin: 6px 0;"><svg height="70" width="240" viewBox="0 0 500 200">${quote.signatureSvg}</svg></div>`
+                      ? `<div style="margin: 6px 0; min-height: 60px; display: flex; align-items: center;">${renderSignatureSvg(quote.signatureSvg, 240, 70)}</div>`
                       : `<div style="height: 55px; display: flex; align-items: flex-end; margin: 6px 0;">
-                          <div style="border-bottom: 1.5px dashed #CBD5E1; width: 180px; text-align: center; color: #94A3B8; font-size: 10px; padding-bottom: 3px;">
+                          <div style="border-bottom: 1.5px dashed #64748B; width: 180px; text-align: center; color: #334155; font-size: 10px; font-weight: 600; padding-bottom: 3px;">
                             ( Client Signature )
                           </div>
                         </div>`
                   }
-                  <div style="font-size: 11px; color: #475569; font-weight: 600;">
+                  <div style="font-size: 11.5px; color: #0F172A; font-weight: 700;">
                     Accepted by: ${escapeHtml(quote.clientName)}
                   </div>
                 </td>
                 <td style="width: 48%; vertical-align: top; padding-left: 14px; text-align: right;">
                   <div class="signature-header" style="text-align: right;">For ${escapeHtml(businessName)}:</div>
                   <div style="height: 55px; display: flex; align-items: flex-end; justify-content: flex-end; margin-top: 6px;">
-                    <div style="border-bottom: 1.5px dashed #94A3B8; width: 150px; text-align: center; color: #94A3B8; font-size: 9px; padding-bottom: 3px; margin-left: auto;">
+                    <div style="border-bottom: 1.5px dashed #475569; width: 160px; text-align: center; color: #334155; font-size: 10px; font-weight: 700; padding-bottom: 3px; margin-left: auto;">
                       [ Authorized Sign / Seal ]
                     </div>
                   </div>
-                  <div style="font-size: 11px; font-weight: 800; color: #334155; margin-top: 6px; text-transform: uppercase; letter-spacing: 0.5px;">
+                  <div style="font-size: 11.5px; font-weight: 800; color: #0F172A; margin-top: 6px; text-transform: uppercase; letter-spacing: 0.5px;">
                     Authorized Signatory
                   </div>
                 </td>
@@ -1003,7 +1056,7 @@ export class PDFService {
             </table>
 
             <div class="legal-consent">
-              <strong>CLIENT ACCEPTANCE & AUTHORIZATION:</strong>
+              <strong style="color: #0F172A;">CLIENT ACCEPTANCE & AUTHORIZATION:</strong>
               By signing above, client acknowledges receipt and approval of the itemized estimate and authorizes contractor to proceed with the indicated scope of work. Electronic signatures constitute a legally valid agreement under ${regionConfig.legalConsentCitation}.
             </div>
 
@@ -1022,7 +1075,7 @@ export class PDFService {
 
             <div class="seal-ribbon">
               <span>🔒 <strong>${quote.signatureSvg ? 'Digitally Signed & Verified' : 'Official Business Document'}</strong></span>
-              <span><strong>Location:</strong> ${quote.signatureGpsLat && quote.signatureGpsLng ? `<a href="https://maps.google.com/?q=${quote.signatureGpsLat},${quote.signatureGpsLng}" style="color: inherit; text-decoration: underline;">${quote.signatureGpsLat.toFixed(4)}°, ${quote.signatureGpsLng.toFixed(4)}°</a> (GPS Verified)` : 'Field Site Execution'}</span>
+              <span><strong>Location:</strong> ${quote.signatureGpsLat && quote.signatureGpsLng ? `<a href="https://maps.google.com/?q=${quote.signatureGpsLat},${quote.signatureGpsLng}" style="color: inherit; text-decoration: underline;">${quote.signatureGpsLat.toFixed(4)}°, ${quote.signatureGpsLng.toFixed(4)}°</a> (GPS Verified)` : escapeHtml(quote.placeOfSupply || quote.clientAddress || profile?.address || 'On-Site Execution')}</span>
             </div>
           </div>
 
@@ -1148,7 +1201,7 @@ export class PDFService {
                     </div>
                     ${
                       co.signatureSvg
-                        ? `<div style="margin-top: 6px;"><svg height="45" width="180" viewBox="0 0 500 200">${co.signatureSvg}</svg></div>`
+                        ? `<div style="margin-top: 6px;">${renderSignatureSvg(co.signatureSvg, 180, 45)}</div>`
                         : ''
                     }
                   </div>
@@ -1160,10 +1213,10 @@ export class PDFService {
                 : ''
             }
 
-            <p style="font-size: 11px; color: #64748B; margin-top: 20px; line-height: 1.5;">
+            <p style="font-size: 11.5px; color: #1E293B; margin-top: 20px; line-height: 1.5; font-weight: 500;">
               This certificate confirms that this agreement was reviewed and signed on-site with client consent. Any alteration of line items, amounts, notes, or terms invalidates the verified digital signature.
             </p>
-            <p style="font-size: 9px; color: #94A3B8; margin-top: 14px; border-top: 1px solid #E2E8F0; padding-top: 8px; line-height: 1.4;">
+            <p style="font-size: 10px; color: #475569; margin-top: 14px; border-top: 1.5px solid #CBD5E1; padding-top: 8px; line-height: 1.4; font-weight: 500;">
               <em>Notice: JobSign provides electronic signature and tamper-evident documentation tools. Enforceability and evidentiary weight depend on applicable statutory contract requirements, jurisdiction, and client agreement.</em>
             </p>
           </div>

@@ -21,6 +21,7 @@ import { SignaturePad } from '../components/SignaturePad';
 import { PDFService } from '../services/PDFService';
 import { PaywallModal } from '../components/PaywallModal';
 import { BillingService } from '../services/BillingService';
+import { LocationService } from '../services/LocationService';
 import { OutboxService } from '../services/OutboxService';
 import { DatabaseService } from '../services/DatabaseService';
 import { CompanyNamePromptModal } from '../components/CompanyNamePromptModal';
@@ -519,47 +520,62 @@ export const QuoteBuilderScreen: React.FC<{ onBack: () => void; initialQuote?: Q
   const [gpsCoords, setGpsCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [detectedAddress, setDetectedAddress] = useState<string>('');
 
-  // Background GPS acquisition: Once permission is granted once,
-  // automatically acquires position for every new estimate/invoice without manual clicks.
+  // Proactive Location Acquisition & Auto-Prefill:
+  // Immediately consumes cached location (pre-acquired by HomeScreen) or detects fresh position.
+  // Automatically pre-fills clientAddress and placeOfSupply (GST/State code) so user doesn't type manually.
   React.useEffect(() => {
     let isMounted = true;
-    (async () => {
-      try {
-        let { status } = await Location.getForegroundPermissionsAsync();
-        if (status !== 'granted') {
-          const req = await Location.requestForegroundPermissionsAsync();
-          status = req.status;
-        }
-        if (status === 'granted' && isMounted) {
-          const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-          if (isMounted && loc?.coords) {
-            setGpsCoords({ lat: loc.coords.latitude, lng: loc.coords.longitude });
 
-            // Reverse-geocode to discover jobsite street address & tax jurisdiction
-            Location.reverseGeocodeAsync({
-              latitude: loc.coords.latitude,
-              longitude: loc.coords.longitude,
-            })
-              .then((geo) => {
-                if (isMounted && geo && geo[0]) {
-                  const g = geo[0];
-                  const streetPart = g.streetNumber ? `${g.streetNumber} ${g.street || ''}`.trim() : (g.street || '');
-                  const cityPart = g.city || g.subregion || '';
-                  const regionPart = g.region || '';
-                  const postalPart = g.postalCode || '';
-                  const parts = [streetPart, cityPart, regionPart, postalPart].filter(Boolean);
-                  if (parts.length > 0) {
-                    setDetectedAddress(parts.join(', '));
-                  }
-                }
-              })
-              .catch(() => {});
-          }
-        }
-      } catch {
-        // Degrades gracefully offline
+    const applyDetectedLocation = (loc: any) => {
+      if (!isMounted || !loc) return;
+      if (loc.latitude && loc.longitude) {
+        setGpsCoords({ lat: loc.latitude, lng: loc.longitude });
       }
-    })();
+      if (loc.formattedAddress) {
+        setDetectedAddress(loc.formattedAddress);
+        // Automatically prefill clientAddress if user hasn't typed one
+        setClientAddress((prev) => {
+          if (!prev || prev.trim() === '') {
+            return loc.formattedAddress;
+          }
+          return prev;
+        });
+      }
+      // Automatically prefill place of supply (GST state code)
+      if (loc.gstStateCode) {
+        setPlaceOfSupply((prev) => {
+          if (!prev || prev.trim() === '') {
+            const contractorState = (profile.stateCode || '').substring(0, 2);
+            const clientState = loc.gstStateCode.substring(0, 2);
+            if (contractorState && clientState) {
+              setIsGstSplit(contractorState === clientState);
+            }
+            return loc.gstStateCode;
+          }
+          return prev;
+        });
+        // If contractor profile doesn't have a state code set, help them by defaulting it
+        if (!profile.stateCode) {
+          useQuoteStore.getState().updateProfile({ ...profile, stateCode: loc.gstStateCode });
+        }
+      }
+    };
+
+    // 1. Immediately apply cached location if available
+    const cached = LocationService.getCachedLocation();
+    if (cached) {
+      applyDetectedLocation(cached);
+    }
+
+    // 2. Refresh/request location in background without interrupting user
+    LocationService.requestAndDetectLocation()
+      .then((loc) => {
+        if (loc) {
+          applyDetectedLocation(loc);
+        }
+      })
+      .catch(() => {});
+
     return () => {
       isMounted = false;
     };
@@ -921,13 +937,6 @@ export const QuoteBuilderScreen: React.FC<{ onBack: () => void; initialQuote?: Q
     const isOnline = await OutboxService.isOnline();
     if (!isOnline && clientPhone.trim()) {
       await OutboxService.enqueue(newQuote, clientPhone.trim(), 'SMS');
-      AlertService.alert(
-        'Offline — Saved to Outbox',
-        `Quote #${newQuote.quoteNumber} for ${newQuote.clientName} is signed and saved.\n\nBecause cell reception is unavailable in the field, this agreement has been queued in your Offline Outbox. It will auto-dispatch via SMS the moment your phone reconnects to 4G/Wi-Fi.`,
-        [{ text: 'Got it', onPress: onBack }],
-        'SUCCESS'
-      );
-      return;
     }
 
     AlertService.alert(
@@ -1031,13 +1040,6 @@ export const QuoteBuilderScreen: React.FC<{ onBack: () => void; initialQuote?: Q
     const isOnline = await OutboxService.isOnline();
     if (!isOnline && clientPhone.trim()) {
       await OutboxService.enqueue(newQuote, clientPhone.trim(), 'SMS');
-      AlertService.alert(
-        'Offline — Saved to Outbox',
-        `${docName} #${newQuote.quoteNumber} for ${newQuote.clientName} has been saved.\n\nBecause cell reception is unavailable in the field, it will auto-dispatch via SMS the moment your phone reconnects to 4G/Wi-Fi.`,
-        [{ text: 'Got it', onPress: onBack }],
-        'SUCCESS'
-      );
-      return;
     }
 
     AlertService.alert(
@@ -1238,6 +1240,26 @@ export const QuoteBuilderScreen: React.FC<{ onBack: () => void; initialQuote?: Q
             value={clientAddress}
             onChangeText={setClientAddress}
           />
+          {detectedAddress && clientAddress === detectedAddress && (
+            <View
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                marginTop: 6,
+                paddingVertical: 4,
+                paddingHorizontal: 9,
+                backgroundColor: colors.emerald + '15',
+                borderRadius: Theme.borderRadius.sm,
+                borderWidth: 1,
+                borderColor: colors.emerald + '30',
+                alignSelf: 'flex-start',
+              }}
+            >
+              <Text style={{ fontSize: 11, color: colors.emerald, fontWeight: '700' }}>
+                📍 Auto-filled from current location
+              </Text>
+            </View>
+          )}
           {detectedAddress && !clientAddress && (
             <TouchableOpacity
               style={{

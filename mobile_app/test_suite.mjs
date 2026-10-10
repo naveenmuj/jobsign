@@ -426,7 +426,7 @@ const regionServiceLatestRaw = fs.readFileSync(path.resolve('./src/services/Regi
 assert(regionServiceLatestRaw.includes('businessIdLabel'), 'RegionPaymentService defines businessIdLabel in config');
 assert(regionServiceLatestRaw.includes('depositLabel'), 'RegionPaymentService defines depositLabel in config');
 assert(regionServiceLatestRaw.includes('balanceDueLabel'), 'RegionPaymentService defines balanceDueLabel in config');
-assert(regionServiceLatestRaw.includes('Advance Received (बयाना)'), 'RegionPaymentService localizes Indian advance payment label');
+assert(regionServiceLatestRaw.includes('Advance Received'), 'RegionPaymentService localizes Indian advance payment label');
 assert(regionServiceLatestRaw.includes('GSTIN / PAN Number'), 'RegionPaymentService localizes Indian GSTIN / PAN label');
 assert(regionServiceLatestRaw.includes('Deposit Paid'), 'RegionPaymentService localizes US deposit paid label');
 assert(regionServiceLatestRaw.includes('Contractor License # / EIN'), 'RegionPaymentService localizes US License / EIN label');

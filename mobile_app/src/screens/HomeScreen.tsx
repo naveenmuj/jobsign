@@ -12,7 +12,7 @@ import {
   Image,
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
-import { Settings, WifiOff, Search, X, Check } from 'lucide-react-native';
+import { Settings, Search, X, Check } from 'lucide-react-native';
 import { Theme, getThemeColors, ThemeColors } from '../theme';
 import { Quote } from '../types';
 import { useQuoteStore } from '../store/useQuoteStore';
@@ -22,10 +22,10 @@ import { CurrencyService } from '../services/CurrencyService';
 import { RegionPaymentService } from '../services/RegionPaymentService';
 import { JobCard } from '../components/JobCard';
 import { PaymentQRModal } from '../components/PaymentQRModal';
-import { OfflineOutboxModal } from '../components/OfflineOutboxModal';
 import { PaywallModal } from '../components/PaywallModal';
 import { CompanyNamePromptModal } from '../components/CompanyNamePromptModal';
 import { OutboxService } from '../services/OutboxService';
+import { LocationService } from '../services/LocationService';
 import { BillingService } from '../services/BillingService';
 import { TelemetryService } from '../services/TelemetryService';
 import { FEATURE_FLAGS } from '../config/featureFlags';
@@ -339,8 +339,6 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
 
   const [selectedPaymentQuote, setSelectedPaymentQuote] = useState<Quote | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [pendingOutboxCount, setPendingOutboxCount] = useState(0);
-  const [showOutboxModal, setShowOutboxModal] = useState(false);
   const [showPaywall, setShowPaywall] = useState(false);
   const [showCompanyModal, setShowCompanyModal] = useState(false);
   const [pendingPdfQuote, setPendingPdfQuote] = useState<Quote | null>(null);
@@ -356,17 +354,12 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
     }
   };
 
-  const refreshOutboxCount = async () => {
-    const pending = await OutboxService.getPending();
-    setPendingOutboxCount(pending.length);
-  };
-
   useEffect(() => {
     loadQuotes();
-    refreshOutboxCount();
-    OutboxService.startAutoSync(() => {
-      refreshOutboxCount();
-    });
+    OutboxService.startAutoSync();
+    // Proactively acquire and reverse-geocode location in the background
+    // so State, GST Code, and Address are ready before the user opens any estimate
+    LocationService.requestAndDetectLocation();
     return () => {
       OutboxService.stopAutoSync();
     };
@@ -601,21 +594,6 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
           </View>
         </View>
         <View style={styles.headerRight}>
-          {pendingOutboxCount > 0 && (
-            <TouchableOpacity
-              style={styles.outboxIconBtn}
-              onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                setShowOutboxModal(true);
-              }}
-              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-            >
-              <WifiOff size={18} color={colors.amber} />
-              <View style={styles.outboxBadge}>
-                <Text style={styles.outboxBadgeText}>{pendingOutboxCount}</Text>
-              </View>
-            </TouchableOpacity>
-          )}
           {FEATURE_FLAGS.PAYMENT_ENABLED && (
             <TouchableOpacity
               style={[styles.proBadge, isPro && styles.proBadgeActive]}
@@ -647,18 +625,6 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
           </TouchableOpacity>
         </View>
       </View>
-
-      {/* Offline Outbox Alert Banner (If pending) */}
-      {pendingOutboxCount > 0 && (
-        <TouchableOpacity
-          style={styles.outboxBanner}
-          onPress={() => setShowOutboxModal(true)}
-        >
-          <Text style={styles.outboxBannerText}>
-            {pendingOutboxCount} {pendingOutboxCount === 1 ? 'estimate' : 'estimates'} awaiting cloud dispatch · Tap to send
-          </Text>
-        </TouchableOpacity>
-      )}
 
       {/* High-Impact Metrics Dashboard */}
       <View style={styles.metricsContainer}>
@@ -785,7 +751,6 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
             refreshing={isLoading}
             onRefresh={() => {
               loadQuotes();
-              refreshOutboxCount();
             }}
             tintColor={colors.primary}
           />
@@ -811,6 +776,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
         activeOpacity={0.9}
         onPress={() => {
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+          LocationService.requestAndDetectLocation();
           if (!isPro && usage.isExceeded) {
             AlertService.alert({
               title: 'Free plan limit reached',
@@ -838,12 +804,6 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
         />
       )}
 
-      {/* Offline Outbox Modal */}
-      <OfflineOutboxModal
-        visible={showOutboxModal}
-        onClose={() => setShowOutboxModal(false)}
-        onQueueUpdated={refreshOutboxCount}
-      />
 
       {/* In-App Purchase Paywall Modal */}
       <PaywallModal
