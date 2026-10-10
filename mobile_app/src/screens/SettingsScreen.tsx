@@ -1080,24 +1080,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onBack }) => {
         {/* ── About & Version Footer ─────────────────────────────────────────── */}
         <View style={styles.aboutFooter}>
           <TouchableOpacity onPress={handleVersionTap} activeOpacity={0.6}>
-            <Text style={styles.versionText}>JobSign v1.0.0 (Release Build)</Text>
-            <Text style={styles.versionSub}>Offline-First Local SQLite • Hermetic Audit Trail</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.diagBtn}
-            onPress={async () => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              const r = await runSelfDiagnostics();
-              AlertService.alert({
-                title: r.passed ? 'Diagnostics Passed' : 'Diagnostic Warning',
-                message: r.results.join('\n'),
-                type: r.passed ? 'SUCCESS' : 'WARNING',
-              });
-            }}
-          >
-            <Activity size={13} color={colors.textSecondary} style={{ marginRight: 4 }} />
-            <Text style={styles.diagBtnText}>Run Self-Diagnostics</Text>
+            <Text style={styles.versionText}>JobSign v1.0.0</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>

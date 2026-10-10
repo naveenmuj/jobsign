@@ -9,6 +9,7 @@ import {
   TextInput,
   Linking,
   Keyboard,
+  Image,
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { Settings, WifiOff, Search, X, Check, FileSpreadsheet } from 'lucide-react-native';
@@ -57,8 +58,42 @@ const makeStyles = (colors: ThemeColors) =>
       borderBottomWidth: 1,
       borderColor: colors.border,
     },
+    brandContainer: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      flex: 1,
+      marginRight: 12,
+      gap: 10,
+    },
+    companyLogo: {
+      width: 40,
+      height: 40,
+      borderRadius: Theme.borderRadius.md,
+      backgroundColor: colors.backgroundSecondary,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    companyAvatar: {
+      width: 40,
+      height: 40,
+      borderRadius: Theme.borderRadius.md,
+      backgroundColor: colors.primaryLight,
+      borderWidth: 1,
+      borderColor: colors.primary + '33',
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    companyAvatarText: {
+      fontSize: 16,
+      fontWeight: '800',
+      color: colors.primary,
+    },
+    brandTextContainer: {
+      flex: 1,
+      justifyContent: 'center',
+    },
     brandTitle: {
-      fontSize: 22,
+      fontSize: 18,
       fontWeight: '800',
       color: colors.textPrimary,
       letterSpacing: -0.3,
@@ -66,7 +101,8 @@ const makeStyles = (colors: ThemeColors) =>
     brandSub: {
       fontSize: 12,
       color: colors.textSecondary,
-      marginTop: 2,
+      marginTop: 1,
+      fontWeight: '500',
     },
     headerRight: {
       flexDirection: 'row',
@@ -555,9 +591,28 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
     <View style={styles.container}>
       {/* Top Header */}
       <View style={styles.header}>
-        <View>
-          <Text style={styles.brandTitle}>JobSign</Text>
-          <Text style={styles.brandSub}>{profile.businessName || 'Estimates & Invoices'}</Text>
+        <View style={styles.brandContainer}>
+          {profile.logoUri ? (
+            <Image
+              source={{ uri: profile.logoUri }}
+              style={styles.companyLogo}
+              resizeMode="cover"
+            />
+          ) : (
+            <View style={styles.companyAvatar}>
+              <Text style={styles.companyAvatarText}>
+                {(profile.businessName ? profile.businessName.charAt(0) : 'E').toUpperCase()}
+              </Text>
+            </View>
+          )}
+          <View style={styles.brandTextContainer}>
+            <Text style={styles.brandTitle} numberOfLines={1}>
+              {profile.businessName || 'Estimates & Invoices'}
+            </Text>
+            <Text style={styles.brandSub} numberOfLines={1}>
+              {profile.ownerName ? `${profile.ownerName} • Solo Trade Pro` : 'Contractor Billing'}
+            </Text>
+          </View>
         </View>
         <View style={styles.headerRight}>
           {pendingOutboxCount > 0 && (
@@ -645,26 +700,26 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
         </View>
       </View>
 
-      {/* Free Tier Usage Banner or Pro Active Status */}
-      <TouchableOpacity
-        style={[
-          styles.usageBanner,
-          isPro ? styles.usageBannerPro : usage.isExceeded ? styles.usageBannerExceeded : styles.usageBannerNormal,
-        ]}
-        onPress={() => {
-          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-          if (!isPro) handleOpenPaywall();
-        }}
-        activeOpacity={0.85}
-      >
-        <Text style={[styles.usageBannerText, isPro && styles.usageBannerTextPro]}>
-          {isPro
-            ? 'Pro — Unlimited Estimates Active'
-            : usage.isExceeded
-            ? `Free plan limit reached (${usage.count}/${usage.limit}) · Tap to upgrade`
-            : `Free plan: ${usage.count} of ${usage.limit} estimates used this month`}
-        </Text>
-      </TouchableOpacity>
+      {/* Free Tier Usage Banner (only shown if not Pro and has meaningful usage) */}
+      {!isPro && (
+        <TouchableOpacity
+          style={[
+            styles.usageBanner,
+            usage.isExceeded ? styles.usageBannerExceeded : styles.usageBannerNormal,
+          ]}
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            handleOpenPaywall();
+          }}
+          activeOpacity={0.85}
+        >
+          <Text style={styles.usageBannerText}>
+            {usage.isExceeded
+              ? `Free plan limit reached (${usage.count}/${usage.limit}) · Tap to upgrade`
+              : `Free plan: ${usage.count} of ${usage.limit} estimates used this month`}
+          </Text>
+        </TouchableOpacity>
+      )}
 
       {/* Live Search Bar */}
       <View style={styles.searchBarContainer}>
