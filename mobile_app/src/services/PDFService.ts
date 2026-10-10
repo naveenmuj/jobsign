@@ -105,7 +105,6 @@ export class PDFService {
       totalAmountCents: quote.totalAmountCents,
       depositAmountCents: quote.depositAmountCents || 0,
       photoSha256: photoHash,
-      completedPhotoSha256: completedPhotoHash,
       signatureSvg: quote.signatureSvg || '',
       signatureTimestamp: quote.signatureTimestamp || 0,
       signatureGpsLat: quote.signatureGpsLat || null,
@@ -1122,6 +1121,11 @@ export class PDFService {
               ${regionConfig.auditCertificateTitle}
             </h3>
             <p><strong>Document Verification Hash:</strong><br/><code style="font-size: 12px; background: #E2E8F0; padding: 4px 8px; border-radius: 4px; display: inline-block; margin-top: 4px;">${hash}</code></p>
+            ${
+              quote.completedPhotoSha256
+                ? `<p style="margin-top: 6px;"><strong>Work Completion Photo Digest (Post-Work Evidence):</strong><br/><code style="font-size: 11px; background: #ECFDF5; border: 1px solid #10B981; color: #065F46; padding: 3px 6px; border-radius: 4px; display: inline-block; margin-top: 2px;">${quote.completedPhotoSha256}</code></p>`
+                : ''
+            }
             <p><strong>Signed Date & Time:</strong> ${quote.signatureTimestamp ? formatLocalDateTimeWithTz(quote.signatureTimestamp, regionConfig.locale) : 'Pending Signature (Direct Issue)'}</p>
             <p><strong>Worksite Location:</strong> ${quote.signatureGpsLat && quote.signatureGpsLng ? `<a href="https://maps.google.com/?q=${quote.signatureGpsLat},${quote.signatureGpsLng}" style="color: #0284C7; font-weight: 700; text-decoration: underline;">${quote.signatureGpsLat.toFixed(5)}° Lat, ${quote.signatureGpsLng.toFixed(5)}° Lng</a> (Verified On-Site)` : 'On-Site Execution'}</p>
             <p><strong>Security Status:</strong> <span style="color: #059669; font-weight: 800;">✓ Verified & Protected</span></p>
