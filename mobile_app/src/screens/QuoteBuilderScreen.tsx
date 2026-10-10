@@ -32,6 +32,7 @@ import { useKeyboard } from '../utils/useKeyboard';
 import { AlertService } from '../services/AlertService';
 import { RegionPaymentService } from '../services/RegionPaymentService';
 import { CurrencyService } from '../services/CurrencyService';
+import { formatLocalDateDisplay } from '../utils/dateUtils';
 import { ChevronLeft, Camera, Image as ImageIcon, Plus, X, PenLine, Check, ChevronDown, ChevronUp } from 'lucide-react-native';
 
 const makeStyles = (colors: ThemeColors) =>
@@ -902,12 +903,7 @@ export const QuoteBuilderScreen: React.FC<{ onBack: () => void; initialQuote?: Q
     await addQuote(newQuote);
     setIsSigning(false);
 
-    // Send respectful, non-spam confirmation & schedule polite 3-day reminder
-    await NotificationService.notifySealCompleted(
-      newQuote.quoteNumber,
-      newQuote.clientName,
-      newQuote.totalAmountCents
-    );
+    // Schedule polite 3-day follow-up reminder if unpaid
     await NotificationService.schedulePaymentReminder(newQuote);
 
     const isOnline = await OutboxService.isOnline();
@@ -1005,11 +1001,7 @@ export const QuoteBuilderScreen: React.FC<{ onBack: () => void; initialQuote?: Q
     await addQuote(newQuote);
     setIsSigning(false);
 
-    await NotificationService.notifySealCompleted(
-      newQuote.quoteNumber,
-      newQuote.clientName,
-      newQuote.totalAmountCents
-    );
+    // Schedule polite 3-day follow-up reminder if unpaid
     await NotificationService.schedulePaymentReminder(newQuote);
 
     const docName = isDirectInvoice ? (isIndia ? 'Tax Invoice' : 'Invoice') : (isIndia ? 'Quotation' : 'Estimate');
@@ -1772,7 +1764,7 @@ export const QuoteBuilderScreen: React.FC<{ onBack: () => void; initialQuote?: Q
             <Text style={{ fontSize: 11, fontWeight: '800', color: colors.primary, marginLeft: 6 }}>
               {paymentTerms === 'DUE_ON_RECEIPT'
                 ? 'Immediate (Due on Receipt)'
-                : `${new Date(Date.now() + (paymentTerms === 'NET_7' ? 7 : paymentTerms === 'NET_15' ? 15 : 30) * 86400000).toLocaleDateString(regionConfig.locale, { month: 'short', day: 'numeric', year: 'numeric' })} (${paymentTerms === 'NET_7' ? '7 days' : paymentTerms === 'NET_15' ? '15 days' : '30 days'})`}
+                : `${formatLocalDateDisplay(Date.now() + (paymentTerms === 'NET_7' ? 7 : paymentTerms === 'NET_15' ? 15 : 30) * 86400000, regionConfig.locale)} (${paymentTerms === 'NET_7' ? '7 days' : paymentTerms === 'NET_15' ? '15 days' : '30 days'})`}
             </Text>
           </View>
 

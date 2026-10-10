@@ -3,6 +3,7 @@ import * as Sharing from 'expo-sharing';
 import { Quote, ContractorProfile } from '../types';
 import { AlertService } from './AlertService';
 import { RegionPaymentService } from './RegionPaymentService';
+import { formatLocalDate } from '../utils/dateUtils';
 
 export class ExportService {
   /**
@@ -68,13 +69,13 @@ export class ExportService {
         const totalCents = q.totalAmountCents;
         const balanceDueCents = isPaid ? 0 : Math.max(0, totalCents - depositCents);
 
-        const createdDate = new Date(q.createdAt).toISOString().split('T')[0];
+        const createdDate = formatLocalDate(q.createdAt);
         const dueDate = q.dueDateTimestamp
-          ? new Date(q.dueDateTimestamp).toISOString().split('T')[0]
+          ? formatLocalDate(q.dueDateTimestamp)
           : q.paymentTerms || 'Due on Receipt';
 
         const paidDate = q.signatureTimestamp && isPaid
-          ? new Date(q.signatureTimestamp).toISOString().split('T')[0]
+          ? formatLocalDate(q.signatureTimestamp)
           : '';
 
         const row = [

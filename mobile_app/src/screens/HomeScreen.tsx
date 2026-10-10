@@ -19,6 +19,7 @@ import { PDFService } from '../services/PDFService';
 import { ExportService } from '../services/ExportService';
 import { AlertService } from '../services/AlertService';
 import { CurrencyService } from '../services/CurrencyService';
+import { RegionPaymentService } from '../services/RegionPaymentService';
 import { JobCard } from '../components/JobCard';
 import { PaymentQRModal } from '../components/PaymentQRModal';
 import { OfflineOutboxModal } from '../components/OfflineOutboxModal';
@@ -28,6 +29,7 @@ import { OutboxService } from '../services/OutboxService';
 import { BillingService } from '../services/BillingService';
 import { TelemetryService } from '../services/TelemetryService';
 import { FEATURE_FLAGS } from '../config/featureFlags';
+import { formatLocalDateDisplay } from '../utils/dateUtils';
 import { useAppSafeArea } from '../utils/safeArea';
 import { useKeyboard } from '../utils/useKeyboard';
 import { isQuoteOverdue } from '../utils/dateUtils';
@@ -461,6 +463,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
 
   const handleShareWhatsApp = (quote: Quote) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    const regionConfig = RegionPaymentService.getConfig(profile?.currencyCode, curSymbol, profile?.region);
     const isPaid = quote.status === 'PAID';
     const depositCents = quote.depositAmountCents || 0;
     const balanceDueCents = Math.max(0, quote.totalAmountCents - depositCents);
@@ -475,7 +478,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
     const amountStr = `${curSymbol}${(quote.totalAmountCents / 100).toFixed(2)}`;
     const balStr = `${curSymbol}${(balanceDueCents / 100).toFixed(2)}`;
     const dueText = quote.dueDateTimestamp
-      ? `\n📅 Due Date: ${new Date(quote.dueDateTimestamp).toLocaleDateString()}`
+      ? `\n📅 Due Date: ${formatLocalDateDisplay(quote.dueDateTimestamp, regionConfig.locale)}`
       : '';
     const balanceText = isPaid
       ? '\n✅ Status: Paid in Full'

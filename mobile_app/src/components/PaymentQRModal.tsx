@@ -78,7 +78,13 @@ export const PaymentQRModal: React.FC<{ quote: Quote; onClose: () => void }> = (
 
   const [activeRail, setActiveRail] = useState<RailType>(() => {
     if (regionConfig.region === 'IN') return 'UPI';
-    if (regionConfig.region === 'US') return 'ZELLE';
+    if (regionConfig.region === 'US') {
+      if (profile?.zelleAccount) return 'ZELLE';
+      if (profile?.venmoAccount) return 'VENMO';
+      if (profile?.cashAppAccount) return 'CASHAPP';
+      if (profile?.bankAccountNumber) return 'BANK';
+      return 'ZELLE';
+    }
     return 'UPI';
   });
   const [isProcessing, setIsProcessing] = useState(false);
@@ -836,9 +842,10 @@ export const PaymentQRModal: React.FC<{ quote: Quote; onClose: () => void }> = (
             {/* INTERNATIONAL RAILS (Zelle, Venmo, CashApp) */}
             {activeRail !== 'UPI' && activeRail !== 'BANK' && (
               <>
-                {((activeRail === 'ZELLE' && !profile.zelleAccount) ||
-                  (activeRail === 'VENMO' && !profile.venmoAccount) ||
-                  (activeRail === 'CASHAPP' && !profile.cashAppAccount)) ? (
+                {((activeRail === 'ZELLE' && !profile?.zelleAccount) ||
+                  (activeRail === 'VENMO' && !profile?.venmoAccount) ||
+                  (activeRail === 'CASHAPP' && !profile?.cashAppAccount) ||
+                  !currentPayload) ? (
                   <View style={styles.unconfiguredBox}>
                     <AlertCircle size={32} color={colors.amber} />
                     <Text style={styles.unconfiguredTitle}>
@@ -852,7 +859,7 @@ export const PaymentQRModal: React.FC<{ quote: Quote; onClose: () => void }> = (
                   <View style={styles.qrContainer}>
                     <View style={styles.qrFrame}>
                       <QRCode
-                        value={currentPayload || 'N/A'}
+                        value={currentPayload}
                         size={180}
                         color="#0F172A"
                         backgroundColor="#FFFFFF"

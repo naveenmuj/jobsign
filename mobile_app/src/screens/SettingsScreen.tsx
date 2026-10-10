@@ -32,6 +32,7 @@ import { ExportService } from '../services/ExportService';
 import { BackupService } from '../services/BackupService';
 import { Quote, ContractorProfile, BackupPreview } from '../types';
 import { INVOICE_TEMPLATES, InvoiceTemplateId } from '../constants/invoiceTemplates';
+import { formatLocalTime, formatLocalDateTime } from '../utils/dateUtils';
 import {
   ChevronLeft,
   ChevronRight,
@@ -2196,7 +2197,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onBack }) => {
               <Text style={[styles.statLabel, { color: colors.textMuted }]}>LAST BACKUP</Text>
               <Text style={[styles.statVal, { color: colors.textPrimary }]}>
                 {profile.backupSettings?.lastBackupTimestamp
-                  ? new Date(profile.backupSettings.lastBackupTimestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                  ? formatLocalTime(profile.backupSettings.lastBackupTimestamp)
                   : 'Never'}
               </Text>
             </View>
@@ -2340,7 +2341,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onBack }) => {
                 <View style={styles.previewDetailRow}>
                   <Text style={[styles.previewDetailLabel, { color: colors.textMuted }]}>Backup Date:</Text>
                   <Text style={[styles.previewDetailVal, { color: colors.textPrimary }]}>
-                    {new Date(restorePreview.exportedAt).toLocaleDateString()} {new Date(restorePreview.exportedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    {formatLocalDateTime(restorePreview.exportedAt)}
                   </Text>
                 </View>
               </View>

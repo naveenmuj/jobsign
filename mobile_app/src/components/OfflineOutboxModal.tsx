@@ -17,6 +17,7 @@ import { OutboxService } from '../services/OutboxService';
 import { AlertService } from '../services/AlertService';
 import { useQuoteStore } from '../store/useQuoteStore';
 import { useAppSafeArea } from '../utils/safeArea';
+import { formatLocalTime } from '../utils/dateUtils';
 
 interface OfflineOutboxModalProps {
   visible: boolean;
@@ -143,7 +144,7 @@ export const OfflineOutboxModal: React.FC<OfflineOutboxModalProps> = ({
                         {item.channel} to {item.recipientContact}
                       </Text>
                       <Text style={styles.itemTime}>
-                        {new Date(item.createdAt).toLocaleTimeString()}
+                        {formatLocalTime(item.createdAt)}
                       </Text>
                     </View>
                     <View style={styles.rightActionCol}>

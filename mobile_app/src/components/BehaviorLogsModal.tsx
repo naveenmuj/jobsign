@@ -17,6 +17,7 @@ import { useQuoteStore } from '../store/useQuoteStore';
 import { TelemetryService } from '../services/TelemetryService';
 import { AlertService } from '../services/AlertService';
 import { BehaviorLogEntry } from '../types';
+import { formatLocalTime } from '../utils/dateUtils';
 import { useAppSafeArea } from '../utils/safeArea';
 import { useKeyboard } from '../utils/useKeyboard';
 
@@ -147,7 +148,7 @@ export const BehaviorLogsModal: React.FC<BehaviorLogsModalProps> = ({ visible, o
 
   const renderLogItem = ({ item }: { item: BehaviorLogEntry }) => {
     const isExpanded = expandedLogId === item.id;
-    const dateStr = new Date(item.timestamp).toLocaleTimeString();
+    const dateStr = formatLocalTime(item.timestamp);
     const catColor = getCategoryColor(item.category);
 
     return (

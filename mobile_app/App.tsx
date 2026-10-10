@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { StyleSheet, View, BackHandler, LogBox } from 'react-native';
+import * as Notifications from 'expo-notifications';
 
 LogBox.ignoreLogs([
   'Error configuring Purchases',
@@ -36,6 +37,12 @@ export default function App() {
   const setProStatus = useQuoteStore((state) => state.setProStatus);
   const activeQuote = quotes.find((q) => q.id === activeQuoteId) || null;
 
+  // Keep a stable ref to quotes so the notification listener can always access the latest list
+  const quotesRef = useRef(quotes);
+  useEffect(() => {
+    quotesRef.current = quotes;
+  }, [quotes]);
+
   // Initialize Telemetry and Notifications on startup
   useEffect(() => {
     TelemetryService.init();
@@ -68,6 +75,36 @@ export default function App() {
       }
     }
   }, []);
+
+  // Notification deep-link: tapping any notification opens the relevant invoice
+  useEffect(() => {
+    const subscription = Notifications.addNotificationResponseReceivedListener((response) => {
+      const data = response.notification.request.content.data as {
+        quoteId?: string;
+        quoteNumber?: number;
+        type?: string;
+      };
+
+      const allQuotes = quotesRef.current;
+      let target: Quote | undefined;
+
+      // Prefer exact UUID match (payment reminders carry quoteId)
+      if (data?.quoteId) {
+        target = allQuotes.find((q) => q.id === data.quoteId);
+      }
+      // Fallback: match by quote number (seal confirmations carry quoteNumber)
+      if (!target && data?.quoteNumber != null) {
+        target = allQuotes.find((q) => q.quoteNumber === data.quoteNumber);
+      }
+
+      if (target) {
+        setActiveQuoteId(target.id);
+        setCurrentScreen('DETAIL');
+      }
+    });
+
+    return () => subscription.remove();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Handle Android hardware back button
   useEffect(() => {

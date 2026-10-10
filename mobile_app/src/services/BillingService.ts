@@ -134,10 +134,10 @@ export class BillingService {
 
       switch (paywallResult) {
         case PAYWALL_RESULT.PURCHASED:
-        case PAYWALL_RESULT.RESTORED:
-          await this.syncCurrentCustomerInfo();
-          useQuoteStore.getState().setProStatus(true);
-          return true;
+        case PAYWALL_RESULT.RESTORED: {
+          const isPro = await this.syncCurrentCustomerInfo();
+          return isPro;
+        }
         case PAYWALL_RESULT.NOT_PRESENTED:
         case PAYWALL_RESULT.ERROR:
         case PAYWALL_RESULT.CANCELLED:

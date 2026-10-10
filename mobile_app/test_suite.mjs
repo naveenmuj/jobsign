@@ -529,6 +529,32 @@ assert(quoteBuilderLatestRaw.includes('customDiscount'), 'QuoteBuilderScreen man
 assert(quoteBuilderLatestRaw.includes('sq.ft'), 'QuoteBuilderScreen renders trade unit chips (sq.ft, nos, mtr, pts)');
 assert(quoteBuilderLatestRaw.includes('Disc %'), 'QuoteBuilderScreen renders line-item trade discount input');
 
+// 16. [LOCAL TIMEZONE & REVIEW REMEDIATION] Local Dates Everywhere & Review Fixes
+console.log('\n16. [LOCAL TIMEZONE & REVIEW REMEDIATION] Local Dates Everywhere & Review Fixes');
+
+const dateUtilsRaw = fs.readFileSync(path.resolve('./src/utils/dateUtils.ts'), 'utf8');
+assert(dateUtilsRaw.includes('export function formatLocalDate('), 'dateUtils exports formatLocalDate');
+assert(dateUtilsRaw.includes('export function getLocalTimezoneOffset('), 'dateUtils exports getLocalTimezoneOffset');
+assert(dateUtilsRaw.includes('export function formatLocalDateTimeWithTz('), 'dateUtils exports formatLocalDateTimeWithTz');
+assert(dateUtilsRaw.includes('export function formatLocalDateDisplay('), 'dateUtils exports formatLocalDateDisplay');
+assert(dateUtilsRaw.includes('export function formatLocalTime('), 'dateUtils exports formatLocalTime');
+assert(dateUtilsRaw.includes('export function formatLocalDateTime('), 'dateUtils exports formatLocalDateTime');
+
+const billingRaw = fs.readFileSync(path.resolve('./src/services/BillingService.ts'), 'utf8');
+assert(billingRaw.includes('const isPro = await this.syncCurrentCustomerInfo();'), 'BillingService verifies active entitlement in presentRevenueCatPaywall');
+
+const paymentQRRaw = fs.readFileSync(path.resolve('./src/components/PaymentQRModal.tsx'), 'utf8');
+assert(paymentQRRaw.includes('if (profile?.zelleAccount) return \'ZELLE\';'), 'PaymentQRModal checks configured Zelle before defaulting');
+assert(paymentQRRaw.includes('!currentPayload'), 'PaymentQRModal checks !currentPayload before rendering QR code');
+assert(!paymentQRRaw.includes('currentPayload || \'N/A\''), 'PaymentQRModal eliminated fallback N/A in QRCode value');
+
+const appJsonRaw = fs.readFileSync(path.resolve('./app.json'), 'utf8');
+assert(!appJsonRaw.includes('legally binding'), 'app.json eliminated legally binding claims');
+assert(appJsonRaw.includes('tamper-evident agreement record'), 'app.json uses temperate tamper-evident record wording');
+
+const pdfRemediateRaw = fs.readFileSync(path.resolve('./src/services/PDFService.ts'), 'utf8');
+assert(pdfRemediateRaw.includes('decodeBase64ToUint8Array'), 'PDFService implements raw byte decoding for photo hashing');
+
 console.log('\n======================================================');
 console.log(`TOTAL TESTS: ${passedCount + failedCount} | PASSED: ${passedCount} | FAILED: ${failedCount}`);
 console.log('======================================================');

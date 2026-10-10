@@ -26,7 +26,7 @@ import { useQuoteStore } from '../store/useQuoteStore';
 import { useAppSafeArea } from '../utils/safeArea';
 import { ChevronLeft, Trash2, FileText, Phone, MessageSquare, Plus, Check, Eye, Share2, Camera, Image as ImageIcon, MessageCircle, FileCheck, Copy, PenLine } from 'lucide-react-native';
 import { formatAmountInWords } from '../utils/numberToIndianWords';
-import { isQuoteOverdue, isValidTimestamp } from '../utils/dateUtils';
+import { isQuoteOverdue, isValidTimestamp, formatLocalDateTimeWithTz, formatLocalDateDisplay, formatLocalDateTime, formatLocalTime } from '../utils/dateUtils';
 
 interface QuoteDetailScreenProps {
   quote: Quote;
@@ -520,7 +520,7 @@ export const QuoteDetailScreen: React.FC<QuoteDetailScreenProps> = ({
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     const amountStr = `${curSymbol}${(quote.totalAmountCents / 100).toFixed(2)}`;
     const balStr = `${curSymbol}${(balanceDueCents / 100).toFixed(2)}`;
-    const dueText = quote.dueDateTimestamp ? `\n📅 Due Date: ${new Date(quote.dueDateTimestamp).toLocaleDateString(regionConfig.locale)}` : '';
+    const dueText = quote.dueDateTimestamp ? `\n📅 Due Date: ${formatLocalDateDisplay(quote.dueDateTimestamp, regionConfig.locale)}` : '';
 
     let paymentDetails = '';
     if (isIndia) {
@@ -886,7 +886,7 @@ export const QuoteDetailScreen: React.FC<QuoteDetailScreenProps> = ({
               >
                 <Text style={{ fontSize: 11, fontWeight: '700', color: isQuoteOverdue(quote) ? colors.rose : colors.primary }}>
                   {isQuoteOverdue(quote) ? '⚠️ Overdue: ' : '📅 Due: '}
-                  {new Date(quote.dueDateTimestamp).toLocaleDateString()}
+                  {formatLocalDateDisplay(quote.dueDateTimestamp, regionConfig.locale)}
                 </Text>
               </View>
             )}
@@ -1060,7 +1060,7 @@ export const QuoteDetailScreen: React.FC<QuoteDetailScreenProps> = ({
           {quote.jobDescription && (
             <Text style={styles.clientDetail}>{quote.jobDescription}</Text>
           )}
-          <Text style={styles.clientDate}>Created: {new Date(quote.createdAt).toLocaleString()}</Text>
+          <Text style={styles.clientDate}>Created: {formatLocalDateTime(quote.createdAt, regionConfig.locale)}</Text>
         </View>
 
         {/* Worksite Evidence Photos (Before & After) */}
@@ -1233,7 +1233,7 @@ export const QuoteDetailScreen: React.FC<QuoteDetailScreenProps> = ({
               <View key={co.id} style={styles.coRow}>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.coTitle}>Add-On #{co.orderNumber}: {co.reason}</Text>
-                  <Text style={styles.coDate}>{new Date(co.signatureTimestamp).toLocaleTimeString()}</Text>
+                  <Text style={styles.coDate}>{formatLocalDateTime(co.signatureTimestamp, regionConfig.locale)}</Text>
                 </View>
                 <Text style={styles.coAmount}>+{curSymbol}{(co.addedTotalCents / 100).toFixed(2)}</Text>
               </View>
@@ -1307,7 +1307,7 @@ export const QuoteDetailScreen: React.FC<QuoteDetailScreenProps> = ({
               <Text style={{ fontSize: 12, color: colors.textSecondary }}>Payment Terms / Due Date:</Text>
               <Text style={{ fontSize: 12, fontWeight: '800', color: isQuoteOverdue(quote) ? colors.rose : colors.textPrimary }}>
                 {isValidTimestamp(quote.dueDateTimestamp)
-                  ? (isQuoteOverdue(quote) ? '⚠️ Overdue: ' : '') + new Date(quote.dueDateTimestamp).toLocaleDateString()
+                  ? (isQuoteOverdue(quote) ? '⚠️ Overdue: ' : '') + formatLocalDateDisplay(quote.dueDateTimestamp, regionConfig.locale)
                   : quote.paymentTerms === 'DUE_ON_RECEIPT'
                   ? 'Due on Receipt'
                   : quote.paymentTerms || 'Due on Receipt'}
@@ -1330,7 +1330,7 @@ export const QuoteDetailScreen: React.FC<QuoteDetailScreenProps> = ({
           <View style={styles.auditRow}>
             <Text style={styles.auditLabel}>Signed Date & Time:</Text>
             <Text style={styles.auditVal}>
-              {quote.signatureTimestamp ? new Date(quote.signatureTimestamp).toLocaleString() : 'Pending Signature'}
+              {quote.signatureTimestamp ? formatLocalDateTimeWithTz(quote.signatureTimestamp, regionConfig.locale) : 'Pending Signature'}
             </Text>
           </View>
           <View style={styles.auditRow}>

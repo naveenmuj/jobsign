@@ -9,6 +9,31 @@ import { TelemetryService } from './TelemetryService';
 import { RegionPaymentService } from './RegionPaymentService';
 import { formatAmountInWords } from '../utils/numberToIndianWords';
 import { generateQrSvg } from '../utils/generateQrSvg';
+import { formatLocalDateTimeWithTz, formatLocalDateDisplay, formatLocalTime } from '../utils/dateUtils';
+
+function decodeBase64ToUint8Array(base64: string): Uint8Array {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+  const lookup = new Uint8Array(256);
+  for (let i = 0; i < chars.length; i++) {
+    lookup[chars.charCodeAt(i)] = i;
+  }
+  let bufferLength = base64.length * 0.75;
+  if (base64.endsWith('==')) bufferLength -= 2;
+  else if (base64.endsWith('=')) bufferLength -= 1;
+
+  const bytes = new Uint8Array(bufferLength);
+  let p = 0;
+  for (let i = 0; i < base64.length; i += 4) {
+    const encoded1 = lookup[base64.charCodeAt(i)];
+    const encoded2 = lookup[base64.charCodeAt(i + 1)];
+    const encoded3 = lookup[base64.charCodeAt(i + 2)];
+    const encoded4 = lookup[base64.charCodeAt(i + 3)];
+    bytes[p++] = (encoded1 << 2) | (encoded2 >> 4);
+    if (base64[i + 2] !== '=') bytes[p++] = ((encoded2 & 15) << 4) | (encoded3 >> 2);
+    if (base64[i + 3] !== '=') bytes[p++] = ((encoded3 & 3) << 6) | (encoded4 & 63);
+  }
+  return bytes;
+}
 
 function escapeHtml(s: string = ''): string {
   return String(s)
@@ -31,6 +56,17 @@ export class PDFService {
         encoding: FileSystem.EncodingType.Base64,
       });
       if (!base64) return null;
+      try {
+        if (typeof (Crypto as any).digest === 'function') {
+          const rawBytes = decodeBase64ToUint8Array(base64);
+          const buffer = await (Crypto as any).digest(Crypto.CryptoDigestAlgorithm.SHA256, rawBytes);
+          return Array.from(new Uint8Array(buffer))
+            .map((b) => b.toString(16).padStart(2, '0'))
+            .join('');
+        }
+      } catch {
+        // Fallback to digestStringAsync if native Crypto.digest buffer is unavailable
+      }
       return await Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, base64);
     } catch {
       return null;
@@ -87,15 +123,8 @@ export class PDFService {
     const curSymbol = quote.currencySymbol || profile?.currencySymbol || '$';
     const regionConfig = RegionPaymentService.getConfig(profile?.currencyCode, curSymbol, profile?.region);
 
-    const formattedDate = new Date(quote.createdAt).toLocaleDateString(regionConfig.locale, {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-    });
-    const formattedTime = new Date(quote.createdAt).toLocaleTimeString(regionConfig.locale, {
-      hour: '2-digit',
-      minute: '2-digit',
-    });
+    const formattedDate = formatLocalDateDisplay(quote.createdAt, regionConfig.locale);
+    const formattedTime = formatLocalTime(quote.createdAt, regionConfig.locale);
 
     const businessName = profile?.businessName?.trim() || profile?.ownerName?.trim() || 'Independent Contractor';
     const ownerName = profile?.ownerName?.trim() || '';
@@ -615,7 +644,7 @@ export class PDFService {
                 <div class="meta-line"><strong>Date:</strong> ${formattedDate}</div>
                 ${
                   quote.dueDateTimestamp
-                    ? `<div class="meta-line"><strong>Due Date:</strong> <span style="color: #DC2626; font-weight: 700;">${new Date(quote.dueDateTimestamp).toLocaleDateString(regionConfig.locale, { month: 'short', day: 'numeric', year: 'numeric' })}</span></div>`
+                    ? `<div class="meta-line"><strong>Due Date:</strong> <span style="color: #DC2626; font-weight: 700;">${formatLocalDateDisplay(quote.dueDateTimestamp, regionConfig.locale)}</span></div>`
                     : quote.paymentTerms
                     ? `<div class="meta-line"><strong>Terms:</strong> ${escapeHtml(quote.paymentTerms === 'DUE_ON_RECEIPT' ? 'Due on Receipt' : quote.paymentTerms === 'NET_7' ? 'Net 7 Days' : quote.paymentTerms === 'NET_15' ? 'Net 15 Days' : quote.paymentTerms === 'NET_30' ? 'Net 30 Days' : quote.paymentTerms)}</div>`
                     : ''
@@ -1061,7 +1090,7 @@ export class PDFService {
               ${regionConfig.auditCertificateTitle}
             </h3>
             <p><strong>Document Verification Hash:</strong><br/><code style="font-size: 12px; background: #E2E8F0; padding: 4px 8px; border-radius: 4px; display: inline-block; margin-top: 4px;">${hash}</code></p>
-            <p><strong>Signed Date & Time:</strong> ${quote.signatureTimestamp ? new Date(quote.signatureTimestamp).toLocaleString() : 'Pending Signature (Direct Issue)'}</p>
+            <p><strong>Signed Date & Time:</strong> ${quote.signatureTimestamp ? formatLocalDateTimeWithTz(quote.signatureTimestamp, regionConfig.locale) : 'Pending Signature (Direct Issue)'}</p>
             <p><strong>Worksite Location:</strong> ${quote.signatureGpsLat && quote.signatureGpsLng ? `<a href="https://maps.google.com/?q=${quote.signatureGpsLat},${quote.signatureGpsLng}" style="color: #0284C7; font-weight: 700; text-decoration: underline;">${quote.signatureGpsLat.toFixed(5)}° Lat, ${quote.signatureGpsLng.toFixed(5)}° Lng</a> (Verified On-Site)` : 'On-Site Execution'}</p>
             <p><strong>Security Status:</strong> <span style="color: #059669; font-weight: 800;">✓ Verified & Protected</span></p>
             <p><strong>Governing Standards:</strong> ${regionConfig.auditGoverningStandard}</p>
@@ -1078,11 +1107,11 @@ export class PDFService {
                     (co) => `
                   <div style="background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 6px; padding: 10px; margin-bottom: 10px;">
                     <div style="display: flex; justify-content: space-between; font-weight: bold; font-size: 12px;">
-                      <span>Add-On #${co.orderNumber}: ${escapeHtml(co.reason)}</span>
+                       <span>Add-On #${co.orderNumber}: ${escapeHtml(co.reason)}</span>
                       <span style="color: #6B21A8;">+${curSymbol}${(co.addedTotalCents / 100).toFixed(2)}</span>
                     </div>
                     <div style="font-size: 11px; color: #64748B; margin-top: 4px;">
-                      Executed: ${new Date(co.signatureTimestamp).toLocaleString()} • Verified Digital Signature
+                      Executed: ${formatLocalDateTimeWithTz(co.signatureTimestamp, regionConfig.locale)} • Verified Digital Signature
                     </div>
                     ${
                       co.signatureSvg

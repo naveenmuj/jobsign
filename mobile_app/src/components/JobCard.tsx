@@ -6,7 +6,7 @@ import { Theme, getThemeColors } from '../theme';
 import { Quote } from '../types';
 import { useQuoteStore } from '../store/useQuoteStore';
 import { CurrencyService } from '../services/CurrencyService';
-import { isQuoteOverdue, isValidTimestamp } from '../utils/dateUtils';
+import { isQuoteOverdue, isValidTimestamp, formatLocalDateDisplay, formatLocalShortDate } from '../utils/dateUtils';
 
 interface JobCardProps {
   quote: Quote;
@@ -120,7 +120,7 @@ export const JobCard: React.FC<JobCardProps> = ({
             </Text>
           )}
           <Text style={[styles.dateText, { color: colors.textMuted }]}>
-            {new Date(quote.createdAt).toLocaleDateString()}
+            {formatLocalDateDisplay(quote.createdAt)}
           </Text>
         </View>
       </View>
@@ -146,7 +146,7 @@ export const JobCard: React.FC<JobCardProps> = ({
               ]}
             >
               {isQuoteOverdue(quote) ? '⚠️ Overdue: ' : 'Due: '}
-              {new Date(quote.dueDateTimestamp).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+              {formatLocalShortDate(quote.dueDateTimestamp)}
             </Text>
           </View>
         )}

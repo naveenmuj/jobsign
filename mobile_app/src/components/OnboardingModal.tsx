@@ -18,6 +18,7 @@ import { Theme, getThemeColors } from '../theme';
 import { useQuoteStore } from '../store/useQuoteStore';
 import { AlertService } from '../services/AlertService';
 import { BackupService } from '../services/BackupService';
+import { formatLocalDateDisplay } from '../utils/dateUtils';
 import { useAppSafeArea } from '../utils/safeArea';
 import { useKeyboard } from '../utils/useKeyboard';
 
@@ -127,7 +128,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({ visible, onFin
       const preview = res.preview;
       AlertService.confirm({
         title: 'Restore Backup? 🔄',
-        message: `Found JobSign backup for "${preview.businessName}" (${new Date(preview.exportedAt).toLocaleDateString()}) containing ${preview.invoiceCount} quotes/invoices and ${preview.presetCount} presets.\n\nRestore all data now?`,
+        message: `Found JobSign backup for "${preview.businessName}" (${formatLocalDateDisplay(preview.exportedAt)}) containing ${preview.invoiceCount} quotes/invoices and ${preview.presetCount} presets.\n\nRestore all data now?`,
         confirmText: 'Restore All Data',
         cancelText: 'Cancel',
         isDestructive: false,

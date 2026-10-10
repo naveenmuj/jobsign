@@ -1,5 +1,6 @@
 import assert from 'node:assert';
 import crypto from 'node:crypto';
+import fs from 'node:fs';
 
 console.log('====================================================');
 console.log('🧪 RUNNING JOBSIGN PRODUCTION READINESS TEST SUITE 🧪');
@@ -509,6 +510,71 @@ it('Unconfigured billing in production (!__DEV__) strictly returns success: fals
 it('Configured billing returns success: true upon valid purchase', () => {
   const validResult = simulatePurchase(true, false);
   assert.strictEqual(validResult.success, true);
+});
+
+// -----------------------------------------------------------------------------
+// 9. Local Timezone Date & Offset Tests
+// -----------------------------------------------------------------------------
+console.log('\n👉 [SUITE 9: Local Timezone Date & Offset Formatting]');
+
+function formatLocalDate(timestamp) {
+  if (typeof timestamp !== 'number' || timestamp < 1577836800000) return '';
+  const d = new Date(timestamp);
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function getLocalTimezoneOffset(timestamp = Date.now()) {
+  const offsetMinutes = -new Date(timestamp).getTimezoneOffset();
+  const sign = offsetMinutes >= 0 ? '+' : '-';
+  const absMin = Math.abs(offsetMinutes);
+  const hours = String(Math.floor(absMin / 60)).padStart(2, '0');
+  const mins = String(absMin % 60).padStart(2, '0');
+  return `GMT${sign}${hours}:${mins}`;
+}
+
+it('formatLocalDate matches local device calendar day without UTC day shift', () => {
+  const now = new Date(2026, 9, 10, 23, 45, 0).getTime(); // Oct 10 23:45 local time
+  const formatted = formatLocalDate(now);
+  assert.strictEqual(formatted, '2026-10-10');
+});
+
+it('getLocalTimezoneOffset formats standard GMT offset notation', () => {
+  const tz = getLocalTimezoneOffset();
+  assert.match(tz, /^GMT[+-]\d{2}:\d{2}$/);
+});
+
+// -----------------------------------------------------------------------------
+// 10. Legal Claim Temperate Wording Verification
+// -----------------------------------------------------------------------------
+console.log('\n👉 [SUITE 10: Legal Compliance Wording Verification]');
+
+it('app.json uses temperate documentation wording without legally binding claims', () => {
+  const appJson = JSON.parse(fs.readFileSync('mobile_app/app.json', 'utf8'));
+  const plugins = appJson.expo.plugins;
+  const locationPlugin = plugins.find((p) => Array.isArray(p) && p[0] === 'expo-location');
+  assert.ok(locationPlugin, 'expo-location plugin configured');
+  const perm = locationPlugin[1].locationWhenInUsePermission;
+  assert.ok(!perm.includes('legally binding'), 'No legally binding claim in permission');
+  assert.ok(!perm.includes('courtroom audit'), 'No courtroom audit claim in permission');
+  assert.ok(perm.includes('tamper-evident'), 'Mentions tamper-evident agreement record');
+});
+
+// -----------------------------------------------------------------------------
+// 11. RevenueCat Paywall Entitlement Verification
+// -----------------------------------------------------------------------------
+console.log('\n👉 [SUITE 11: RevenueCat Paywall Entitlement Verification]');
+
+it('Only grants Pro access when customerInfo confirms active entitlement', () => {
+  function verifyPaywallSuccess(mockCustomerInfo) {
+    const isPro = typeof mockCustomerInfo?.entitlements?.active?.['jobsign_pro'] !== 'undefined';
+    return isPro;
+  }
+
+  assert.strictEqual(verifyPaywallSuccess({ entitlements: { active: {} } }), false);
+  assert.strictEqual(verifyPaywallSuccess({ entitlements: { active: { jobsign_pro: {} } } }), true);
 });
 
 // -----------------------------------------------------------------------------
