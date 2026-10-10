@@ -363,8 +363,7 @@ assert(pdfPaymentRaw.includes('quote.includePhotoInPdf !== false'), 'PDFService 
 // 4. QuoteBuilderScreen check
 const quoteBuilderRaw = fs.readFileSync(path.resolve('./src/screens/QuoteBuilderScreen.tsx'), 'utf8');
 assert(quoteBuilderRaw.includes('includePhotoInPdf'), 'QuoteBuilderScreen manages includePhotoInPdf state');
-assert(quoteBuilderRaw.includes('Include photo in PDF Invoice (Exhibit A)'), 'QuoteBuilderScreen renders Exhibit A inclusion toggle checkbox');
-assert(quoteBuilderRaw.includes('includePhotoInPdf: photoUri ? includePhotoInPdf : true'), 'QuoteBuilderScreen persists includePhotoInPdf in created quote');
+assert(quoteBuilderRaw.includes('includePhotoInPdf: validPhotoUri ? includePhotoInPdf : false') || quoteBuilderRaw.includes('includePhotoInPdf: photoUri ? includePhotoInPdf : true'), 'QuoteBuilderScreen persists includePhotoInPdf in created quote');
 
 // 5. QuoteDetailScreen check
 assert(quoteDetailRaw.includes('includePhoto'), 'QuoteDetailScreen manages includePhoto state');

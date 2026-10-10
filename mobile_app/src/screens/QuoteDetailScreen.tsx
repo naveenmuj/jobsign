@@ -594,10 +594,14 @@ export const QuoteDetailScreen: React.FC<QuoteDetailScreenProps> = ({
       });
       if (!result.canceled && result.assets[0]) {
         const photoHash = await PDFService.hashFileUri(result.assets[0].uri);
+        if (!photoHash) {
+          AlertService.alert('Photo Error', 'Could not read image file bytes to compute cryptographic digest. Please try taking the photo again.', undefined, 'DANGER');
+          return;
+        }
         const updated: Quote = {
           ...quote,
           completedPhotoUri: result.assets[0].uri,
-          completedPhotoSha256: photoHash || undefined,
+          completedPhotoSha256: photoHash,
         };
         updated.pdfSha256Hash = await PDFService.computeHash(updated);
         await addQuote(updated);
@@ -623,10 +627,14 @@ export const QuoteDetailScreen: React.FC<QuoteDetailScreenProps> = ({
       });
       if (!result.canceled && result.assets[0]) {
         const photoHash = await PDFService.hashFileUri(result.assets[0].uri);
+        if (!photoHash) {
+          AlertService.alert('Photo Error', 'Could not read image file bytes to compute cryptographic digest. Please try selecting the photo again.', undefined, 'DANGER');
+          return;
+        }
         const updated: Quote = {
           ...quote,
           completedPhotoUri: result.assets[0].uri,
-          completedPhotoSha256: photoHash || undefined,
+          completedPhotoSha256: photoHash,
         };
         updated.pdfSha256Hash = await PDFService.computeHash(updated);
         await addQuote(updated);

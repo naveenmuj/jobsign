@@ -1,7 +1,7 @@
 # JobSign 🔨✍️
 
 > **Fast Mobile Estimate, Finger Signature & Direct Settlement App for Solo Contractors & Tradespeople**  
-> *Target Markets: United States, United Kingdom, Canada, Australia*  
+> *Target Markets: United States, India, United Kingdom, Canada, Australia*  
 > *Repository: [https://github.com/naveenmuj/jobsign](https://github.com/naveenmuj/jobsign)*
 
 ---

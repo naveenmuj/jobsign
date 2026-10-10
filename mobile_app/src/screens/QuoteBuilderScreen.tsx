@@ -858,6 +858,18 @@ export const QuoteBuilderScreen: React.FC<{ onBack: () => void; initialQuote?: Q
 
     const nextQuoteNum = await DatabaseService.getNextQuoteNumber();
 
+    let validPhotoUri: string | undefined = undefined;
+    let computedPhotoSha256: string | undefined = undefined;
+    if (photoUri) {
+      const hash = await PDFService.hashFileUri(photoUri);
+      if (hash) {
+        validPhotoUri = photoUri;
+        computedPhotoSha256 = hash;
+      } else {
+        console.warn('[QuoteBuilder] Worksite photo unreadable or missing bytes; excluded from signed audit seal.');
+      }
+    }
+
     const newQuote: Quote = {
       id: Crypto.randomUUID(),
       quoteNumber: nextQuoteNum,
@@ -866,9 +878,9 @@ export const QuoteBuilderScreen: React.FC<{ onBack: () => void; initialQuote?: Q
       clientAddress: clientAddress.trim() || undefined,
       jobDescription: jobDescription.trim() || undefined,
       notes: notes.trim() || undefined,
-      photoUri: photoUri || undefined,
-      photoSha256: (await PDFService.hashFileUri(photoUri)) || undefined,
-      includePhotoInPdf: photoUri ? includePhotoInPdf : true,
+      photoUri: validPhotoUri,
+      photoSha256: computedPhotoSha256,
+      includePhotoInPdf: validPhotoUri ? includePhotoInPdf : false,
       status: 'SIGNED_LOCKED',
       subtotalCents,
       taxRateBasisPoints: taxBasisPoints,
@@ -957,6 +969,16 @@ export const QuoteBuilderScreen: React.FC<{ onBack: () => void; initialQuote?: Q
     const nextQuoteNum = await DatabaseService.getNextQuoteNumber();
     const isDirectInvoice = documentType === 'TAX_INVOICE' || documentType === 'BILL_OF_SUPPLY';
 
+    let validPhotoUri: string | undefined = undefined;
+    let computedPhotoSha256: string | undefined = undefined;
+    if (photoUri) {
+      const hash = await PDFService.hashFileUri(photoUri);
+      if (hash) {
+        validPhotoUri = photoUri;
+        computedPhotoSha256 = hash;
+      }
+    }
+
     const newQuote: Quote = {
       id: Crypto.randomUUID(),
       quoteNumber: nextQuoteNum,
@@ -965,9 +987,9 @@ export const QuoteBuilderScreen: React.FC<{ onBack: () => void; initialQuote?: Q
       clientAddress: clientAddress.trim() || undefined,
       jobDescription: jobDescription.trim() || undefined,
       notes: notes.trim() || undefined,
-      photoUri: photoUri || undefined,
-      photoSha256: (await PDFService.hashFileUri(photoUri)) || undefined,
-      includePhotoInPdf: photoUri ? includePhotoInPdf : true,
+      photoUri: validPhotoUri,
+      photoSha256: computedPhotoSha256,
+      includePhotoInPdf: validPhotoUri ? includePhotoInPdf : false,
       status: isDirectInvoice ? 'INVOICED' : 'DRAFT',
       invoiceIssuedTimestamp: isDirectInvoice ? Date.now() : undefined,
       subtotalCents,
