@@ -12,12 +12,11 @@ import {
   Image,
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
-import { Settings, WifiOff, Search, X, Check, FileSpreadsheet } from 'lucide-react-native';
+import { Settings, WifiOff, Search, X, Check } from 'lucide-react-native';
 import { Theme, getThemeColors, ThemeColors } from '../theme';
 import { Quote } from '../types';
 import { useQuoteStore } from '../store/useQuoteStore';
 import { PDFService } from '../services/PDFService';
-import { ExportService } from '../services/ExportService';
 import { AlertService } from '../services/AlertService';
 import { CurrencyService } from '../services/CurrencyService';
 import { RegionPaymentService } from '../services/RegionPaymentService';
@@ -574,19 +573,6 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
     }
   };
 
-  const handleExportCSV = async () => {
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    const res = await ExportService.exportQuotesToCSV(quotes, profile);
-    if (res.success) {
-      AlertService.alert(
-        'Export Ready',
-        `Successfully generated Daybook accounting spreadsheet for ${quotes.length} record(s). Ready to open in Excel or share.`,
-        undefined,
-        'SUCCESS'
-      );
-    }
-  };
-
   return (
     <View style={styles.container}>
       {/* Top Header */}
@@ -653,16 +639,9 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
           )}
           <TouchableOpacity
             style={styles.settingsIconBtn}
-            onPress={handleExportCSV}
-            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-            accessibilityLabel="Export daybook spreadsheet"
-          >
-            <FileSpreadsheet size={18} color={colors.textSecondary} />
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.settingsIconBtn}
             onPress={onOpenSettings}
             hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+            accessibilityLabel="Settings"
           >
             <Settings size={18} color={colors.textSecondary} />
           </TouchableOpacity>
