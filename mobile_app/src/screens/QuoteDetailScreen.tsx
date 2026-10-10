@@ -666,6 +666,10 @@ export const QuoteDetailScreen: React.FC<QuoteDetailScreenProps> = ({
   };
 
   const handleCaptureInitialPhoto = async () => {
+    if (quote.status !== 'DRAFT') {
+      AlertService.alert('Agreement Locked', 'The initial worksite photo is cryptographically sealed into the signed customer agreement and cannot be altered or replaced.', undefined, 'WARNING');
+      return;
+    }
     try {
       const { status } = await ImagePicker.requestCameraPermissionsAsync();
       if (status !== 'granted') {
@@ -688,10 +692,7 @@ export const QuoteDetailScreen: React.FC<QuoteDetailScreenProps> = ({
           photoUri: result.assets[0].uri,
           photoSha256: photoHash,
         };
-        // Preserve immutable customer-signed audit seal if already signed
-        if (quote.status === 'DRAFT') {
-          updated.pdfSha256Hash = await PDFService.computeHash(updated);
-        }
+        updated.pdfSha256Hash = await PDFService.computeHash(updated);
         await addQuote(updated);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       }
@@ -702,6 +703,10 @@ export const QuoteDetailScreen: React.FC<QuoteDetailScreenProps> = ({
   };
 
   const handlePickInitialPhoto = async () => {
+    if (quote.status !== 'DRAFT') {
+      AlertService.alert('Agreement Locked', 'The initial worksite photo is cryptographically sealed into the signed customer agreement and cannot be altered or replaced.', undefined, 'WARNING');
+      return;
+    }
     try {
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (status !== 'granted') {
@@ -724,10 +729,7 @@ export const QuoteDetailScreen: React.FC<QuoteDetailScreenProps> = ({
           photoUri: result.assets[0].uri,
           photoSha256: photoHash,
         };
-        // Preserve immutable customer-signed audit seal if already signed
-        if (quote.status === 'DRAFT') {
-          updated.pdfSha256Hash = await PDFService.computeHash(updated);
-        }
+        updated.pdfSha256Hash = await PDFService.computeHash(updated);
         await addQuote(updated);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       }
@@ -738,14 +740,16 @@ export const QuoteDetailScreen: React.FC<QuoteDetailScreenProps> = ({
   };
 
   const handleRemoveInitialPhoto = async () => {
+    if (quote.status !== 'DRAFT') {
+      AlertService.alert('Agreement Locked', 'The initial worksite photo is part of the customer-signed agreement record and cannot be removed.', undefined, 'WARNING');
+      return;
+    }
     const updated: Quote = {
       ...quote,
       photoUri: undefined,
       photoSha256: undefined,
     };
-    if (quote.status === 'DRAFT') {
-      updated.pdfSha256Hash = await PDFService.computeHash(updated);
-    }
+    updated.pdfSha256Hash = await PDFService.computeHash(updated);
     await addQuote(updated);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
   };
@@ -1158,21 +1162,25 @@ export const QuoteDetailScreen: React.FC<QuoteDetailScreenProps> = ({
                 <Text style={{ fontSize: 11, fontWeight: '800', color: colors.amber, textTransform: 'uppercase' }}>
                   • Initial Condition (Before Work)
                 </Text>
-                <View style={{ flexDirection: 'row', gap: 10 }}>
-                  <TouchableOpacity onPress={handleCaptureInitialPhoto}>
-                    <Text style={{ fontSize: 11, color: colors.primary, fontWeight: '700' }}>Retake</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity onPress={handlePickInitialPhoto}>
-                    <Text style={{ fontSize: 11, color: colors.primary, fontWeight: '700' }}>Gallery</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity onPress={handleRemoveInitialPhoto}>
-                    <Text style={{ fontSize: 11, color: colors.rose, fontWeight: '700' }}>Remove</Text>
-                  </TouchableOpacity>
-                </View>
+                {quote.status === 'DRAFT' ? (
+                  <View style={{ flexDirection: 'row', gap: 10 }}>
+                    <TouchableOpacity onPress={handleCaptureInitialPhoto}>
+                      <Text style={{ fontSize: 11, color: colors.primary, fontWeight: '700' }}>Retake</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={handlePickInitialPhoto}>
+                      <Text style={{ fontSize: 11, color: colors.primary, fontWeight: '700' }}>Gallery</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={handleRemoveInitialPhoto}>
+                      <Text style={{ fontSize: 11, color: colors.rose, fontWeight: '700' }}>Remove</Text>
+                    </TouchableOpacity>
+                  </View>
+                ) : (
+                  <Text style={{ fontSize: 10, color: colors.emerald, fontWeight: '800' }}>🔒 Sealed in Agreement</Text>
+                )}
               </View>
               <Image source={{ uri: quote.photoUri }} style={styles.photoPreview} resizeMode="cover" />
             </View>
-          ) : (
+          ) : quote.status === 'DRAFT' ? (
             <TouchableOpacity
               style={{
                 borderWidth: 1,
@@ -1194,7 +1202,7 @@ export const QuoteDetailScreen: React.FC<QuoteDetailScreenProps> = ({
                 Documents pre-existing damage prior to starting work
               </Text>
             </TouchableOpacity>
-          )}
+          ) : null}
 
           {/* Completed / After Work Photo */}
           {quote.completedPhotoUri ? (
