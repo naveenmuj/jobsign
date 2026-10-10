@@ -41,6 +41,8 @@ service_account.json
 
 # Testing Artifacts & Scratch
 *.xml
+scripts/*.xml
+scripts/*.png
 screen*.png
 current_screen.png
 emulator_screen.png
