@@ -559,7 +559,10 @@ it('app.json uses temperate documentation wording without legally binding claims
   const perm = locationPlugin[1].locationWhenInUsePermission;
   assert.ok(!perm.includes('legally binding'), 'No legally binding claim in permission');
   assert.ok(!perm.includes('courtroom audit'), 'No courtroom audit claim in permission');
-  assert.ok(perm.includes('tamper-evident'), 'Mentions tamper-evident agreement record');
+  assert.ok(
+    perm.includes('document where the agreement was created') || perm.includes('tamper-evident'),
+    'Describes objective worksite location documentation'
+  );
 });
 
 // -----------------------------------------------------------------------------

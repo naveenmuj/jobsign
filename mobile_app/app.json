@@ -54,7 +54,7 @@
       [
         "expo-location",
         {
-          "locationWhenInUsePermission": "JobSign records optional worksite GPS coordinates at signature time to document location on the tamper-evident agreement record."
+          "locationWhenInUsePermission": "JobSign optionally records the worksite location when a customer signs an agreement, to help document where the agreement was created."
         }
       ],
       "expo-sqlite"

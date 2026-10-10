@@ -242,7 +242,11 @@ export class PDFService {
       computedDocTitle = isIndia ? 'DELIVERY CHALLAN / डिलीवरी चालान' : 'DELIVERY CHALLAN';
     } else if (isIndia) {
       if (isInvoiced || isPaid) {
-        computedDocTitle = taxIdVal ? 'TAX INVOICE / कर इनवॉइस' : 'BILL OF SUPPLY / आपूर्ति बिल';
+        if (profile?.defaultInvoiceType === 'BILL_OF_SUPPLY') {
+          computedDocTitle = 'BILL OF SUPPLY / आपूर्ति बिल';
+        } else {
+          computedDocTitle = 'TAX INVOICE / कर इनवॉइस';
+        }
       } else {
         computedDocTitle = 'ESTIMATE & QUOTATION / कोटेशन';
       }
@@ -824,52 +828,88 @@ export class PDFService {
               }
             </div>
 
-            <!-- ── HSN / SAC TAX BREAKDOWN TABLE ── -->
+            <!-- ── HSN / SAC TAX BREAKDOWN TABLE (GROUPED COMPLIANT) ── -->
             ${
               templateId === 'advanced_gst' && quote.taxAmountCents > 0
-                ? `
-              <div style="margin-top: 14px; padding: 10px 14px; background: #F0FDFA; border: 1.5px solid #CCFBF1; border-radius: 6px;">
-                <div style="font-size: 10.5px; font-weight: 800; color: #0F766E; text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 6px;">
-                  HSN / SAC Tax Breakup Summary (कर विवरण)
-                </div>
-                <table style="width: 100%; border-collapse: collapse; font-size: 11px;">
-                  <thead>
-                    <tr style="background-color: #CCFBF1; border-bottom: 1.5px solid #0F766E;">
-                      <th style="padding: 6px 8px; text-align: left; color: #0F766E;">HSN/SAC</th>
-                      <th style="padding: 6px 8px; text-align: right; color: #0F766E;">Taxable Value</th>
-                      ${
-                        quote.isGstSplit !== false
-                          ? `
-                        <th style="padding: 6px 8px; text-align: right; color: #0F766E;">Central Tax (CGST)</th>
-                        <th style="padding: 6px 8px; text-align: right; color: #0F766E;">State Tax (SGST)</th>
-                      `
-                          : `
-                        <th style="padding: 6px 8px; text-align: right; color: #0F766E;">Integrated Tax (IGST)</th>
-                      `
+                ? (() => {
+                    const hsnGroups: { [code: string]: { code: string; taxableCents: number; taxCents: number } } = {};
+                    const totalLineCents = quote.lineItems.reduce((acc, i) => acc + (i.totalCents || 0), 0);
+                    quote.lineItems.forEach((item) => {
+                      const code = (item.hsnSac || '').trim() || 'Services / Labor';
+                      if (!hsnGroups[code]) {
+                        hsnGroups[code] = { code, taxableCents: 0, taxCents: 0 };
                       }
-                      <th style="padding: 6px 8px; text-align: right; color: #0F766E;">Total Tax</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr>
-                      <td style="padding: 6px 8px; font-family: monospace; font-weight: 700; color: #0F766E;">${escapeHtml(quote.lineItems.find((i) => i.hsnSac)?.hsnSac || 'Services / Labor')}</td>
-                      <td style="padding: 6px 8px; text-align: right; font-weight: 700;">${curSymbol}${(quote.subtotalCents / 100).toFixed(2)}</td>
-                      ${
-                        quote.isGstSplit !== false
-                          ? `
-                        <td style="padding: 6px 8px; text-align: right;">${(quote.taxRateBasisPoints / 200).toFixed(2)}% (${curSymbol}${((quote.taxAmountCents / 2) / 100).toFixed(2)})</td>
-                        <td style="padding: 6px 8px; text-align: right;">${(quote.taxRateBasisPoints / 200).toFixed(2)}% (${curSymbol}${((quote.taxAmountCents / 2) / 100).toFixed(2)})</td>
-                      `
-                          : `
-                        <td style="padding: 6px 8px; text-align: right;">${(quote.taxRateBasisPoints / 100).toFixed(2)}% (${curSymbol}${(quote.taxAmountCents / 100).toFixed(2)})</td>
-                      `
+                      hsnGroups[code].taxableCents += item.totalCents || 0;
+                    });
+
+                    // Proportionally distribute the invoice tax amount across the groups
+                    Object.values(hsnGroups).forEach((group) => {
+                      if (totalLineCents > 0) {
+                        group.taxCents = Math.round((group.taxableCents / totalLineCents) * quote.taxAmountCents);
+                      } else {
+                        group.taxCents = 0;
                       }
-                      <td style="padding: 6px 8px; text-align: right; font-weight: 800; color: #0F766E;">${curSymbol}${(quote.taxAmountCents / 100).toFixed(2)}</td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-            `
+                    });
+
+                    const rows = Object.values(hsnGroups)
+                      .map((g) => {
+                        const taxableStr = `${curSymbol}${(g.taxableCents / 100).toFixed(2)}`;
+                        const taxStr = `${curSymbol}${(g.taxCents / 100).toFixed(2)}`;
+                        const isSplit = quote.isGstSplit !== false;
+                        const halfTaxCents = Math.round(g.taxCents / 2);
+                        const halfRateStr = (quote.taxRateBasisPoints / 200).toFixed(2);
+                        const fullRateStr = (quote.taxRateBasisPoints / 100).toFixed(2);
+
+                        return `
+                          <tr>
+                            <td style="padding: 6px 8px; font-family: monospace; font-weight: 700; color: #0F766E;">${escapeHtml(g.code)}</td>
+                            <td style="padding: 6px 8px; text-align: right; font-weight: 700;">${taxableStr}</td>
+                            ${
+                              isSplit
+                                ? `
+                              <td style="padding: 6px 8px; text-align: right;">${halfRateStr}% (${curSymbol}${(halfTaxCents / 100).toFixed(2)})</td>
+                              <td style="padding: 6px 8px; text-align: right;">${halfRateStr}% (${curSymbol}${(halfTaxCents / 100).toFixed(2)})</td>
+                            `
+                                : `
+                              <td style="padding: 6px 8px; text-align: right;">${fullRateStr}% (${taxStr})</td>
+                            `
+                            }
+                            <td style="padding: 6px 8px; text-align: right; font-weight: 800; color: #0F766E;">${taxStr}</td>
+                          </tr>
+                        `;
+                      })
+                      .join('');
+
+                    return `
+                      <div style="margin-top: 14px; padding: 10px 14px; background: #F0FDFA; border: 1.5px solid #CCFBF1; border-radius: 6px;">
+                        <div style="font-size: 10.5px; font-weight: 800; color: #0F766E; text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 6px;">
+                          HSN / SAC Tax Breakup Summary (कर विवरण)
+                        </div>
+                        <table style="width: 100%; border-collapse: collapse; font-size: 11px;">
+                          <thead>
+                            <tr style="background-color: #CCFBF1; border-bottom: 1.5px solid #0F766E;">
+                              <th style="padding: 6px 8px; text-align: left; color: #0F766E;">HSN/SAC</th>
+                              <th style="padding: 6px 8px; text-align: right; color: #0F766E;">Taxable Value</th>
+                              ${
+                                quote.isGstSplit !== false
+                                  ? `
+                                <th style="padding: 6px 8px; text-align: right; color: #0F766E;">Central Tax (CGST)</th>
+                                <th style="padding: 6px 8px; text-align: right; color: #0F766E;">State Tax (SGST)</th>
+                              `
+                                  : `
+                                <th style="padding: 6px 8px; text-align: right; color: #0F766E;">Integrated Tax (IGST)</th>
+                              `
+                              }
+                              <th style="padding: 6px 8px; text-align: right; color: #0F766E;">Total Tax</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            ${rows}
+                          </tbody>
+                        </table>
+                      </div>
+                    `;
+                  })()
                 : ''
             }
 
