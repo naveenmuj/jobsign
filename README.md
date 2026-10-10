@@ -14,7 +14,7 @@ In under 60 seconds on-site, a contractor can:
 1. Assemble a clean estimate using 1-tap item presets or custom items.
 2. Snap pre-existing worksite damage photos right from the camera (embedded as Exhibit A).
 3. Hand their phone to the homeowner to **sign on glass**.
-4. Cryptographically seal the agreement with a **SHA-256 tamper-evident courtroom audit certificate** (compliant with U.S. ESIGN Act & UETA).
+4. Cryptographically seal the agreement with a **tamper-evident SHA-256 digital audit record** (capturing timestamps, signature, and optional worksite location).
 5. Display a dynamic peer-to-peer payment QR code (**Zelle / Venmo / CashApp / Bank**) for **100% payout with 0% middleman fees**.
 6. Operate 100% offline in concrete basements with automatic **Offline Outbox background sync**.
 
@@ -22,10 +22,10 @@ In under 60 seconds on-site, a contractor can:
 
 ## 🛠️ Technology Stack & Architecture
 
-- **Framework:** React Native (Expo SDK 52+, Architecture New Engine, TypeScript 5)
+- **Framework:** React Native (Expo SDK ~57.0.26, React Native 0.86.3, Architecture New Engine, TypeScript 5)
 - **Design System:** Material 3 Dark (High-Contrast Outdoor Theme, 56dp+ touch targets, glove-friendly)
 - **Local Database:** `expo-sqlite` with Write-Ahead Logging (WAL) and atomic transactions
-- **PDF Engine:** `expo-print` + `expo-crypto` for SHA-256 Document Hash & Courtroom Audit Certificate
+- **PDF Engine:** `expo-print` + `expo-crypto` for SHA-256 Document Hash & Digital Audit Record
 - **Digital Signature:** Vector Bézier curve touch canvas (`react-native-svg` + Skia) with Affirmative Consent
 - **Offline Reliability:** `expo-network` with Outbox Queue & background network listener
 - **Worksite Camera:** `expo-image-picker` with base64 embedded Exhibit A PDF proof
@@ -77,13 +77,13 @@ mobile_app/
 │   ├── screens/
 │   │   ├── HomeScreen.tsx        # KPI metrics dashboard, live search & filter pills
 │   │   ├── QuoteBuilderScreen.tsx# 60-sec quote builder, camera photo, terms chips
-│   │   ├── QuoteDetailScreen.tsx # Locked courtroom view, quick call/SMS, photo exhibit
+│   │   ├── QuoteDetailScreen.tsx # Locked audit view, quick call/SMS, photo exhibit
 │   │   └── SettingsScreen.tsx    # Branding profile, item presets, SQLite backup vault
 │   ├── services/
 │   │   ├── BillingService.ts     # RevenueCat subscription manager with dev sandbox fallback
 │   │   ├── DatabaseService.ts    # Embedded SQLite WAL engine
 │   │   ├── OutboxService.ts      # Offline network state listener & auto-sync
-│   │   └── PDFService.ts         # Vector PDF engine with SHA-256 audit certificate
+│   │   └── PDFService.ts         # Vector PDF engine with SHA-256 audit record
 │   ├── store/
 │   │   └── useQuoteStore.ts      # Reactive Zustand store synced to SQLite
 │   ├── theme/

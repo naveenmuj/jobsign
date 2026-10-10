@@ -40,6 +40,8 @@ export class DatabaseService {
         signature_gps_lat REAL,
         signature_gps_lng REAL,
         pdf_sha256_hash TEXT,
+        photo_sha256 TEXT,
+        completed_photo_sha256 TEXT,
         tax_label TEXT,
         currency_symbol TEXT,
         created_at INTEGER NOT NULL,
@@ -168,6 +170,18 @@ export class DatabaseService {
     }
 
     try {
+      await db.execAsync('ALTER TABLE quotes ADD COLUMN photo_sha256 TEXT;');
+    } catch {
+      // Column already exists or freshly created
+    }
+
+    try {
+      await db.execAsync('ALTER TABLE quotes ADD COLUMN completed_photo_sha256 TEXT;');
+    } catch {
+      // Column already exists or freshly created
+    }
+
+    try {
       await db.execAsync('ALTER TABLE line_items ADD COLUMN hsn_sac TEXT;');
     } catch {
       // Column already exists
@@ -229,6 +243,8 @@ export class DatabaseService {
         signatureGpsLat: r.signature_gps_lat,
         signatureGpsLng: r.signature_gps_lng,
         pdfSha256Hash: r.pdf_sha256_hash,
+        photoSha256: r.photo_sha256 || undefined,
+        completedPhotoSha256: r.completed_photo_sha256 || undefined,
         taxLabel: r.tax_label || undefined,
         currencySymbol: r.currency_symbol || undefined,
         includePhotoInPdf: r.include_photo_in_pdf === 0 ? false : true,
@@ -278,8 +294,9 @@ export class DatabaseService {
           total_amount_cents, notes, photo_uri, signature_svg, signature_timestamp,
           signature_gps_lat, signature_gps_lng, pdf_sha256_hash, created_at, updated_at,
           tax_label, currency_symbol, include_photo_in_pdf, completed_photo_uri, invoice_issued_timestamp,
-          deposit_amount_cents, payment_terms, due_date_timestamp, document_type, place_of_supply, is_gst_split
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          deposit_amount_cents, payment_terms, due_date_timestamp, document_type, place_of_supply, is_gst_split,
+          photo_sha256, completed_photo_sha256
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           quote.id,
           quote.quoteNumber,
@@ -313,6 +330,8 @@ export class DatabaseService {
           quote.documentType || null,
           quote.placeOfSupply || null,
           quote.isGstSplit === false ? 0 : 1,
+          quote.photoSha256 || null,
+          quote.completedPhotoSha256 || null,
         ]
       );
 
@@ -526,8 +545,9 @@ export class DatabaseService {
             total_amount_cents, notes, photo_uri, signature_svg, signature_timestamp,
             signature_gps_lat, signature_gps_lng, pdf_sha256_hash, created_at, updated_at,
             tax_label, currency_symbol, include_photo_in_pdf, completed_photo_uri, invoice_issued_timestamp,
-            deposit_amount_cents, payment_terms, due_date_timestamp, document_type, place_of_supply, is_gst_split
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            deposit_amount_cents, payment_terms, due_date_timestamp, document_type, place_of_supply, is_gst_split,
+            photo_sha256, completed_photo_sha256
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           [
             quote.id,
             quote.quoteNumber,
@@ -561,6 +581,8 @@ export class DatabaseService {
             quote.documentType || null,
             quote.placeOfSupply || null,
             quote.isGstSplit ? 1 : 0,
+            quote.photoSha256 || null,
+            quote.completedPhotoSha256 || null,
           ]
         );
 
@@ -612,5 +634,19 @@ export class DatabaseService {
     });
 
     return restoredCount;
+  }
+
+  /**
+   * Flushes SQLite Write-Ahead Log pages to the main database file.
+   * Ensures physical disk backup consistency before file copy or disaster recovery.
+   */
+  public static async checkpointWAL(): Promise<void> {
+    try {
+      const db = await this.getDB();
+      await db.execAsync('PRAGMA wal_checkpoint(TRUNCATE);');
+      console.log('✔ SQLite WAL checkpoint completed (TRUNCATE).');
+    } catch (e: any) {
+      console.warn('[DatabaseService] WAL checkpoint note:', e?.message || e);
+    }
   }
 }

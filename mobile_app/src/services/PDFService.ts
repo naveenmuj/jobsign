@@ -20,7 +20,35 @@ function escapeHtml(s: string = ''): string {
 }
 
 export class PDFService {
+  /**
+   * Hashes the physical binary content of a file URI using SHA-256.
+   * Guarantees that any byte alteration to an attached photograph mutates the hash.
+   */
+  public static async hashFileUri(uri?: string | null): Promise<string | null> {
+    try {
+      if (!uri) return null;
+      const base64 = await FileSystem.readAsStringAsync(uri, {
+        encoding: FileSystem.EncodingType.Base64,
+      });
+      if (!base64) return null;
+      return await Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, base64);
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Computes the canonical SHA-256 digest of an estimate/invoice agreement.
+   * Cryptographically binds all frozen terms, line items, timestamps, signature SVG,
+   * worksite GPS coordinates, and the SHA-256 byte digests of attached worksite photos.
+   */
   public static async computeHash(quote: Quote): Promise<string> {
+    const photoHash =
+      quote.photoSha256 || (quote.photoUri ? await this.hashFileUri(quote.photoUri) : null);
+    const completedPhotoHash =
+      quote.completedPhotoSha256 ||
+      (quote.completedPhotoUri ? await this.hashFileUri(quote.completedPhotoUri) : null);
+
     const canonical = JSON.stringify({
       id: quote.id,
       quoteNumber: quote.quoteNumber,
@@ -35,39 +63,23 @@ export class PDFService {
         q: i.quantity,
         u: i.unitPriceCents,
         t: i.totalCents,
+        h: i.hsnSac || null,
+        un: i.unit || null,
+        disc: i.discountPercent || null,
       })),
       subtotalCents: quote.subtotalCents,
       taxRateBasisPoints: quote.taxRateBasisPoints,
       taxAmountCents: quote.taxAmountCents,
       totalAmountCents: quote.totalAmountCents,
-      photoUri: quote.photoUri || null,
+      depositAmountCents: quote.depositAmountCents || 0,
+      photoSha256: photoHash,
+      completedPhotoSha256: completedPhotoHash,
       signatureSvg: quote.signatureSvg || '',
       signatureTimestamp: quote.signatureTimestamp || 0,
       signatureGpsLat: quote.signatureGpsLat || null,
       signatureGpsLng: quote.signatureGpsLng || null,
     });
     return await Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, canonical);
-  }
-
-  public static async exportFullDatabaseBackup(): Promise<string> {
-    try {
-      const docDir = (FileSystem as any).documentDirectory || '';
-      const cacheDir = (FileSystem as any).cacheDirectory || '';
-      const dbUri = `${docDir}SQLite/jobsign.db`;
-      const backupUri = `${cacheDir}jobsign_full_backup_${Date.now()}.db`;
-
-      await FileSystem.copyAsync({ from: dbUri, to: backupUri });
-      if (await Sharing.isAvailableAsync()) {
-        await Sharing.shareAsync(backupUri, {
-          mimeType: 'application/octet-stream',
-          dialogTitle: 'Export JobSign Database Backup',
-        });
-      }
-      return backupUri;
-    } catch (e) {
-      console.log('Database export handled gracefully:', e);
-      return '';
-    }
   }
 
   public static async generateInvoiceHTML(quote: Quote, profile?: ContractorProfile): Promise<string> {
@@ -1088,6 +1100,9 @@ export class PDFService {
 
             <p style="font-size: 11px; color: #64748B; margin-top: 20px; line-height: 1.5;">
               This certificate confirms that this agreement was reviewed and signed on-site with client consent. Any alteration of line items, amounts, notes, or terms invalidates the verified digital signature.
+            </p>
+            <p style="font-size: 9px; color: #94A3B8; margin-top: 14px; border-top: 1px solid #E2E8F0; padding-top: 8px; line-height: 1.4;">
+              <em>Notice: JobSign provides electronic signature and tamper-evident documentation tools. Enforceability and evidentiary weight depend on applicable statutory contract requirements, jurisdiction, and client agreement.</em>
             </p>
           </div>
         </body>

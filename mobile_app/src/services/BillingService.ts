@@ -176,8 +176,15 @@ export class BillingService {
     try {
       if (!this.isConfigured) await this.init();
       if (!this.isConfigured) {
-        // Mock fallback in sandbox
-        return { success: true };
+        if (__DEV__) {
+          console.warn('[BillingService] Development sandbox mock purchase.');
+          useQuoteStore.getState().setProStatus(true);
+          return { success: true };
+        }
+        return {
+          success: false,
+          errorMessage: 'Google Play billing is currently unavailable. Please verify Play Store connectivity and try again.',
+        };
       }
 
       const { customerInfo } = await Purchases.purchasePackage(pkg);
@@ -202,7 +209,14 @@ export class BillingService {
     try {
       if (!this.isConfigured) await this.init();
       if (!this.isConfigured) {
-        return { success: true, isPro: useQuoteStore.getState().isPro };
+        if (__DEV__) {
+          return { success: true, isPro: useQuoteStore.getState().isPro };
+        }
+        return {
+          success: false,
+          isPro: false,
+          errorMessage: 'Unable to connect to Google Play to restore purchases. Please verify your internet connection.',
+        };
       }
 
       const customerInfo = await Purchases.restorePurchases();

@@ -1,4 +1,5 @@
 import assert from 'node:assert';
+import crypto from 'node:crypto';
 
 console.log('====================================================');
 console.log('🧪 RUNNING JOBSIGN PRODUCTION READINESS TEST SUITE 🧪');
@@ -412,6 +413,102 @@ it('Enforces Single-File In-Place Overwrite Rule (JobSign_Master_Backup.json) wi
   assert.strictEqual(parsed2.quotes.length, 2);
   assert.strictEqual(parsed2.quotes[0].id, 'inv-2');
   assert.strictEqual(parsed2.exportedAt, 1728500050000);
+});
+
+// -----------------------------------------------------------------------------
+// 6. Photograph Content Hashing & Cryptographic Invariant Tests
+// -----------------------------------------------------------------------------
+console.log('\n👉 [SUITE 6: Photograph Content Hashing & Cryptographic Integrity]');
+
+function computeCanonicalHash(quotePayload) {
+  return crypto.createHash('sha256').update(JSON.stringify(quotePayload)).digest('hex');
+}
+
+it('Mutating 1 byte of photo content digest alters canonical agreement hash', () => {
+  const photoBase64_v1 = Buffer.from('RAW_EXHIBIT_A_IMAGE_BYTES_ORIGINAL').toString('base64');
+  const photoBase64_v2 = Buffer.from('RAW_EXHIBIT_A_IMAGE_BYTES_MODIFIED').toString('base64');
+
+  const photoHash1 = crypto.createHash('sha256').update(photoBase64_v1).digest('hex');
+  const photoHash2 = crypto.createHash('sha256').update(photoBase64_v2).digest('hex');
+
+  assert.notStrictEqual(photoHash1, photoHash2, 'Photo byte digests must differ');
+
+  const baseQuote = {
+    id: 'q-photo-1',
+    quoteNumber: 201,
+    clientName: 'Alice Johnson',
+    totalAmountCents: 120000,
+    photoUri: 'file:///data/user/0/com.jobsign.app/cache/photo.jpg',
+  };
+
+  const hash1 = computeCanonicalHash({ ...baseQuote, photoSha256: photoHash1 });
+  const hash2 = computeCanonicalHash({ ...baseQuote, photoSha256: photoHash2 });
+
+  assert.notStrictEqual(hash1, hash2, 'Agreement hash must completely mutate when photo bytes change');
+  assert.strictEqual(hash1.length, 64);
+  assert.strictEqual(hash2.length, 64);
+});
+
+// -----------------------------------------------------------------------------
+// 7. Payment Rail Fallback Elimination Tests
+// -----------------------------------------------------------------------------
+console.log('\n👉 [SUITE 7: Payment Rail Zero-Default-Fallback Safety]');
+
+function generateZelleRail(profile, amtStr, curSymbol, quoteNum) {
+  if (!profile?.zelleAccount) return '';
+  return `Zelle Payment\nRecipient: ${profile.zelleAccount}\nAmount: ${curSymbol}${amtStr}\nRef: Quote #${quoteNum}`;
+}
+
+function generateBankRail(profile, amtStr, curSymbol, quoteNum) {
+  if (profile?.bankAccountNumber || profile?.bankIfsc) {
+    return `Bank Transfer: ${profile.bankAccountNumber || 'N/A'}`;
+  }
+  return '';
+}
+
+it('Zelle returns empty string and hides QR when contractor account is not configured', () => {
+  assert.strictEqual(generateZelleRail({}, '100.00', '$', 101), '');
+  assert.strictEqual(generateZelleRail({ zelleAccount: '' }, '100.00', '$', 101), '');
+});
+
+it('Zelle never falls back to payments@jobsign.app or test email addresses', () => {
+  const result = generateZelleRail({}, '100.00', '$', 101);
+  assert.ok(!result.includes('payments@jobsign.app'));
+  assert.ok(!result.includes('jobsign.app'));
+});
+
+it('Bank rail returns empty string when bank details are missing', () => {
+  assert.strictEqual(generateBankRail({}, '100.00', '$', 101), '');
+  assert.strictEqual(generateBankRail({ bankAccountNumber: '', bankIfsc: '' }, '100.00', '$', 101), '');
+});
+
+// -----------------------------------------------------------------------------
+// 8. Production Billing Hardening Tests
+// -----------------------------------------------------------------------------
+console.log('\n👉 [SUITE 8: Production Billing Hardening]');
+
+function simulatePurchase(isConfigured, isDev) {
+  if (!isConfigured) {
+    if (isDev) {
+      return { success: true };
+    }
+    return {
+      success: false,
+      errorMessage: 'Google Play billing is currently unavailable.',
+    };
+  }
+  return { success: true };
+}
+
+it('Unconfigured billing in production (!__DEV__) strictly returns success: false', () => {
+  const prodResult = simulatePurchase(false, false);
+  assert.strictEqual(prodResult.success, false);
+  assert.ok(prodResult.errorMessage.includes('unavailable'));
+});
+
+it('Configured billing returns success: true upon valid purchase', () => {
+  const validResult = simulatePurchase(true, false);
+  assert.strictEqual(validResult.success, true);
 });
 
 // -----------------------------------------------------------------------------

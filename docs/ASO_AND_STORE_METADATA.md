@@ -35,10 +35,10 @@ WHY 10,000+ SOLO CONTRACTORS CHOOSE JOBSIGN
 • Add custom materials and labor rates on the fly with glove-friendly touch controls.
 • Snap pre-existing worksite damage photos right from your camera — embedded directly as Exhibit A inside the contract so customers can never claim "you broke my wall."
 
-✍️ SIGN-ON-GLASS LEGAL SEAL
+✍️ SIGN-ON-GLASS TAMPER-PROOF SEAL
 • Hand your smartphone directly to the homeowner to sign.
-• Enforces Affirmative Non-Repudiation Consent under the U.S. ESIGN Act & Uniform Electronic Transactions Act (UETA).
-• Page 2 Courtroom Audit Certificate automatically calculates a 64-character SHA-256 cryptographic digest. Any alteration invalidates the contract.
+• Captures affirmative electronic signature consent with timestamp and worksite coordinates.
+• Page 2 Digital Audit Certificate automatically calculates a 64-character SHA-256 cryptographic digest. Any alteration invalidates the record.
 
 🛡️ MID-JOB CHANGE ORDER DEFENSE
 • Found unexpected rotted subfloor or damaged copper piping? 
@@ -114,9 +114,9 @@ Download JobSign today and never lose another payment dispute!
 * **Screenshot 2 (Proof):**  
   *Headline:* Worksite Damage Evidence  
   *Sub:* Snap pre-existing photos before starting work. Embedded in PDF Exhibit A.
-* **Screenshot 3 (Courtroom):**  
+* **Screenshot 3 (Signatures & Audit):**  
   *Headline:* Hand Phone to Client to Sign  
-  *Sub:* 120 FPS vector signature with UETA / ESIGN Act Courtroom Audit Certificate.
+  *Sub:* 120 FPS vector signature with Tamper-Evident SHA-256 Digital Audit Certificate.
 * **Screenshot 4 (Scope Creep):**  
   *Headline:* Mid-Job Change Order Defense  
   *Sub:* Get separate client signatures for unforeseen add-ons before doing the work.

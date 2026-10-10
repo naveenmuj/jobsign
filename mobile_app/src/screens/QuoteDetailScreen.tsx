@@ -593,10 +593,13 @@ export const QuoteDetailScreen: React.FC<QuoteDetailScreenProps> = ({
         quality: 0.7,
       });
       if (!result.canceled && result.assets[0]) {
+        const photoHash = await PDFService.hashFileUri(result.assets[0].uri);
         const updated: Quote = {
           ...quote,
           completedPhotoUri: result.assets[0].uri,
+          completedPhotoSha256: photoHash || undefined,
         };
+        updated.pdfSha256Hash = await PDFService.computeHash(updated);
         await addQuote(updated);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       }
@@ -619,10 +622,13 @@ export const QuoteDetailScreen: React.FC<QuoteDetailScreenProps> = ({
         quality: 0.7,
       });
       if (!result.canceled && result.assets[0]) {
+        const photoHash = await PDFService.hashFileUri(result.assets[0].uri);
         const updated: Quote = {
           ...quote,
           completedPhotoUri: result.assets[0].uri,
+          completedPhotoSha256: photoHash || undefined,
         };
+        updated.pdfSha256Hash = await PDFService.computeHash(updated);
         await addQuote(updated);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       }
@@ -636,7 +642,9 @@ export const QuoteDetailScreen: React.FC<QuoteDetailScreenProps> = ({
     const updated: Quote = {
       ...quote,
       completedPhotoUri: undefined,
+      completedPhotoSha256: undefined,
     };
+    updated.pdfSha256Hash = await PDFService.computeHash(updated);
     await addQuote(updated);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
   };
@@ -654,10 +662,13 @@ export const QuoteDetailScreen: React.FC<QuoteDetailScreenProps> = ({
         quality: 0.7,
       });
       if (!result.canceled && result.assets[0]) {
+        const photoHash = await PDFService.hashFileUri(result.assets[0].uri);
         const updated: Quote = {
           ...quote,
           photoUri: result.assets[0].uri,
+          photoSha256: photoHash || undefined,
         };
+        updated.pdfSha256Hash = await PDFService.computeHash(updated);
         await addQuote(updated);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       }
@@ -680,10 +691,13 @@ export const QuoteDetailScreen: React.FC<QuoteDetailScreenProps> = ({
         quality: 0.7,
       });
       if (!result.canceled && result.assets[0]) {
+        const photoHash = await PDFService.hashFileUri(result.assets[0].uri);
         const updated: Quote = {
           ...quote,
           photoUri: result.assets[0].uri,
+          photoSha256: photoHash || undefined,
         };
+        updated.pdfSha256Hash = await PDFService.computeHash(updated);
         await addQuote(updated);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       }
@@ -697,7 +711,9 @@ export const QuoteDetailScreen: React.FC<QuoteDetailScreenProps> = ({
     const updated: Quote = {
       ...quote,
       photoUri: undefined,
+      photoSha256: undefined,
     };
+    updated.pdfSha256Hash = await PDFService.computeHash(updated);
     await addQuote(updated);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
   };
@@ -1308,7 +1324,7 @@ export const QuoteDetailScreen: React.FC<QuoteDetailScreenProps> = ({
           </View>
         ) : null}
 
-        {/* Courtroom Audit Attribution */}
+        {/* Digital Audit Attribution */}
         <View style={styles.card}>
           <Text style={styles.cardLabel}>Signature & Verification</Text>
           <View style={styles.auditRow}>

@@ -17,7 +17,7 @@
       "infoPlist": {
         "NSCameraUsageDescription": "JobSign requires camera access to attach worksite damage proof photos to your contracts.",
         "NSPhotoLibraryUsageDescription": "JobSign accesses your photo library to attach worksite proof photos.",
-        "NSLocationWhenInUseUsageDescription": "JobSign embeds worksite GPS coordinates into electronic contracts to establish irrebuttable location proof under the ESIGN Act and UETA in small claims court."
+        "NSLocationWhenInUseUsageDescription": "JobSign records optional worksite GPS coordinates at the time of electronic signature to document location on the tamper-evident agreement record."
       }
     },
     "android": {

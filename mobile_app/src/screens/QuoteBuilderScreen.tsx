@@ -835,7 +835,7 @@ export const QuoteBuilderScreen: React.FC<{ onBack: () => void; initialQuote?: Q
   };
 
   const handleSaveSignature = async (svgPath: string) => {
-    // Acquire GPS coordinates for UETA/ESIGN courtroom proof (graceful degrade if offline/denied)
+    // Acquire GPS coordinates for tamper-evident audit record (graceful degrade if offline/denied)
     let gpsLat: number | undefined = gpsCoords?.lat;
     let gpsLng: number | undefined = gpsCoords?.lng;
     if (!gpsLat || !gpsLng) {
@@ -866,6 +866,7 @@ export const QuoteBuilderScreen: React.FC<{ onBack: () => void; initialQuote?: Q
       jobDescription: jobDescription.trim() || undefined,
       notes: notes.trim() || undefined,
       photoUri: photoUri || undefined,
+      photoSha256: (await PDFService.hashFileUri(photoUri)) || undefined,
       includePhotoInPdf: photoUri ? includePhotoInPdf : true,
       status: 'SIGNED_LOCKED',
       subtotalCents,
@@ -969,6 +970,7 @@ export const QuoteBuilderScreen: React.FC<{ onBack: () => void; initialQuote?: Q
       jobDescription: jobDescription.trim() || undefined,
       notes: notes.trim() || undefined,
       photoUri: photoUri || undefined,
+      photoSha256: (await PDFService.hashFileUri(photoUri)) || undefined,
       includePhotoInPdf: photoUri ? includePhotoInPdf : true,
       status: isDirectInvoice ? 'INVOICED' : 'DRAFT',
       invoiceIssuedTimestamp: isDirectInvoice ? Date.now() : undefined,

@@ -152,7 +152,9 @@ export interface Quote {
   taxLabel?: string;          // e.g. "Sales Tax", "VAT", "GST"
   currencySymbol?: string;    // Currency symbol used when created (e.g. "₹", "$")
   photoUri?: string;          // On-site damage proof / initial condition photo
+  photoSha256?: string;       // SHA-256 hash of worksite photo byte content
   completedPhotoUri?: string; // Post-work proof / completion verification photo
+  completedPhotoSha256?: string; // SHA-256 hash of completed work photo byte content
   includePhotoInPdf?: boolean; // Whether worksite photo is attached as Exhibit A to PDF invoice
   invoiceIssuedTimestamp?: number; // Timestamp when estimate was converted to invoice
   paymentTerms?: string;       // e.g. 'DUE_ON_RECEIPT', 'NET_7', 'NET_15', 'NET_30', 'CUSTOM'

@@ -23,6 +23,7 @@ export class BackupService {
    * Builds the complete backup payload from SQLite database and Zustand store.
    */
   public static async exportBackupData(): Promise<JobSignBackupPayload> {
+    await DatabaseService.checkpointWAL();
     const quotes = await DatabaseService.getAllQuotes();
     const storeState = getQuoteStore().getState();
     const profile = storeState.profile;
@@ -421,6 +422,7 @@ export class BackupService {
 
     // 1. Restore SQLite database quotes, line items, and change orders
     const restoredQuotes = await DatabaseService.restoreQuotes(payload.quotes, mode === 'REPLACE');
+    await DatabaseService.checkpointWAL();
 
     const storeState = getQuoteStore().getState();
 

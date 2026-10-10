@@ -32,7 +32,7 @@ When you create estimates, quotes, change orders, or collect signatures in JobSi
 - **Storage / Media Access:** Used strictly to export generated PDF agreements or backup the local SQLite database vault to your phone's file system or chosen cloud drive (e.g., Google Drive, iCloud).
 
 #### C. Location and GPS Permissions (`ACCESS_FINE_LOCATION` & `ACCESS_COARSE_LOCATION`)
-- **Worksite GPS Coordinates:** When you or a client sign an estimate, JobSign captures the device's latitude and longitude at that precise moment. These coordinates are embedded solely into the signed PDF agreement and cryptographic SHA-256 audit certificate to establish irrebuttable location proof under the U.S. ESIGN Act and UETA in legal proceedings. Location data is stored 100% locally on your device and is never uploaded, tracked in the background, or transmitted to any external servers.
+- **Worksite GPS Coordinates:** When you or a client sign an estimate, JobSign captures the device's latitude and longitude at that precise moment. These coordinates are embedded into the signed PDF agreement and cryptographic SHA-256 audit record to document execution location. Location data is stored 100% locally on your device and is never uploaded, tracked in the background, or transmitted to any external servers.
 
 #### D. Network State (`ACCESS_NETWORK_STATE` & `INTERNET`)
 - Used exclusively to detect whether your device is currently connected to Wi-Fi or cellular service to operate the **Offline Outbox Manager** and auto-dispatch pending emails/SMS when reception is restored.
@@ -56,7 +56,7 @@ Because all your agreements and customer records reside on your device:
 ---
 
 ### 5. Security
-JobSign seals all approved estimates and change orders using local **SHA-256 cryptographic hashing**. Any post-signature tampering with dollar amounts invalidates the document digest, ensuring Courtroom auditability under the U.S. ESIGN Act and UETA.
+JobSign seals all approved estimates and change orders using local **SHA-256 cryptographic hashing**. Any post-signature tampering with dollar amounts or terms invalidates the document digest, ensuring tamper detection and verifiable digital records.
 
 ---
 

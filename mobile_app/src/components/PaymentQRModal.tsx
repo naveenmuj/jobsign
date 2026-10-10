@@ -259,9 +259,8 @@ export const PaymentQRModal: React.FC<{ quote: Quote; onClose: () => void }> = (
         )}&am=${amtStr}&cu=${profile?.currencyCode || 'INR'}&tn=${encodeURIComponent(`Payment for Quote #${quote.quoteNumber}`)}`;
       }
       case 'ZELLE':
-        return profile?.zelleAccount
-          ? `zelle:${profile.zelleAccount}?amount=${amtStr}`
-          : '';
+        if (!profile?.zelleAccount) return '';
+        return `Zelle Payment\nRecipient: ${profile.zelleAccount}\nAmount: ${curSymbol}${amtStr}\nRef: Quote #${quote.quoteNumber}`;
       case 'VENMO':
         return profile?.venmoAccount
           ? `https://venmo.com/${profile.venmoAccount.replace('@', '')}?txn=pay&amount=${amtStr}&note=Agreement%20${quote.quoteNumber}`
@@ -282,7 +281,7 @@ export const PaymentQRModal: React.FC<{ quote: Quote; onClose: () => void }> = (
             profile?.customPaymentNote ? `\nInstructions: ${profile.customPaymentNote}` : ''
           }`;
         }
-        return `Direct Bank Settlement for ${profile?.businessName || profile?.ownerName}\nAmount Due: ${curSymbol}${amtStr}\nRef: Agreement #${quote.quoteNumber}`;
+        return '';
       }
     }
   };

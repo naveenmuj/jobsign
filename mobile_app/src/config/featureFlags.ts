@@ -15,7 +15,7 @@ export interface FeatureFlagsConfig {
 
   /**
    * When TRUE:
-   *  - All Pro capabilities (unlimited quotes, 4 PDF templates, courtroom audit seals, custom branding)
+   *  - All Pro capabilities (unlimited quotes, 4 PDF templates, tamper-proof audit seals, custom branding)
    *    are 100% unlocked for every user for free without limits or prompts.
    */
   FREE_ALL_FEATURES: boolean;
