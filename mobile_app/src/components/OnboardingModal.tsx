@@ -36,6 +36,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({ visible, onFin
   const [businessName, setBusinessName] = useState(
     profile.hasCustomBusinessName ? profile.businessName : ''
   );
+  const [ownerName, setOwnerName] = useState(profile.ownerName || '');
   const [address, setAddress] = useState(profile.address || '');
   const [phone, setPhone] = useState(profile.phone || '');
   const [logoUri, setLogoUri] = useState<string | null>(profile.logoUri || null);
@@ -104,6 +105,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({ visible, onFin
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     updateProfile({
       businessName: trimmed,
+      ownerName: ownerName.trim() || profile.ownerName,
       address: address.trim(),
       phone: phone.trim() || profile.phone,
       logoUri: logoUri || undefined,
@@ -251,7 +253,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({ visible, onFin
             </View>
 
             {/* Business / Shop Name */}
-            <Text style={[styles.fieldLabel, { color: colors.textMuted }]}>SHOP / COMPANY NAME</Text>
+            <Text style={[styles.fieldLabel, { color: colors.textMuted }]}>SHOP / COMPANY NAME *</Text>
             <TextInput
               style={[
                 styles.input,
@@ -261,6 +263,19 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({ visible, onFin
               placeholderTextColor={colors.textMuted}
               value={businessName}
               onChangeText={setBusinessName}
+            />
+
+            {/* Owner Name */}
+            <Text style={[styles.fieldLabel, { color: colors.textMuted, marginTop: 12 }]}>YOUR NAME (CONTRACTOR / OWNER)</Text>
+            <TextInput
+              style={[
+                styles.input,
+                { backgroundColor: colors.backgroundSecondary, borderColor: colors.border, color: colors.textPrimary },
+              ]}
+              placeholder="e.g. Naveen or John Smith"
+              placeholderTextColor={colors.textMuted}
+              value={ownerName}
+              onChangeText={setOwnerName}
             />
 
             {/* Shop Address */}

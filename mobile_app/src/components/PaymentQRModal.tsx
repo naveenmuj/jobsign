@@ -121,7 +121,7 @@ export const PaymentQRModal: React.FC<{ quote: Quote; onClose: () => void }> = (
   const [isEditingUpi, setIsEditingUpi] = useState(!profile?.upiId && (isIndia || (!isUS && !profile?.zelleAccount)));
   const [upiInput, setUpiInput] = useState(profile?.upiId || '');
   const [upiNameInput, setUpiNameInput] = useState(
-    profile?.upiPayeeName || profile?.businessName || profile?.ownerName || 'JobSign Contractor'
+    profile?.upiPayeeName || profile?.businessName || profile?.ownerName || 'Contractor'
   );
   const [upiError, setUpiError] = useState('');
 
@@ -131,7 +131,7 @@ export const PaymentQRModal: React.FC<{ quote: Quote; onClose: () => void }> = (
   const [bankIfscInput, setBankIfscInput] = useState(profile?.bankIfsc || '');
   const [bankNameInput, setBankNameInput] = useState(profile?.bankName || '');
   const [bankBeneficiaryInput, setBankBeneficiaryInput] = useState(
-    profile?.upiPayeeName || profile?.businessName || profile?.ownerName || 'JobSign Contractor'
+    profile?.upiPayeeName || profile?.businessName || profile?.ownerName || 'Contractor'
   );
   const [bankError, setBankError] = useState('');
 
@@ -255,7 +255,7 @@ export const PaymentQRModal: React.FC<{ quote: Quote; onClose: () => void }> = (
           profile?.upiPayeeName ||
           profile?.businessName ||
           profile?.ownerName ||
-          'JobSign Contractor'
+          'Contractor'
         ).trim();
         if (!upiId) return '';
         // Standard NPCI UPI Intent Format:
@@ -593,7 +593,7 @@ export const PaymentQRModal: React.FC<{ quote: Quote; onClose: () => void }> = (
                         <Text style={styles.payeeLabel}>RECEIVING {regionConfig.instantRailName.toUpperCase()} ACCOUNT</Text>
                         <Text style={styles.payeeUpi}>{profile.upiId}</Text>
                         <Text style={styles.payeeName}>
-                          Name: {profile.upiPayeeName || profile.businessName || 'JobSign Contractor'}
+                          Name: {profile.upiPayeeName || profile.businessName || profile.ownerName || 'Contractor'}
                         </Text>
                       </View>
                       <TouchableOpacity

@@ -283,12 +283,12 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onBack }) => {
   const [versionTapCount, setVersionTapCount] = useState(0);
 
   // Initials for avatar
-  const initials = (businessName || 'JobSign')
+  const initials = (businessName || ownerName || 'My Business')
     .split(' ')
     .filter(Boolean)
     .slice(0, 2)
     .map((w) => w[0].toUpperCase())
-    .join('') || 'JS';
+    .join('') || 'MB';
 
   const regionConfig = useMemo(() => {
     return RegionPaymentService.getConfig(currencyCode, currencySymbol, activeRegion);
